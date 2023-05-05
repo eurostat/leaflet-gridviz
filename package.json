@@ -1,0 +1,33 @@
+{
+    "name": "leaflet-gridviz",
+    "version": "1.0.0",
+    "description": "Leaflet plugin for gridviz",
+    "main": "index.js",
+    "scripts": {
+        "start": "webpack serve --open --config webpack.dev.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/eurostat/leaflet-gridviz.git"
+    },
+    "author": "Joe Davies, Julien Gaffuri",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/eurostat/leaflet-gridviz/issues"
+    },
+    "homepage": "https://github.com/eurostat/leaflet-gridviz#readme",
+    "dependencies": {
+        "d3-scale-chromatic": "^3.0.0",
+        "gridviz": "^2.0.16",
+        "leaflet": "^1.9.3",
+        "leaflet-canvas-layer": "^1.0.8",
+        "proj4leaflet": "^1.0.2"
+    },
+    "devDependencies": {
+        "clean-webpack-plugin": "^4.0.0",
+        "webpack": "^5.82.0",
+        "webpack-cli": "^5.0.2",
+        "webpack-dev-server": "^4.13.3"
+    }
+}
