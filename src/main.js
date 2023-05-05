@@ -28,7 +28,7 @@ L.GridvizLayer = function () {
     }
 
     /**
-     * @description Fires before layer is removed from the map
+     * @description Fires when layer data changes
      *
      */
     this.setData = function (data) {
@@ -49,7 +49,8 @@ L.GridvizLayer = function () {
      * @description build a gridviz app and add a layer to it
      */
     this.buildGridVizApp = function () {
-        this.app = new gridviz.App(this._canvas, { w: window.innerWidth, h: window.innerHeight })
+        let container = this._canvas.parentElement
+        this.app = new gridviz.App(container, { w: window.innerWidth, h: window.innerHeight })
             .setGeoCenter({ x: 4000000, y: 2960000 })
             .setZoomFactor(1000)
             .setZoomFactorExtent([30, 7000])
