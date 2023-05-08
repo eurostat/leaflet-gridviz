@@ -2,6 +2,13 @@ import * as L from 'leaflet'
 import * as CanvasLayer from 'leaflet-canvas-layer'
 import * as gridviz from 'gridviz'
 import { interpolateInferno } from 'd3-scale-chromatic'
+import proj4 from 'proj4'
+import 'proj4leaflet'
+
+proj4.defs(
+    'EPSG:3035',
+    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
+)
 
 /** An extension of L.CanvasLayer (leaflet-canvas-layer) for integrating gridviz into Leaflet
  *  @description 
@@ -49,13 +56,14 @@ L.GridvizLayer = function () {
      * @description build a gridviz app and add a layer to it
      */
     this.buildGridVizApp = function () {
+        console.log(this)
         let container = this._canvas.parentElement
+        let geoCenter = proj4('EPSG:3035', [this.map._lastCenter.lng, this.map._lastCenter.lat])
         this.app = new gridviz.App(container, { w: window.innerWidth, h: window.innerHeight })
-            .setGeoCenter({ x: 4000000, y: 2960000 })
-            .setZoomFactor(1000)
+            .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
+            .setZoomFactor(this.map._zoom * 10)
             .setZoomFactorExtent([30, 7000])
             .setBackgroundColor('black')
-
             .addMultiScaleTiledGridLayer(
                 [1000, 2000, 5000, 10000, 20000, 50000, 100000],
                 (r) =>
@@ -73,6 +81,28 @@ L.GridvizLayer = function () {
                     cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
                 }
             )
+
+            .setLabelLayer(
+                gridviz.getEuronymeLabelLayer('EUR', 50, {
+                    ex: 2,
+                    fontFamily: 'mfLeg',
+                    exSize: 0.9,
+                    color: () => 'black',
+                    haloColor: () => '#ffffff',
+                    haloWidth: () => 3,
+                })
+            )
+            .setBoundaryLayer(
+                gridviz.getEurostatBoundariesLayer({
+                    scale: '10M',
+                    col: '#fff5',
+                    lineDash: () => [],
+                })
+            )
+
+        // here we want event callbacks from gridviz in order to sync them with out Leaflet map
+        // .onZoomEnd(this.zoomHandler)
+        // .onPanEnd(this.panHandler)
     }
 
     console.log(this)
