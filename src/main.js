@@ -18,8 +18,27 @@ proj4.defs(
  * 
  */
 L.GridvizLayer = function (opts) {
-    // layer opacity
+    /**
+     * @description Layer (canvas) opacity
+     *
+     */
     this.opacity = 0.5 || opts.opacity
+
+    /**
+     * @description gridviz app. see https://eurostat.github.io/gridviz/docs/reference
+     *
+     */
+    this.app = null
+
+    /**
+     * @description EPSG:3035 tiling resolutions
+     *
+     */
+    this.resolutions = [
+        66145.9656252646, 26458.386250105836, 13229.193125052918, 6614.596562526459,
+        2645.8386250105837, 1322.9193125052918, 661.4596562526459, 264.5838625010584,
+        132.2919312505292, 66.1459656252646,
+    ]
 
     /**
      * @description Fires after leaflet layer canvas is attached/added to the map
@@ -55,30 +74,109 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.onDrawLayer = function (info) {
-        //
         console.log(info)
     }
 
-    this.zoomEndHandler = function (e) {
+    /**
+     * @description Handles gridviz zoom events and syncs them with leaflet
+     *
+     */
+    this.gridvizZoomEndHandler = function (e) {
         console.log(e)
         console.log(this)
+
+        let gvizZoom = this.app.getZoomFactor()
+        let leafletZoom = this.gridvizZoomToLeafletZoom(gvizZoom, e.sourceEvent.wheelDelta)
+
+        // check zoom isnt out of resolutions array limits
+        if (leafletZoom && this.resolutions[leafletZoom]) {
+            let geoCenter = this.app.getGeoCenter()
+            let leafletCenter = this.geoCenterToLeaflet(geoCenter.x, geoCenter.y)
+            this._map.setView(leafletCenter, leafletZoom)
+            this.app.setZoomFactor(this.resolutions[leafletZoom])
+        }
+    }
+
+    /**
+     * @description Converts leaflet zoom level to gridviz zoom factor (pixel size, in ground m)
+     *
+     */
+    this.leafletZoomToGridvizZoom = function (leafletZoom) {
+        return this.zoomLevelToMetresPerPixel()
+    }
+
+    /**
+     * @description Converts gridviz zoom factor (pixel size, in ground m) to leaflet zoom level
+     * @param {number} gvizZoom The gridviz Zoom Factor
+     * @param {number} wheelDelta The zoom event wheelDelta
+     */
+    this.gridvizZoomToLeafletZoom = function (gvizZoom, wheelDelta) {
+        let newZoom
+        // find which resolution bracket we're currently in
+        this.resolutions.some((res, i) => {
+            if (gvizZoom > res) {
+                // move to next resolution up/down for zoom in/out (if possible)
+                return (newZoom = wheelDelta ? i - 1 : i + 1)
+            }
+        })
+        return newZoom
+    }
+
+    /**
+     * @description Converts gridviz geoCenter to leaflet center
+     * proj4(fromProjection, toProjection, [coordinates])
+     *
+     */
+    this.geoCenterToLeaflet = function (x, y) {
+        let xy = proj4('EPSG:3035', 'WGS84', [x, y])
+        return [xy[1], xy[0]] // leaflet does [lat,lon]
+    }
+
+    /**
+     * @description Converts leaflet center to gridviz EPSG geoCenter
+     * proj4(fromProjection, toProjection, [coordinates])
+     *
+     */
+    this.leafletToGeoCenter = function (x, y) {
+        return proj4('EPSG:3035', [x, y])
+    }
+
+    /**
+     * @description Calculates meters per pixel at a leaflet zoom level
+     *
+     */
+    this.zoomLevelToMetresPerPixel = function () {
+        let centerLatLng = this._map.getCenter() // get map center
+        let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
+        let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
+        let pointY = [pointC.x, pointC.y + 1] // add one pixel to y
+
+        // convert containerpoints to latlng's
+        let latLngC = this._map.containerPointToLatLng(pointC)
+        let latLngX = this._map.containerPointToLatLng(pointX)
+        let latLngY = this._map.containerPointToLatLng(pointY)
+
+        let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
+        let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
+
+        return distanceX + distanceY / 2
     }
 
     /**
      * @description build a gridviz app and add a layer to it
      */
     this.buildGridVizApp = function () {
-        console.log(this)
         let container = this._canvas.parentElement
-        let geoCenter = proj4('EPSG:3035', [this.map._lastCenter.lng, this.map._lastCenter.lat])
+        let geoCenter = this.leafletToGeoCenter(this.map._lastCenter.lng, this.map._lastCenter.lat)
+
         this.app = new gridviz.App(container, {
-            canvas: this._canvas,
+            // canvas: this._canvas, // when leaflet and gridviz share the same canvas it is chaos
             w: window.innerWidth,
             h: window.innerHeight,
-            onZoomEndFun: (e) => this.zoomEndHandler(e),
+            onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
         })
             .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-            .setZoomFactor(this.map._zoom * 2300)
+            .setZoomFactor(this.leafletZoomToGridvizZoom(this.map._zoom))
             .setZoomFactorExtent([30, 7000])
             .setBackgroundColor('black')
             .addMultiScaleTiledGridLayer(
@@ -116,15 +214,7 @@ L.GridvizLayer = function (opts) {
                     lineDash: () => [],
                 })
             )
-
-        // here we want event callbacks from gridviz in order to sync them with out Leaflet map
-        // .onZoomEnd(this.zoomHandler)
-        // .onPanEnd(this.panHandler)
-
-        console.log(this.app.cg.canvas)
     }
-
-    console.log(this)
 }
 
 L.GridvizLayer.prototype = new CanvasLayer.CanvasLayer() // -- setup prototype
