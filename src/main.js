@@ -17,13 +17,20 @@ proj4.defs(
     delegate(object) - optionaly set receiver of the events if not 'inheriting' from L.CanvasLayer
  * 
  */
-L.GridvizLayer = function () {
+L.GridvizLayer = function (opts) {
+    // layer opacity
+    this.opacity = 0.5 || opts.opacity
+
     /**
      * @description Fires after leaflet layer canvas is attached/added to the map
      *
      */
     this.onLayerDidMount = function () {
+        // build gridviz app
         this.buildGridVizApp()
+
+        //set canvas opacity
+        this.app.cg.canvas.style.opacity = this.opacity
     }
 
     /**
@@ -52,6 +59,11 @@ L.GridvizLayer = function () {
         console.log(info)
     }
 
+    this.zoomEndHandler = function (e) {
+        console.log(e)
+        console.log(this)
+    }
+
     /**
      * @description build a gridviz app and add a layer to it
      */
@@ -59,9 +71,14 @@ L.GridvizLayer = function () {
         console.log(this)
         let container = this._canvas.parentElement
         let geoCenter = proj4('EPSG:3035', [this.map._lastCenter.lng, this.map._lastCenter.lat])
-        this.app = new gridviz.App(container, { w: window.innerWidth, h: window.innerHeight })
+        this.app = new gridviz.App(container, {
+            canvas: this._canvas,
+            w: window.innerWidth,
+            h: window.innerHeight,
+            onZoomEndFun: (e) => this.zoomEndHandler(e),
+        })
             .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-            .setZoomFactor(this.map._zoom * 10)
+            .setZoomFactor(this.map._zoom * 2300)
             .setZoomFactorExtent([30, 7000])
             .setBackgroundColor('black')
             .addMultiScaleTiledGridLayer(
@@ -103,6 +120,8 @@ L.GridvizLayer = function () {
         // here we want event callbacks from gridviz in order to sync them with out Leaflet map
         // .onZoomEnd(this.zoomHandler)
         // .onPanEnd(this.panHandler)
+
+        console.log(this.app.cg.canvas)
     }
 
     console.log(this)
