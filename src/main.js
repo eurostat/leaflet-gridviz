@@ -82,18 +82,34 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.gridvizZoomEndHandler = function (e) {
-        console.log(e)
-        console.log(this)
+        // calculate new center
+        let geoCenter = this.app.getGeoCenter()
+        let leafletCenter = this.geoCenterToLeaflet(geoCenter.x, geoCenter.y)
 
-        let gvizZoom = this.app.getZoomFactor()
-        let leafletZoom = this.gridvizZoomToLeafletZoom(gvizZoom, e.sourceEvent.wheelDelta)
+        if (e.sourceEvent.wheelDelta) {
+            // zoom event
+            let gvizZoom = this.app.getZoomFactor()
+            let leafletZoom = this.gridvizZoomToLeafletZoom(gvizZoom, e.sourceEvent.wheelDelta)
 
-        // check zoom isnt out of resolutions array limits
-        if (leafletZoom && this.resolutions[leafletZoom]) {
-            let geoCenter = this.app.getGeoCenter()
-            let leafletCenter = this.geoCenterToLeaflet(geoCenter.x, geoCenter.y)
-            this._map.setView(leafletCenter, leafletZoom)
-            this.app.setZoomFactor(this.resolutions[leafletZoom])
+            // check zoom isnt out of resolutions array limits
+            if (leafletZoom && this.resolutions[leafletZoom]) {
+                // set leaflet center and zoom. This applies a tranlate transform to the styles property of the leaflet layer canvas element
+                this._map.setView(leafletCenter, leafletZoom)
+
+                // apply the leaflet translate to our gridviz canvas
+                let gridvizCanvas = this.app.cg.canvas
+                let leafletCanvas = gridvizCanvas.previousElementSibling
+                let transform = leafletCanvas.style.transform
+                gridvizCanvas.style.transform = transform
+
+                // set gridviz zoom to match leaflet and redraw
+                this.app.setZoomFactor(this.resolutions[leafletZoom])
+                this.app.redraw()
+            }
+        } else {
+            // pan event
+
+            this._map.panTo(leafletCenter)
         }
     }
 
@@ -114,9 +130,9 @@ L.GridvizLayer = function (opts) {
         let newZoom
         // find which resolution bracket we're currently in
         this.resolutions.some((res, i) => {
-            if (gvizZoom > res) {
+            if (gvizZoom >= res) {
                 // move to next resolution up/down for zoom in/out (if possible)
-                return (newZoom = wheelDelta ? i - 1 : i + 1)
+                return (newZoom = wheelDelta > 0 ? i + 1 : i - 1)
             }
         })
         return newZoom
@@ -174,11 +190,15 @@ L.GridvizLayer = function (opts) {
             w: window.innerWidth,
             h: window.innerHeight,
             onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
+            onZoomFun: (e) => this.gridvizZoomEndHandler(e),
         })
             .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
             .setZoomFactor(this.leafletZoomToGridvizZoom(this.map._zoom))
-            .setZoomFactorExtent([30, 7000])
-            .setBackgroundColor('black')
+            .setZoomFactorExtent([
+                this.resolutions[this.resolutions.length - 1],
+                this.resolutions[0],
+            ])
+            .setBackgroundColor('#ffffff')
             .addMultiScaleTiledGridLayer(
                 [1000, 2000, 5000, 10000, 20000, 50000, 100000],
                 (r) =>
