@@ -22,10 +22,22 @@ proj4.defs(
  */
 L.GridvizLayer = function (opts) {
     /**
+     * @description Options object defined by the user
+     *
+     */
+    opts = opts || {}
+
+    /**
      * @description Layer (canvas) opacity
      *
      */
-    this.opacity = 0.5 || opts.opacity
+    this.opacity = opts.opacity || 0.5
+
+    /**
+     * @description proj4 projection definition name. Make sure to add it using proj4.defs() first
+     *
+     */
+    this.proj = opts.proj || 'EPSG:3035'
 
     /**
      * @description gridviz app. see https://eurostat.github.io/gridviz/docs/reference
@@ -81,10 +93,10 @@ L.GridvizLayer = function (opts) {
         // console.log(info)
         // set gridviz center and zoom to match leaflet
         // for some reason info.center is inaccurate so we take the map center is WGS84 and project
-        let leafCenter = this.map.getCenter()
-        let geoCenter = this.leafletToGeoCenter(leafCenter.lng, leafCenter.lat)
+        let geoCenter = this.leafletToGeoCenter(this.map.getCenter())
+        let zoomFactor = this.leafletZoomToGridvizZoom()
         this.app.setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-        this.app.setZoomFactor(this.resolutions[info.zoom])
+        this.app.setZoomFactor(zoomFactor)
         // redraw gridviz canvas
         this.app.redraw()
     }
@@ -95,32 +107,32 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.geoCenterToLeaflet = function (x, y) {
-        let xy = proj4('EPSG:3035', 'WGS84', [x, y])
+        let xy = proj4(this.proj, 'WGS84', [x, y])
         return [xy[1], xy[0]] // leaflet uses [lat,lon]
     }
 
     /**
-     * @description Converts leaflet center to gridviz EPSG geoCenter
+     * @description Converts leaflet center to gridviz proj geoCenter
      * proj4(fromProjection, toProjection, [coordinates])
      *
      */
-    this.leafletToGeoCenter = function (x, y) {
-        return proj4('EPSG:3035', [x, y])
+    this.leafletToGeoCenter = function (latLon) {
+        return proj4(this.proj, [latLon.lng, latLon.lat])
     }
 
     /**
      * @description Converts leaflet zoom level to gridviz zoom factor (pixel size, in ground m)
      *@deprecated
      */
-    this.leafletZoomToGridvizZoom = function (leafletZoom) {
-        return this.zoomLevelToMetresPerPixel()
+    this.leafletZoomToGridvizZoom = function () {
+        return this.getMetresPerPixel()
     }
 
     /**
-     * @description Calculates meters per pixel at a leaflet zoom level
+     * @description Calculates meters per pixel at the current leaflet zoom level
      *
      */
-    this.zoomLevelToMetresPerPixel = function () {
+    this.getMetresPerPixel = function () {
         let centerLatLng = this._map.getCenter() // get map center
         let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
         let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
@@ -134,7 +146,13 @@ L.GridvizLayer = function (opts) {
         let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
         let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
 
-        return distanceX + distanceY / 2
+        // convert to our projection
+        let projCenter = this.leafletToGeoCenter(latLngC)
+        let projX = this.leafletToGeoCenter(latLngX)
+        let difference = projX[0] - projCenter[0]
+
+        console.log('zoom factor', difference)
+        return difference
     }
 
     /**
@@ -142,7 +160,7 @@ L.GridvizLayer = function (opts) {
      */
     this.buildGridVizApp = function () {
         let container = this._canvas.parentElement
-        let geoCenter = this.leafletToGeoCenter(this.map._lastCenter.lng, this.map._lastCenter.lat)
+        let geoCenter = this.leafletToGeoCenter(this.map.getCenter())
 
         this.app = new gridviz.App(container, {
             canvas: this._canvas,

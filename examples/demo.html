@@ -24,7 +24,7 @@
         </style>
     </head>
     <body>
-        <script src="../build/leaflet-gridviz.js"></script>
+        <script src="../build/leaflet-gridviz.min.js"></script>
 
         <div id="map"></div>
 
@@ -64,6 +64,7 @@
                     crs: crs,
                     center: ['50.00754', '19.98211'],
                     fadeAnimation: false,
+                    zoomSnap: 0.25,
                     maxBounds: {
                         _northEast: {
                             lat: -38,

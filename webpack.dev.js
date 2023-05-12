@@ -8,14 +8,12 @@ module.exports = {
         filename: 'leaflet-gridviz.js',
         path: path.resolve(__dirname, 'build'),
     },
-    plugins: [
-        // new CleanWebpackPlugin()
-    ],
+    plugins: [new CleanWebpackPlugin()],
     module: {},
     devServer: {
         static: './build',
         devMiddleware: {
-            writeToDisk: true,
+            writeToDisk: false,
         },
     },
 }
