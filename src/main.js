@@ -109,6 +109,35 @@ L.GridvizLayer = function (opts) {
     }
 
     /**
+     * @description Converts leaflet zoom level to gridviz zoom factor (pixel size, in ground m)
+     *@deprecated
+     */
+    this.leafletZoomToGridvizZoom = function (leafletZoom) {
+        return this.zoomLevelToMetresPerPixel()
+    }
+
+    /**
+     * @description Calculates meters per pixel at a leaflet zoom level
+     *
+     */
+    this.zoomLevelToMetresPerPixel = function () {
+        let centerLatLng = this._map.getCenter() // get map center
+        let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
+        let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
+        let pointY = [pointC.x, pointC.y + 1] // add one pixel to y
+
+        // convert containerpoints to latlng's
+        let latLngC = this._map.containerPointToLatLng(pointC)
+        let latLngX = this._map.containerPointToLatLng(pointX)
+        let latLngY = this._map.containerPointToLatLng(pointY)
+
+        let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
+        let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
+
+        return distanceX + distanceY / 2
+    }
+
+    /**
      * @description build a gridviz app and add a layer to it
      */
     this.buildGridVizApp = function () {
