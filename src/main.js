@@ -10,6 +10,9 @@ proj4.defs(
     '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
 )
 
+// TODO
+// instead of updating leaflet when gridviz pans and zooms, do it the other way around: disable zoom for griddviz and redraw the canvas when leaflet pans/zooms
+
 /** An extension of L.CanvasLayer (leaflet-canvas-layer) for integrating gridviz into Leaflet
  *  @description 
  *  methods	description
@@ -70,72 +73,20 @@ L.GridvizLayer = function (opts) {
     }
 
     /**
-     * @description Fires when layer is drawn , info contains view parameters like bounds, size, canvas etc.
+     * @description Fires when layer is drawn, info contains view parameters like bounds, size, canvas etc.
+     * Here we need to feed gridviz it's new position and zoom, then redraw it's canvas
      *
      */
     this.onDrawLayer = function (info) {
-        console.log(info)
-    }
-
-    /**
-     * @description Handles gridviz zoom events and syncs them with leaflet
-     *
-     */
-    this.gridvizZoomEndHandler = function (e) {
-        // calculate new center
-        let geoCenter = this.app.getGeoCenter()
-        let leafletCenter = this.geoCenterToLeaflet(geoCenter.x, geoCenter.y)
-
-        if (e.sourceEvent.wheelDelta) {
-            // zoom event
-            let gvizZoom = this.app.getZoomFactor()
-            let leafletZoom = this.gridvizZoomToLeafletZoom(gvizZoom, e.sourceEvent.wheelDelta)
-
-            // check zoom isnt out of resolutions array limits
-            if (leafletZoom && this.resolutions[leafletZoom]) {
-                // set leaflet center and zoom. This applies a tranlate transform to the styles property of the leaflet layer canvas element
-                this._map.setView(leafletCenter, leafletZoom)
-
-                // apply the leaflet translate to our gridviz canvas
-                let gridvizCanvas = this.app.cg.canvas
-                let leafletCanvas = gridvizCanvas.previousElementSibling
-                let transform = leafletCanvas.style.transform
-                gridvizCanvas.style.transform = transform
-
-                // set gridviz zoom to match leaflet and redraw
-                this.app.setZoomFactor(this.resolutions[leafletZoom])
-                this.app.redraw()
-            }
-        } else {
-            // pan event
-
-            this._map.panTo(leafletCenter)
-        }
-    }
-
-    /**
-     * @description Converts leaflet zoom level to gridviz zoom factor (pixel size, in ground m)
-     *
-     */
-    this.leafletZoomToGridvizZoom = function (leafletZoom) {
-        return this.zoomLevelToMetresPerPixel()
-    }
-
-    /**
-     * @description Converts gridviz zoom factor (pixel size, in ground m) to leaflet zoom level
-     * @param {number} gvizZoom The gridviz Zoom Factor
-     * @param {number} wheelDelta The zoom event wheelDelta
-     */
-    this.gridvizZoomToLeafletZoom = function (gvizZoom, wheelDelta) {
-        let newZoom
-        // find which resolution bracket we're currently in
-        this.resolutions.some((res, i) => {
-            if (gvizZoom >= res) {
-                // move to next resolution up/down for zoom in/out (if possible)
-                return (newZoom = wheelDelta > 0 ? i + 1 : i - 1)
-            }
-        })
-        return newZoom
+        // console.log(info)
+        // set gridviz center and zoom to match leaflet
+        // for some reason info.center is inaccurate so we take the map center is WGS84 and project
+        let leafCenter = this.map.getCenter()
+        let geoCenter = this.leafletToGeoCenter(leafCenter.lng, leafCenter.lat)
+        this.app.setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
+        this.app.setZoomFactor(this.resolutions[info.zoom])
+        // redraw gridviz canvas
+        this.app.redraw()
     }
 
     /**
@@ -145,7 +96,7 @@ L.GridvizLayer = function (opts) {
      */
     this.geoCenterToLeaflet = function (x, y) {
         let xy = proj4('EPSG:3035', 'WGS84', [x, y])
-        return [xy[1], xy[0]] // leaflet does [lat,lon]
+        return [xy[1], xy[0]] // leaflet uses [lat,lon]
     }
 
     /**
@@ -158,27 +109,6 @@ L.GridvizLayer = function (opts) {
     }
 
     /**
-     * @description Calculates meters per pixel at a leaflet zoom level
-     *
-     */
-    this.zoomLevelToMetresPerPixel = function () {
-        let centerLatLng = this._map.getCenter() // get map center
-        let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
-        let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
-        let pointY = [pointC.x, pointC.y + 1] // add one pixel to y
-
-        // convert containerpoints to latlng's
-        let latLngC = this._map.containerPointToLatLng(pointC)
-        let latLngX = this._map.containerPointToLatLng(pointX)
-        let latLngY = this._map.containerPointToLatLng(pointY)
-
-        let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
-        let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
-
-        return distanceX + distanceY / 2
-    }
-
-    /**
      * @description build a gridviz app and add a layer to it
      */
     this.buildGridVizApp = function () {
@@ -186,11 +116,13 @@ L.GridvizLayer = function (opts) {
         let geoCenter = this.leafletToGeoCenter(this.map._lastCenter.lng, this.map._lastCenter.lat)
 
         this.app = new gridviz.App(container, {
-            // canvas: this._canvas, // when leaflet and gridviz share the same canvas it is chaos
+            canvas: this._canvas,
             w: window.innerWidth,
             h: window.innerHeight,
-            onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
-            onZoomFun: (e) => this.gridvizZoomEndHandler(e),
+            disableZoom: true,
+            // gridviz now follows leaflets' lead, not vice-versa
+            // onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
+            // onZoomFun: (e) => this.gridvizZoomEndHandler(e),
         })
             .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
             .setZoomFactor(this.leafletZoomToGridvizZoom(this.map._zoom))
