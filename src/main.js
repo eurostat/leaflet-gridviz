@@ -72,7 +72,7 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.onLayerWillUnmount = function () {
-        // cleanup?
+        // cleanup here?
     }
 
     /**
@@ -90,7 +90,6 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.onDrawLayer = function (info) {
-        // console.log(info)
         // set gridviz center and zoom to match leaflet
         // for some reason info.center is inaccurate so we take the map center is WGS84 and project
         let geoCenter = this.leafletToGeoCenter(this.map.getCenter())
@@ -151,12 +150,13 @@ L.GridvizLayer = function (opts) {
         let projX = this.leafletToGeoCenter(latLngX)
         let difference = projX[0] - projCenter[0]
 
-        console.log('zoom factor: ' + difference + '. Zoom level: ' + this.map._zoom)
+        //console.log('zoom factor: ' + difference + '. Zoom level: ' + this.map._zoom)
         return difference
     }
 
     /**
      * @description build a gridviz app and add a layer to it
+     * gridviz api: https://eurostat.github.io/gridviz/docs/reference
      */
     this.buildGridVizApp = function () {
         let container = this._canvas.parentElement
@@ -167,16 +167,13 @@ L.GridvizLayer = function (opts) {
             w: window.innerWidth,
             h: window.innerHeight,
             disableZoom: true,
+            selectionRectangleColor: 'red',
+            selectionRectangleWidthPix: '4',
             // gridviz now follows leaflets' lead, not vice-versa
             // onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
             // onZoomFun: (e) => this.gridvizZoomEndHandler(e),
         })
             .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-            .setZoomFactor(this.leafletZoomToGridvizZoom(this.map._zoom))
-            .setZoomFactorExtent([
-                this.resolutions[this.resolutions.length - 1],
-                this.resolutions[0],
-            ])
             .setBackgroundColor('#ffffff')
             .addMultiScaleTiledGridLayer(
                 [1000, 2000, 5000, 10000, 20000, 50000, 100000],
