@@ -4,7 +4,7 @@ module.exports = {
     entry: './src/main.js',
     output: {
         filename: 'leaflet-gridviz.min.js',
-        path: path.resolve(__dirname, 'build'),
+        path: path.resolve(__dirname, 'dist'),
     },
     devtool: false,
     watch: false,

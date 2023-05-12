@@ -133,25 +133,25 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.getMetresPerPixel = function () {
-        let centerLatLng = this._map.getCenter() // get map center
-        let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
+        let centerLatLng = this.map.getCenter() // get map center
+        let pointC = this.map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
         let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
         let pointY = [pointC.x, pointC.y + 1] // add one pixel to y
 
         // convert containerpoints to latlng's
-        let latLngC = this._map.containerPointToLatLng(pointC)
-        let latLngX = this._map.containerPointToLatLng(pointX)
-        let latLngY = this._map.containerPointToLatLng(pointY)
+        let latLngC = this.map.containerPointToLatLng(pointC)
+        let latLngX = this.map.containerPointToLatLng(pointX)
+        let latLngY = this.map.containerPointToLatLng(pointY)
 
-        let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
-        let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
+        // let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
+        // let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
 
         // convert to our projection
         let projCenter = this.leafletToGeoCenter(latLngC)
         let projX = this.leafletToGeoCenter(latLngX)
         let difference = projX[0] - projCenter[0]
 
-        console.log('zoom factor', difference)
+        console.log('zoom factor: ' + difference + '. Zoom level: ' + this.map._zoom)
         return difference
     }
 

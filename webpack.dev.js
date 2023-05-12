@@ -13,7 +13,7 @@ module.exports = {
     devServer: {
         static: './build',
         devMiddleware: {
-            writeToDisk: false,
+            writeToDisk: true,
         },
     },
 }
