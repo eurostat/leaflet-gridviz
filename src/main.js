@@ -1,16 +1,12 @@
-import * as L from 'leaflet'
-import * as CanvasLayer from 'leaflet-canvas-layer'
 import * as gridviz from 'gridviz'
+import * as CanvasLayer from 'leaflet-canvas-layer'
 import proj4 from 'proj4'
-import 'proj4leaflet'
 
+// define our projection
 proj4.defs(
     'EPSG:3035',
     '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
 )
-
-// TODO
-// instead of updating leaflet when gridviz pans and zooms, do it the other way around: disable zoom for griddviz and redraw the canvas when leaflet pans/zooms
 
 /** An extension of L.CanvasLayer (leaflet-canvas-layer) for integrating gridviz into Leaflet
  *  @description 
@@ -45,12 +41,20 @@ L.GridvizLayer = function (opts) {
     this.gridviz = gridviz
 
     /**
+     * @description Specify a callback function to fire when the layer is added to the map and the gridviz app is built
+     *
+     */
+    this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null
+
+    /**
      * @description Fires after leaflet layer canvas is attached/added to the map
      *
      */
     this.onLayerDidMount = function () {
         // build gridviz app
         this.buildGridVizApp()
+
+        if (this.onLayerDidMountCallback) this.onLayerDidMountCallback()
     }
 
     /**
@@ -77,8 +81,8 @@ L.GridvizLayer = function (opts) {
      */
     this.onDrawLayer = function (info) {
         // set gridviz center and zoom to match leaflet
-        // for some reason info.center is inaccurate so we take the map center is WGS84 and project
-        let geoCenter = this.leafletToGeoCenter(this.map.getCenter())
+        // for some reason info.center is inaccurate so we take the map center in WGS84 and project
+        let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
         let zoomFactor = this.leafletZoomToGridvizZoom()
         this.app.setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
         this.app.setZoomFactor(zoomFactor)
@@ -118,25 +122,20 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.getMetresPerPixel = function () {
-        let centerLatLng = this.map.getCenter() // get map center
-        let pointC = this.map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
+        let centerLatLng = this._map.getCenter() // get map center
+        let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
         let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
-        let pointY = [pointC.x, pointC.y + 1] // add one pixel to y
 
         // convert containerpoints to latlng's
-        let latLngC = this.map.containerPointToLatLng(pointC)
-        let latLngX = this.map.containerPointToLatLng(pointX)
-        let latLngY = this.map.containerPointToLatLng(pointY)
-
-        // let distanceX = latLngC.distanceTo(latLngX) // calculate distance between c and x (latitude)
-        // let distanceY = latLngC.distanceTo(latLngY) // calculate distance between c and y (longitude)
+        let latLngC = this._map.containerPointToLatLng(pointC)
+        let latLngX = this._map.containerPointToLatLng(pointX)
 
         // convert to our projection
         let projCenter = this.leafletToGeoCenter(latLngC)
         let projX = this.leafletToGeoCenter(latLngX)
         let difference = projX[0] - projCenter[0]
 
-        //console.log('zoom factor: ' + difference + '. Zoom level: ' + this.map._zoom)
+        //console.log('zoom factor: ' + difference + '. Zoom level: ' + this._map._zoom)
         return difference
     }
 
@@ -145,8 +144,8 @@ L.GridvizLayer = function (opts) {
      * gridviz api: https://eurostat.github.io/gridviz/docs/reference
      */
     this.buildGridVizApp = function () {
-        let container = this._canvas.parentElement
-        let geoCenter = this.leafletToGeoCenter(this.map.getCenter())
+        let container = opts.container || this._canvas.parentElement
+        let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
 
         this.app = new gridviz.App(container, {
             canvas: this._canvas,

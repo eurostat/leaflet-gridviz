@@ -8,6 +8,9 @@
         "build-prod": "webpack --config webpack.prod.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
+    "files": [
+        "dist/leaflet-gridviz.min.js"
+    ],
     "repository": {
         "type": "git",
         "url": "git+https://github.com/eurostat/leaflet-gridviz.git"
