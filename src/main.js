@@ -27,12 +27,6 @@ L.GridvizLayer = function (opts) {
     opts = opts || {}
 
     /**
-     * @description Layer (canvas) opacity
-     *
-     */
-    this.opacity = opts.opacity || 0.5
-
-    /**
      * @description proj4 projection definition name. Make sure to add it using proj4.defs() first
      *
      */
@@ -162,8 +156,9 @@ L.GridvizLayer = function (opts) {
             w: window.innerWidth,
             h: window.innerHeight,
             disableZoom: true,
-            selectionRectangleColor: 'red',
-            selectionRectangleWidthPix: '4',
+            selectionRectangleColor: opts.selectionRectangleColor || 'red',
+            selectionRectangleWidthPix: opts.selectionRectangleWidthPix || '4',
+            legendDivId: opts.legendDivId || 'gvizLegend',
             transparentBackground: true,
         }).setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
     }
