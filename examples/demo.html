@@ -25,6 +25,9 @@
     </head>
     <body>
         <script src="../build/leaflet-gridviz.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
 
         <div id="map"></div>
 
@@ -98,9 +101,50 @@
                     }
                 ).addTo(map)
 
-                // add gridviz
+                // initialise gridviz
                 gridvizLayer = new L.GridvizLayer()
+
+                // add gridviz canvas to the map
                 gridvizLayer.addTo(map)
+
+                // customize gridviz
+                gridvizLayer.app
+                    .addMultiScaleTiledGridLayer(
+                        [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (r) =>
+                            'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
+                            r +
+                            'm/',
+                        gridvizLayer.gridviz.TanakaStyle.get('2018', {
+                            tFun: (v, r, s, zf) =>
+                                gridvizLayer.gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
+                            nb: 6,
+                            color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
+                            colDark: '#333',
+                        }),
+                        {
+                            pixNb: 6,
+                            cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
+                        }
+                    )
+
+                    .setLabelLayer(
+                        gridvizLayer.gridviz.getEuronymeLabelLayer('EUR', 50, {
+                            ex: 2,
+                            fontFamily: 'mfLeg',
+                            exSize: 0.9,
+                            color: () => 'black',
+                            haloColor: () => '#ffffff',
+                            haloWidth: () => 3,
+                        })
+                    )
+                    .setBoundaryLayer(
+                        gridvizLayer.gridviz.getEurostatBoundariesLayer({
+                            scale: '10M',
+                            col: '#fff5',
+                            lineDash: () => [],
+                        })
+                    )
             }
 
             main()

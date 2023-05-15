@@ -1,7 +1,6 @@
 import * as L from 'leaflet'
 import * as CanvasLayer from 'leaflet-canvas-layer'
 import * as gridviz from 'gridviz'
-import { interpolateInferno } from 'd3-scale-chromatic'
 import proj4 from 'proj4'
 import 'proj4leaflet'
 
@@ -46,14 +45,10 @@ L.GridvizLayer = function (opts) {
     this.app = null
 
     /**
-     * @description EPSG:3035 tiling resolutions
+     * @description Include gridviz in output layer
      *
      */
-    this.resolutions = [
-        66145.9656252646, 26458.386250105836, 13229.193125052918, 6614.596562526459,
-        2645.8386250105837, 1322.9193125052918, 661.4596562526459, 264.5838625010584,
-        132.2919312505292, 66.1459656252646,
-    ]
+    this.gridviz = gridviz
 
     /**
      * @description Fires after leaflet layer canvas is attached/added to the map
@@ -170,47 +165,7 @@ L.GridvizLayer = function (opts) {
             selectionRectangleColor: 'red',
             selectionRectangleWidthPix: '4',
             transparentBackground: true,
-            // gridviz now follows leaflets' lead, not vice-versa
-            // onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
-            // onZoomFun: (e) => this.gridvizZoomEndHandler(e),
-        })
-            .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-            .setBackgroundColor('#000')
-            .addMultiScaleTiledGridLayer(
-                [1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                (r) =>
-                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
-                    r +
-                    'm/',
-                gridviz.TanakaStyle.get('2018', {
-                    tFun: (v, r, s, zf) => gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
-                    nb: 6,
-                    color: (t) => interpolateInferno(t * 0.9 + 0.1),
-                    colDark: '#333',
-                }),
-                {
-                    pixNb: 6,
-                    cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
-                }
-            )
-
-            .setLabelLayer(
-                gridviz.getEuronymeLabelLayer('EUR', 50, {
-                    ex: 2,
-                    fontFamily: 'mfLeg',
-                    exSize: 0.9,
-                    color: () => 'black',
-                    haloColor: () => '#ffffff',
-                    haloWidth: () => 3,
-                })
-            )
-            .setBoundaryLayer(
-                gridviz.getEurostatBoundariesLayer({
-                    scale: '10M',
-                    col: '#fff5',
-                    lineDash: () => [],
-                })
-            )
+        }).setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
     }
 }
 
