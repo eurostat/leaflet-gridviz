@@ -64,7 +64,7 @@ L.GridvizLayer = function (opts) {
         this.buildGridVizApp()
 
         //set canvas opacity
-        this.app.cg.canvas.style.opacity = this.opacity
+        //this.app.cg.canvas.style.opacity = this.opacity
     }
 
     /**
@@ -169,12 +169,13 @@ L.GridvizLayer = function (opts) {
             disableZoom: true,
             selectionRectangleColor: 'red',
             selectionRectangleWidthPix: '4',
+            transparentBackground: true,
             // gridviz now follows leaflets' lead, not vice-versa
             // onZoomEndFun: (e) => this.gridvizZoomEndHandler(e),
             // onZoomFun: (e) => this.gridvizZoomEndHandler(e),
         })
             .setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-            .setBackgroundColor('#ffffff')
+            .setBackgroundColor('#000')
             .addMultiScaleTiledGridLayer(
                 [1000, 2000, 5000, 10000, 20000, 50000, 100000],
                 (r) =>
