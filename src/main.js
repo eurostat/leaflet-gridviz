@@ -33,13 +33,13 @@ L.GridvizLayer = function (opts) {
     this.proj = opts.proj || 'EPSG:3035'
 
     /**
-     * @description gridviz app. see https://eurostat.github.io/gridviz/docs/reference
+     * @description gridviz app. See https://eurostat.github.io/gridviz/docs/reference
      *
      */
     this.app = null
 
     /**
-     * @description Include gridviz in output layer
+     * @description Include gridviz in output layer for further customisation
      *
      */
     this.gridviz = gridviz
@@ -51,9 +51,6 @@ L.GridvizLayer = function (opts) {
     this.onLayerDidMount = function () {
         // build gridviz app
         this.buildGridVizApp()
-
-        //set canvas opacity
-        //this.app.cg.canvas.style.opacity = this.opacity
     }
 
     /**
@@ -156,10 +153,10 @@ L.GridvizLayer = function (opts) {
             w: window.innerWidth,
             h: window.innerHeight,
             disableZoom: true,
+            transparentBackground: true,
             selectionRectangleColor: opts.selectionRectangleColor || 'red',
             selectionRectangleWidthPix: opts.selectionRectangleWidthPix || '4',
             legendDivId: opts.legendDivId || 'gvizLegend',
-            transparentBackground: true,
         }).setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
     }
 }
