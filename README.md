@@ -53,6 +53,25 @@ gridvizLayer.app
 
 ```
 
+## Options
+When you define your gridviz layer, you can pass an options object like so:
+
+```JavaScript
+gridvizLayer = new L.GridvizLayer(options)
+```
+
+The properties you can include in this object are detailed in the table below:
+
+| Method             | Type   | Default     | Description                                                                                     |
+| ------------------ | ------ | ----------- | ----------------------------------------------------------------------------------------------- |
+| _options_.**proj** | string | 'EPSG:3035' | The layer's projection. When using proj4leaflet, this corresponds with the proj4.defs() projection definition identifier.                                                                            |
+| _options_.**onLayerDidMountCallback** | Function | null | Specify a custom callback that is executed when the layer has been added to the map. |
+| _options_.**selectionRectangleColor** | String | 'red' | The colour of the outline when a cell is highlighted. See https://eurostat.github.io/gridviz/docs/reference#app-options-object |
+| _options_.**selectionRectangleWidthPix** | Number | 3 | The width of the outline when a cell is highlighted. See https://eurostat.github.io/gridviz/docs/reference#app-options-object |
+
+
+
+
 ## Installation for development
 
 With node.js 14.20.1:
