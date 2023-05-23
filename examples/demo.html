@@ -62,13 +62,12 @@
                 )
                 const basemap = await response.json()
 
+                // define EPSG 3035
                 let resolutions = []
                 for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
                     resolutions.push(basemap.tileInfo.lods[i].resolution)
                 }
-                console.log('resolutions', resolutions)
 
-                // define 3035
                 let crs = new L.Proj.CRS(
                     'EPSG:3035',
                     '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
@@ -105,13 +104,13 @@
                     maxBoundsViscosity: 1,
                     maxZoom: 7,
                     minZoom: 2,
-                    touchZoom: true, // TODO: fix map freezes when pinched
+                    touchZoom: true,
                     zoom: 3,
-                    zoomAnimation: false, //causes issues when changing between pie charts and choropleths when enabled
+                    zoomAnimation: false,
                     zoomControl: false,
                 })
 
-                // add basemap
+                // add basemap(s)
                 L.tileLayer(
                     'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
                     {
@@ -130,7 +129,7 @@
                 // add gridviz canvas to the map
                 gridvizLayer.addTo(map)
 
-                // customize gridviz
+                // customize gridviz app
                 gridvizLayer.app
                     .addMultiScaleTiledGridLayer(
                         [1000, 2000, 5000, 10000, 20000, 50000, 100000],
