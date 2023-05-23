@@ -1,12 +1,16 @@
 # leaflet-gridviz
 
-**Still in early development**
+<div>
+    <a href="https://eurostat.github.io/leaflet-gridviz/examples/demo.html" target="_blank">
+        <img src='./preview.png'>
+    </a>
+</div>
 
 A plugin for Leaflet to show [gridviz](https://github.com/eurostat/gridviz) maps.
 
 ## Demo
 
-[Population census gridviz layer in leaflet](https://eurostat.github.io/leaflet-gridviz/examples/demo.html)
+[Population census gridviz layer in leaflet](https://eurostat.github.io/leaflet-gridviz/examples/demo.html) | [see code](./examples/demo.html)
 
 ## Usage
 
