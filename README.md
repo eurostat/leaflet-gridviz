@@ -53,8 +53,6 @@ gridvizLayer.app
 
 ```
 
-Documentation coming soon..
-
 ## Installation for development
 
 With node.js 14.20.1:
