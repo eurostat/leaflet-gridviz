@@ -68,7 +68,7 @@ The properties you can include in this object are detailed in the table below:
 | _options_.**onLayerDidMountCallback** | Function | null | Specify a custom callback that is executed when the layer has been added to the map. |
 | _options_.**selectionRectangleColor** | String | 'red' | The colour of the outline when a cell is highlighted. See https://eurostat.github.io/gridviz/docs/reference#app-options-object |
 | _options_.**selectionRectangleWidthPix** | Number | 3 | The width of the outline when a cell is highlighted. See https://eurostat.github.io/gridviz/docs/reference#app-options-object |
-
+| _options_.**legendDivId** | String | 'gvizLegend' | The identifier of the element upon which the legend will be appended. See https://eurostat.github.io/gridviz/docs/reference#app-options-object |
 
 
 
