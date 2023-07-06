@@ -54,6 +54,7 @@ L.GridvizLayer = function (opts) {
         // build gridviz app
         this.buildGridVizApp()
 
+        // set callback if specified by user
         if (this.onLayerDidMountCallback) this.onLayerDidMountCallback()
     }
 
@@ -122,8 +123,11 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.getMetresPerPixel = function () {
-        let centerLatLng = this._map.getCenter() // get map center
-        let pointC = this._map.latLngToContainerPoint(centerLatLng) // convert to containerpoint (pixels)
+        // get map center
+        let centerLatLng = this._map.getCenter()
+
+        // convert to containerpoint (pixels)
+        let pointC = this._map.latLngToContainerPoint(centerLatLng)
         let pointX = [pointC.x + 1, pointC.y] // add one pixel to x
 
         // convert containerpoints to latlng's
