@@ -1,12 +1,16 @@
 # leaflet-gridviz
 
-**Still in early development**
+<div>
+    <a href="https://eurostat.github.io/leaflet-gridviz/examples/demo.html" target="_blank">
+        <img src='./preview.png'>
+    </a>
+</div>
 
 A plugin for Leaflet to show [gridviz](https://github.com/eurostat/gridviz) maps.
 
 ## Demo
 
-[Population census gridviz layer in leaflet](https://eurostat.github.io/leaflet-gridviz/examples/demo.html)
+[Population census gridviz layer in leaflet](https://eurostat.github.io/leaflet-gridviz/examples/demo.html) | [see code](./examples/demo.html)
 
 ## Usage
 
@@ -26,7 +30,7 @@ gridvizLayer = new L.GridvizLayer(options)
 // add it to the map
 gridvizLayer.addTo(map)
 
-//then customize it as you wish by using the gridvizLayer.app instance...
+//then customize it as you wish by using the gridviz app attached to our GridvizLayer...
 gridvizLayer.app
     .addMultiScaleTiledGridLayer(
         [1000, 2000, 5000, 10000, 20000, 50000, 100000],
