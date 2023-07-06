@@ -56,6 +56,36 @@ L.GridvizLayer = function (opts) {
 
         // set callback if specified by user
         if (this.onLayerDidMountCallback) this.onLayerDidMountCallback()
+
+        // listen to resize events on map container
+        let mapContainer = this._map._container
+        const resizeObserver = new ResizeObserver((entries) => {
+            // make sure canvas has been built
+            if (mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
+                // make sure we dont exceed loop limit first
+                // see: https://stackoverflow.com/questions/49384120/resizeobserver-loop-limit-exceeded
+                window.requestAnimationFrame(() => {
+                    if (!Array.isArray(entries) || !entries.length) {
+                        return
+                    }
+                    // update the app and canvas size
+                    if (
+                        this.app.h !== mapContainer.clientHeight ||
+                        this.app.w !== mapContainer.clientWidth
+                    ) {
+                        this.app.h = mapContainer.clientHeight
+                        this.app.w = mapContainer.clientWidth
+                        this.app.cg.h = mapContainer.clientHeight
+                        this.app.cg.w = mapContainer.clientWidth
+                        this._canvas.setAttribute('width', '' + this.app.w)
+                        this._canvas.setAttribute('height', '' + this.app.h)
+                        this.app.redraw()
+                    }
+                })
+            }
+        })
+
+        resizeObserver.observe(mapContainer)
     }
 
     /**
@@ -148,10 +178,9 @@ L.GridvizLayer = function (opts) {
      * gridviz api: https://eurostat.github.io/gridviz/docs/reference
      */
     this.buildGridVizApp = function () {
-        let container = opts.container || this._canvas.parentElement
         let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
-
-        this.app = new gridviz.App(container, {
+        opts.container = opts.container || this._canvas.parentElement
+        this.app = new gridviz.App(opts.container, {
             canvas: this._canvas,
             w: window.innerWidth,
             h: window.innerHeight,
