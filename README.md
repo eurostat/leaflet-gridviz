@@ -1,5 +1,9 @@
 # leaflet-gridviz
 
+![npm bundle size](https://img.shields.io/bundlephobia/minzip/leaflet-gridviz)
+![npm](https://img.shields.io/npm/v/leaflet-gridviz)
+![license](https://img.shields.io/badge/license-EUPL-success)
+
 <div>
     <a href="https://eurostat.github.io/leaflet-gridviz/examples/demo.html" target="_blank">
         <img src='./preview.png'>
