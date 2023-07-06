@@ -1,8 +1,8 @@
 {
     "name": "leaflet-gridviz",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Leaflet plugin for gridviz",
-    "main": "index.js",
+    "main": "src/main.js",
     "scripts": {
         "start": "webpack serve --open --config webpack.dev.js",
         "build-prod": "webpack --config webpack.prod.js",
@@ -11,6 +11,8 @@
     "files": [
         "dist/leaflet-gridviz.min.js"
     ],
+    "jsdelivr": "dist/leaflet-gridviz.min.js",
+    "unpkg": "dist/leaflet-gridviz.min.js",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/eurostat/leaflet-gridviz.git"

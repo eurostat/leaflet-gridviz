@@ -16,7 +16,7 @@ A plugin for Leaflet to show [gridviz](https://github.com/eurostat/gridviz) maps
 
 ```JavaScript
 // import leaflet-gridviz after importing leaflet
-<script src="../build/leaflet-gridviz.js"></script>
+<script src="https://www.unpkg.com/leaflet-gridviz"></script>
 
 // create your leaflet map
 var map = new L.Map('map', {
