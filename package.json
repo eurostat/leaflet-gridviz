@@ -1,6 +1,6 @@
 {
     "name": "leaflet-gridviz",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "description": "Leaflet plugin for gridviz",
     "main": "index.js",
     "scripts": {
@@ -22,7 +22,7 @@
     },
     "homepage": "https://github.com/eurostat/leaflet-gridviz#readme",
     "dependencies": {
-        "gridviz": "^2.0.31",
+        "gridviz": "^2.0.33",
         "leaflet-canvas-layer": "^1.0.8",
         "proj4": "^2.9.0"
     },
