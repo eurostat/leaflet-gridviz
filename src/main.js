@@ -1,5 +1,5 @@
-import * as gridviz from 'gridviz'
-import * as CanvasLayer from 'leaflet-canvas-layer'
+import { App } from 'gridviz'
+import { CanvasLayer } from 'leaflet-canvas-layer'
 import proj4 from 'proj4'
 
 // define our projection
@@ -15,7 +15,7 @@ proj4.defs(
     delegate(object) - optionaly set receiver of the events if not 'inheriting' from L.CanvasLayer
  * 
  */
-L.GridvizLayer = function (opts) {
+export const GridvizLayer = function (opts) {
     /**
      * @description Options object defined by the user
      *
@@ -33,12 +33,6 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.app = null
-
-    /**
-     * @description Include gridviz in output layer for further customisation
-     *
-     */
-    this.gridviz = gridviz
 
     /**
      * @description Specify a callback function to fire when the layer is added to the map and the gridviz app is built
@@ -180,7 +174,7 @@ L.GridvizLayer = function (opts) {
     this.buildGridVizApp = function () {
         let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
         opts.container = opts.container || this._canvas.parentElement
-        this.app = new gridviz.App(opts.container, {
+        this.app = new App(opts.container, {
             canvas: this._canvas,
             w: window.innerWidth,
             h: window.innerHeight,
@@ -193,4 +187,5 @@ L.GridvizLayer = function (opts) {
     }
 }
 
-L.GridvizLayer.prototype = new CanvasLayer.CanvasLayer() // -- setup prototype
+L.GridvizLayer = GridvizLayer
+L.GridvizLayer.prototype = new CanvasLayer() // -- setup prototype

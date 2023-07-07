@@ -42,9 +42,9 @@ gridvizLayer.app
             'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
             r +
             'm/',
-        gridvizLayer.gridviz.TanakaStyle.get('2018', {
+        gviz.TanakaStyle.get('2018', {
             tFun: (v, r, s, zf) =>
-                gridvizLayer.gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
+                gviz.sExpRev((v - s.min) / (s.max - s.min), -7),
             nb: 6,
             color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
             colDark: '#333',

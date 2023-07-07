@@ -29,6 +29,7 @@
             integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
             crossorigin=""
         ></script>
+        <!-- <script src="https://www.unpkg.com/gridviz@2.0.33/dist/gridviz.min.js"></script> -->
         <script src="../build/leaflet-gridviz.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
@@ -56,6 +57,9 @@
             )
 
             async function main() {
+                // imported via unpkg
+                const gridviz = gviz
+
                 // get 3035 basemap capabilities
                 const response = await fetch(
                     'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer?f=pjson'
@@ -137,9 +141,9 @@
                             'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
                             r +
                             'm/',
-                        gridvizLayer.gridviz.TanakaStyle.get('2018', {
+                        gridviz.TanakaStyle.get('2018', {
                             tFun: (v, r, s, zf) =>
-                                gridvizLayer.gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
+                                gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
                             nb: 6,
                             color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
                             colDark: '#333',
@@ -151,7 +155,7 @@
                     )
 
                     .setLabelLayer(
-                        gridvizLayer.gridviz.getEuronymeLabelLayer('EUR', 50, {
+                        gridviz.getEuronymeLabelLayer('EUR', 50, {
                             ex: 2,
                             fontFamily: 'mfLeg',
                             exSize: 0.9,
@@ -161,7 +165,7 @@
                         })
                     )
                     .setBoundaryLayer(
-                        gridvizLayer.gridviz.getEurostatBoundariesLayer({
+                        gridviz.getEurostatBoundariesLayer({
                             scale: '10M',
                             col: '#fff5',
                             lineDash: () => [],
