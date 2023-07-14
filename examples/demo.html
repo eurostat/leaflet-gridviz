@@ -29,7 +29,7 @@
             integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
             crossorigin=""
         ></script>
-        <!-- <script src="https://www.unpkg.com/gridviz@2.0.33/dist/gridviz.min.js"></script> -->
+        <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
         <script src="../build/leaflet-gridviz.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
@@ -57,9 +57,7 @@
             )
 
             async function main() {
-                // imported via unpkg
                 const gridviz = gviz
-
                 // get 3035 basemap capabilities
                 const response = await fetch(
                     'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer?f=pjson'
