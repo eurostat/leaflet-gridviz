@@ -126,7 +126,7 @@
                 ).addTo(map)
 
                 // initialise gridviz
-                gridvizLayer = new L.GridvizLayer()
+                gridvizLayer = new L.GridvizLayer({proj: 'EPSG:3035'})
 
                 // add gridviz canvas to the map
                 gridvizLayer.addTo(map)

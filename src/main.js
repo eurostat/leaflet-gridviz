@@ -118,7 +118,8 @@ export const GridvizLayer = function (opts) {
     /**
      * @description Converts gridviz geoCenter to leaflet center
      * proj4(fromProjection, toProjection, [coordinates])
-     *
+     * @param {number} x
+     * @param {number} y
      */
     this.geoCenterToLeaflet = function (x, y) {
         let xy = proj4(this.proj, 'WGS84', [x, y])
@@ -126,9 +127,9 @@ export const GridvizLayer = function (opts) {
     }
 
     /**
-     * @description Converts leaflet center to gridviz proj geoCenter
+     * @description Converts leaflet center to gridviz projection's geoCenter
      * proj4(fromProjection, toProjection, [coordinates])
-     *
+     * @param {{lng: number, lat: number}} latLon leaflet latLon object
      */
     this.leafletToGeoCenter = function (latLon) {
         return proj4(this.proj, [latLon.lng, latLon.lat])
@@ -170,6 +171,11 @@ export const GridvizLayer = function (opts) {
     /**
      * @description build a gridviz app and add a layer to it
      * gridviz api: https://eurostat.github.io/gridviz/docs/reference
+     * Uses (optionally): 
+     * opts.container
+     * opts.selectionRectangleColor 
+     * opts.selectionRectangleWidthPix
+     * opts.legendDivId
      */
     this.buildGridVizApp = function () {
         let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
