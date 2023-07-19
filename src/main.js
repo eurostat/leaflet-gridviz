@@ -171,9 +171,9 @@ export const GridvizLayer = function (opts) {
     /**
      * @description build a gridviz app and add a layer to it
      * gridviz api: https://eurostat.github.io/gridviz/docs/reference
-     * Uses (optionally): 
+     * Uses (optionally):
      * opts.container
-     * opts.selectionRectangleColor 
+     * opts.selectionRectangleColor
      * opts.selectionRectangleWidthPix
      * opts.legendDivId
      */
@@ -189,6 +189,7 @@ export const GridvizLayer = function (opts) {
             selectionRectangleColor: opts.selectionRectangleColor || 'red',
             selectionRectangleWidthPix: opts.selectionRectangleWidthPix || '4',
             legendDivId: opts.legendDivId || 'gvizLegend',
+            tooltip: { parentElement: document.body },
         }).setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
     }
 }
