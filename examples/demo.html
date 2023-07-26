@@ -65,26 +65,50 @@
                 const basemap = await response.json()
 
                 // define EPSG 3035
-                let resolutions = []
-                for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
-                    resolutions.push(basemap.tileInfo.lods[i].resolution)
-                }
 
+                //sentinel
+                //minx="-1031235.09091" miny="-3364908.9791" maxx="7066528.23836" maxy="11736009.4644"
+
+                // webtools
                 let crs = new L.Proj.CRS(
                     'EPSG:3035',
-                    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
+                    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs',
                     {
-                        origin: [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y],
-                        bounds: L.bounds(
-                            L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin),
-                            L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax)
-                        ),
-                        resolutions: resolutions,
-                        tileSize: basemap.tileInfo.rows,
+                        resolutions: [
+                            156543.03392804097, 78271.51696402048, 39135.75848201024,
+                            19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564,
+                            1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525,
+                            76.43702828517625, 38.21851414258813, 19.109257071294063,
+                            9.554628535647032, 4.777314267823516, 2.388657133911758, 1.19432856695,
+                        ],
+                        bounds: L.bounds([0, 0], [8000000, 6000000]),
+                        origin: [0, 6000000],
                     }
                 )
-                crs.distance = L.CRS.Earth.distance
-                crs.R = 6378137
+
+                // let resolutions = []
+                // for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
+                //     resolutions.push(basemap.tileInfo.lods[i].resolution)
+                // }
+                // let bounds = L.bounds(
+                //     L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin),
+                //     L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax)
+                // )
+                // let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
+                // console.log(resolutions, bounds, origin)
+
+                // let crs = new L.Proj.CRS(
+                //     'EPSG:3035',
+                //     '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
+                //     {
+                //         origin: origin,
+                //         bounds: bounds,
+                //         resolutions: resolutions,
+                //         tileSize: basemap.tileInfo.rows,
+                //     }
+                // )
+                // crs.distance = L.CRS.Earth.distance
+                // crs.R = 6378137
 
                 // create leaflet map
                 var map = new L.Map('map', {
@@ -104,29 +128,44 @@
                         },
                     },
                     maxBoundsViscosity: 1,
-                    maxZoom: 7,
-                    minZoom: 2,
+                    maxZoom: 18,
+                    minZoom: 3,
                     touchZoom: true,
-                    zoom: 3,
+                    zoom: 5,
                     zoomAnimation: false,
                     zoomControl: false,
                 })
 
                 // add basemap(s)
+                let positron = {
+                    url: 'https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoCompositeEN/EPSG3035/{z}/{x}/{y}.png',
+                    options: {
+                        type: 'tiles',
+                        maxZoom: 17,
+
+                        attribution:
+                            "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
+                        noWrap: !1,
+                        bounds: [
+                            [-90, -180],
+                            [90, 180],
+                        ],
+                    },
+                }
                 L.tileLayer(
-                    'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                    //'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                    positron.url,
                     {
-                        maxZoom: 19,
+                        maxZoom: positron.maxZoom,
                         errorTileUrl: 'assets/image/error-tile.png',
-                        noWrap: true,
+                        noWrap: !1,
                         opacity: 1,
-                        tileSize: 256,
-                        tms: false,
+                        attribution: positron.attribution,
                     }
                 ).addTo(map)
 
                 // initialise gridviz
-                gridvizLayer = new L.GridvizLayer({proj: 'EPSG:3035'})
+                gridvizLayer = new L.GridvizLayer({ proj: 'EPSG:3035' })
 
                 // add gridviz canvas to the map
                 gridvizLayer.addTo(map)
@@ -152,16 +191,16 @@
                         }
                     )
 
-                    .setLabelLayer(
-                        gridviz.getEuronymeLabelLayer('EUR', 50, {
-                            ex: 2,
-                            fontFamily: 'mfLeg',
-                            exSize: 0.9,
-                            color: () => 'black',
-                            haloColor: () => '#ffffff',
-                            haloWidth: () => 3,
-                        })
-                    )
+                    // .setLabelLayer(
+                    //     gridviz.getEuronymeLabelLayer('EUR', 50, {
+                    //         ex: 2,
+                    //         fontFamily: 'mfLeg',
+                    //         exSize: 0.9,
+                    //         color: () => 'black',
+                    //         haloColor: () => '#ffffff',
+                    //         haloWidth: () => 3,
+                    //     })
+                    // )
                     .setBoundaryLayer(
                         gridviz.getEurostatBoundariesLayer({
                             scale: '10M',
@@ -169,6 +208,8 @@
                             lineDash: () => [],
                         })
                     )
+
+                gridvizLayer._canvas.style.opacity = 0.7
             }
 
             main()
