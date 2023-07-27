@@ -1,5 +1,5 @@
 import { App } from 'gridviz'
-import { CanvasLayer } from 'leaflet-canvas-layer'
+import './L.CanvasLayer.js'
 import proj4 from 'proj4'
 
 // define our projection
@@ -87,7 +87,9 @@ export const GridvizLayer = function (opts) {
      *
      */
     this.onLayerWillUnmount = function () {
-        // cleanup here?
+        // cleanup
+        // destroy our gridviz app for this layer
+        this.app.destroy()
     }
 
     /**
@@ -112,6 +114,7 @@ export const GridvizLayer = function (opts) {
         this.app.setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
         this.app.setZoomFactor(zoomFactor)
         // redraw gridviz canvas
+        console.log({ x: geoCenter[0], y: geoCenter[1] }, zoomFactor)
         this.app.redraw()
     }
 
@@ -195,4 +198,4 @@ export const GridvizLayer = function (opts) {
 }
 
 L.GridvizLayer = GridvizLayer
-L.GridvizLayer.prototype = new CanvasLayer() // -- setup prototype
+L.GridvizLayer.prototype = new L.CanvasLayer() // -- setup prototype

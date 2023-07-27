@@ -30,7 +30,7 @@
             crossorigin=""
         ></script>
         <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
-        <script src="../dist/leaflet-gridviz.min.js"></script>
+        <script src="../build/leaflet-gridviz.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
@@ -66,11 +66,8 @@
 
                 // define EPSG 3035
 
-                //sentinel
-                //minx="-1031235.09091" miny="-3364908.9791" maxx="7066528.23836" maxy="11736009.4644"
-
-                // webtools
-                let crs = new L.Proj.CRS(
+                // for gisco map-proxy
+                const GISCOCRS = new L.Proj.CRS(
                     'EPSG:3035',
                     '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs',
                     {
@@ -86,48 +83,46 @@
                     }
                 )
 
-                // let resolutions = []
-                // for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
-                //     resolutions.push(basemap.tileInfo.lods[i].resolution)
-                // }
-                // let bounds = L.bounds(
-                //     L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin),
-                //     L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax)
-                // )
-                // let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
-                // console.log(resolutions, bounds, origin)
-
-                // let crs = new L.Proj.CRS(
-                //     'EPSG:3035',
-                //     '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
-                //     {
-                //         origin: origin,
-                //         bounds: bounds,
-                //         resolutions: resolutions,
-                //         tileSize: basemap.tileInfo.rows,
-                //     }
-                // )
-                // crs.distance = L.CRS.Earth.distance
-                // crs.R = 6378137
+                // for esri map services
+                let resolutions = []
+                for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
+                    resolutions.push(basemap.tileInfo.lods[i].resolution)
+                }
+                let bounds = L.bounds(
+                    L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin),
+                    L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax)
+                )
+                let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
+                const ESRICRS = new L.Proj.CRS(
+                    'EPSG:3035',
+                    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
+                    {
+                        //bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                        //origin: [0, 6000000],
+                        origin: origin,
+                        bounds: bounds,
+                        resolutions: resolutions,
+                        tileSize: basemap.tileInfo.rows,
+                    }
+                )
+                ESRICRS.distance = L.CRS.Earth.distance
+                ESRICRS.R = 6378137
 
                 // create leaflet map
                 var map = new L.Map('map', {
-                    crs: crs,
+                    crs: GISCOCRS,
                     center: ['50.00754', '19.98211'],
-                    fadeAnimation: false,
-                    //zoomSnap: 0.05,
-                    //zoomDelta: 0.05, // doesnt work well
-                    // maxBounds: {
-                    //     _northEast: {
-                    //         lat: -38,
-                    //         lng: 173,
-                    //     },
-                    //     _southWest: {
-                    //         lat: -57,
-                    //         lng: -152,
-                    //     },
-                    // },
-                    // maxBoundsViscosity: 1,
+                    maxBounds: {
+                        _northEast: {
+                            lat: -38,
+                            lng: 173,
+                        },
+                        _southWest: {
+                            lat: -57,
+                            lng: -152,
+                        },
+                    },
+                    maxBoundsViscosity: 1,
                     maxZoom: 17,
                     minZoom: 4,
                     touchZoom: true,
@@ -137,77 +132,111 @@
                 })
 
                 // add basemap(s)
-                L.tileLayer(
-                    //'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                let osm = L.tileLayer(
                     'https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoCompositeEN/EPSG3035/{z}/{x}/{y}.png',
                     {
                         type: 'tiles',
-                        maxZoom: 17,
+                        maxZoom: 19,
+                        minZoom: 0,
                         attribution:
                             "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
                         noWrap: false,
-                        bounds: [
-                            [-90, -180],
-                            [90, 180],
-                        ],
-                        center: [46, 0],
-                        zoom: 6,
-                        background: 'positron',
-                        minZoom: 0,
-                        attributionControl: true,
-                        loadingControl: true,
-                        height: 500,
-                        epsg: 3035,
-                        name: 'positron',
                     }
                 ).addTo(map)
 
+                let continents = L.tileLayer(
+                    'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                    {
+                        maxZoom: 19,
+                        minZoom: 0,
+                        errorTileUrl: 'assets/image/error-tile.png',
+                        noWrap: true,
+                        opacity: 1,
+                        tileSize: 256,
+                        tms: false,
+                    }
+                )
+
                 // initialise gridviz
-                gridvizLayer = new L.GridvizLayer({ proj: 'EPSG:3035' })
+                let gridvizLayer = new L.GridvizLayer({
+                    proj: 'EPSG:3035',
+                    onLayerDidMountCallback: () => {
+                        // define our gridviz layer once the layer is mounted
+                        gridvizLayer.app
+                            .addMultiScaleTiledGridLayer(
+                                [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                                (r) =>
+                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
+                                    r +
+                                    'm/',
+                                gridviz.TanakaStyle.get('2018', {
+                                    tFun: (v, r, s, zf) =>
+                                        gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
+                                    nb: 6,
+                                    color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
+                                    colDark: '#333',
+                                }),
+                                {
+                                    pixNb: 6,
+                                    cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
+                                }
+                            )
+
+                            // .setLabelLayer(
+                            //     gridviz.getEuronymeLabelLayer('EUR', 50, {
+                            //         ex: 2,
+                            //         fontFamily: 'mfLeg',
+                            //         exSize: 0.9,
+                            //         color: () => 'black',
+                            //         haloColor: () => '#ffffff',
+                            //         haloWidth: () => 3,
+                            //     })
+                            // )
+                            .setBoundaryLayer(
+                                gridviz.getEurostatBoundariesLayer({
+                                    scale: '10M',
+                                    col: '#fff5',
+                                    lineDash: () => [],
+                                })
+                            )
+                        gridvizLayer._canvas.style.opacity = 0.7
+                        gridvizLayer.onDrawLayer()
+                    },
+                })
 
                 // add gridviz canvas to the map
                 gridvizLayer.addTo(map)
 
-                // customize gridviz app
-                gridvizLayer.app
-                    .addMultiScaleTiledGridLayer(
-                        [1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                        (r) =>
-                            'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
-                            r +
-                            'm/',
-                        gridviz.TanakaStyle.get('2018', {
-                            tFun: (v, r, s, zf) =>
-                                gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
-                            nb: 6,
-                            color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
-                            colDark: '#333',
-                        }),
-                        {
-                            pixNb: 6,
-                            cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
-                        }
-                    )
+                // add layer toggle
+                var baseMaps = {
+                    OpenStreetMap: osm,
+                    Continents: continents,
+                }
 
-                    // .setLabelLayer(
-                    //     gridviz.getEuronymeLabelLayer('EUR', 50, {
-                    //         ex: 2,
-                    //         fontFamily: 'mfLeg',
-                    //         exSize: 0.9,
-                    //         color: () => 'black',
-                    //         haloColor: () => '#ffffff',
-                    //         haloWidth: () => 3,
-                    //     })
-                    // )
-                    .setBoundaryLayer(
-                        gridviz.getEurostatBoundariesLayer({
-                            scale: '10M',
-                            col: '#fff5',
-                            lineDash: () => [],
-                        })
-                    )
+                var overlayMaps = {
+                    gridvizLayer: gridvizLayer,
+                }
+                var layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map)
 
-                gridvizLayer._canvas.style.opacity = 0.7
+                // change basemap might require a change in CRS definition
+                map.on('baselayerchange', function (e) {
+                    if (e.name == 'Continents') {
+                        map.options.crs = ESRICRS
+                    } else {
+                        map.options.crs = GISCOCRS
+                    }
+                    let center, zoom
+                    try {
+                        center = map.getCenter()
+                        zoom = map.getZoom()
+                    } catch {
+                        center = L.latLng(50.5, 19)
+                        zoom = 5
+                    }
+
+                    //map.setView(center, zoom)
+                    map._resetView(center, zoom)
+                })
             }
 
             main()
