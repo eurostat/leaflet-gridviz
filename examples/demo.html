@@ -30,7 +30,7 @@
             crossorigin=""
         ></script>
         <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
-        <script src="../build/leaflet-gridviz.js"></script>
+        <script src="../dist/leaflet-gridviz.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
@@ -81,7 +81,7 @@
                             76.43702828517625, 38.21851414258813, 19.109257071294063,
                             9.554628535647032, 4.777314267823516, 2.388657133911758, 1.19432856695,
                         ],
-                        bounds: L.bounds([0, 0], [8000000, 6000000]),
+                        bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
                         origin: [0, 6000000],
                     }
                 )
@@ -117,19 +117,19 @@
                     fadeAnimation: false,
                     //zoomSnap: 0.05,
                     //zoomDelta: 0.05, // doesnt work well
-                    maxBounds: {
-                        _northEast: {
-                            lat: -38,
-                            lng: 173,
-                        },
-                        _southWest: {
-                            lat: -57,
-                            lng: -152,
-                        },
-                    },
-                    maxBoundsViscosity: 1,
-                    maxZoom: 18,
-                    minZoom: 3,
+                    // maxBounds: {
+                    //     _northEast: {
+                    //         lat: -38,
+                    //         lng: 173,
+                    //     },
+                    //     _southWest: {
+                    //         lat: -57,
+                    //         lng: -152,
+                    //     },
+                    // },
+                    // maxBoundsViscosity: 1,
+                    maxZoom: 17,
+                    minZoom: 4,
                     touchZoom: true,
                     zoom: 5,
                     zoomAnimation: false,
@@ -137,30 +137,28 @@
                 })
 
                 // add basemap(s)
-                let positron = {
-                    url: 'https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoCompositeEN/EPSG3035/{z}/{x}/{y}.png',
-                    options: {
+                L.tileLayer(
+                    //'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                    'https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoCompositeEN/EPSG3035/{z}/{x}/{y}.png',
+                    {
                         type: 'tiles',
                         maxZoom: 17,
-
                         attribution:
                             "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
-                        noWrap: !1,
+                        noWrap: false,
                         bounds: [
                             [-90, -180],
                             [90, 180],
                         ],
-                    },
-                }
-                L.tileLayer(
-                    //'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
-                    positron.url,
-                    {
-                        maxZoom: positron.maxZoom,
-                        errorTileUrl: 'assets/image/error-tile.png',
-                        noWrap: !1,
-                        opacity: 1,
-                        attribution: positron.attribution,
+                        center: [46, 0],
+                        zoom: 6,
+                        background: 'positron',
+                        minZoom: 0,
+                        attributionControl: true,
+                        loadingControl: true,
+                        height: 500,
+                        epsg: 3035,
+                        name: 'positron',
                     }
                 ).addTo(map)
 
