@@ -29,31 +29,35 @@ var map = new L.Map('map', {
 })
 
 // define your leaflet-gridviz layer
-gridvizLayer = new L.GridvizLayer(options)
+let gridvizLayer = new L.GridvizLayer({
+    proj: 'EPSG:3035',
+    onLayerDidMountCallback: () => {
+        // define our gridviz layer once the layer is mounted by accessing the app
+        gridvizLayer.app
+            .addMultiScaleTiledGridLayer(
+                [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                (r) =>
+                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
+                    r +
+                    'm/',
+                gridviz.TanakaStyle.get('2018', {
+                    tFun: (v, r, s, zf) =>
+                        gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
+                    nb: 6,
+                    color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
+                    colDark: '#333',
+                }),
+                {
+                    pixNb: 6,
+                    cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
+                }
+            )
+    }
+})
 
 // add it to the map
 gridvizLayer.addTo(map)
 
-//then customize it as you wish by using the gridviz app attached to our GridvizLayer...
-gridvizLayer.app
-    .addMultiScaleTiledGridLayer(
-        [1000, 2000, 5000, 10000, 20000, 50000, 100000],
-        (r) =>
-            'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
-            r +
-            'm/',
-        gviz.TanakaStyle.get('2018', {
-            tFun: (v, r, s, zf) =>
-                gviz.sExpRev((v - s.min) / (s.max - s.min), -7),
-            nb: 6,
-            color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
-            colDark: '#333',
-        }),
-        {
-            pixNb: 6,
-            cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
-        }
-    )
 
 ```
 

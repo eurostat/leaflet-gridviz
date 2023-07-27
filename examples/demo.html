@@ -124,7 +124,7 @@
                     },
                     maxBoundsViscosity: 1,
                     maxZoom: 17,
-                    minZoom: 4,
+                    minZoom: 1,
                     touchZoom: true,
                     zoom: 5,
                     zoomAnimation: false,
@@ -181,17 +181,6 @@
                                     cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
                                 }
                             )
-
-                            // .setLabelLayer(
-                            //     gridviz.getEuronymeLabelLayer('EUR', 50, {
-                            //         ex: 2,
-                            //         fontFamily: 'mfLeg',
-                            //         exSize: 0.9,
-                            //         color: () => 'black',
-                            //         haloColor: () => '#ffffff',
-                            //         haloWidth: () => 3,
-                            //     })
-                            // )
                             .setBoundaryLayer(
                                 gridviz.getEurostatBoundariesLayer({
                                     scale: '10M',
@@ -200,7 +189,6 @@
                                 })
                             )
                         gridvizLayer._canvas.style.opacity = 0.7
-                        gridvizLayer.onDrawLayer()
                     },
                 })
 

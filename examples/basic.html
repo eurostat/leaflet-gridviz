@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <title>demo</title>
+
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+            integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
+            crossorigin=""
+        />
+
+        <style>
+            #map {
+                height: 98vh;
+                width: 100%;
+            }
+            #tooltip_eurostat {
+                z-index: 99999999999999;
+            }
+        </style>
+    </head>
+    <body>
+        <script
+            src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+            integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
+            crossorigin=""
+        ></script>
+        <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
+        <script src="../build/leaflet-gridviz.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"
+            integrity="sha512-lO8f7sIViqr9x5VE6Q72PS6f4FoZcuh5W9YzeSyfNRJ9z/qL3bkweiwG6keGzWS0BQzNDqAWXdBhYzFD6KffIw=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        ></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"
+            integrity="sha512-GsAYl1wxzWW6azVpXkhyYfjMb2LbaOnlrqWMBdAk9xDcilinFvGMN+48Ajp/10u/9lcnh8YyS2CYNgung7ewHg=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        ></script>
+
+        <div id="map"></div>
+
+        <script>
+            // define our projection
+            proj4.defs(
+                'EPSG:3035',
+                '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
+            )
+
+            async function main() {
+                const gridviz = gviz
+                // get 3035 basemap capabilities
+                const response = await fetch(
+                    'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer?f=pjson'
+                )
+                const basemap = await response.json()
+
+                // define EPSG 3035
+                let resolutions = []
+                for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
+                    resolutions.push(basemap.tileInfo.lods[i].resolution)
+                }
+                let bounds = L.bounds(
+                    L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin),
+                    L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax)
+                )
+                let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
+                const ESRICRS = new L.Proj.CRS(
+                    'EPSG:3035',
+                    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
+                    {
+                        //bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                        //origin: [0, 6000000],
+                        origin: origin,
+                        bounds: bounds,
+                        resolutions: resolutions,
+                        tileSize: basemap.tileInfo.rows,
+                    }
+                )
+                ESRICRS.distance = L.CRS.Earth.distance
+                ESRICRS.R = 6378137
+
+                // create leaflet map
+                var map = new L.Map('map', {
+                    crs: ESRICRS,
+                    center: ['50.00754', '19.98211'],
+                    maxBounds: {
+                        _northEast: {
+                            lat: -38,
+                            lng: 173,
+                        },
+                        _southWest: {
+                            lat: -57,
+                            lng: -152,
+                        },
+                    },
+                    maxBoundsViscosity: 1,
+                    maxZoom: 17,
+                    minZoom: 3,
+                    touchZoom: true,
+                    zoom: 3,
+                    zoomAnimation: false,
+                    zoomControl: false,
+                })
+
+                let continents = L.tileLayer(
+                    'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                    {
+                        maxZoom: 19,
+                        minZoom: 0,
+                        errorTileUrl: 'assets/image/error-tile.png',
+                        noWrap: true,
+                        opacity: 1,
+                        tileSize: 256,
+                        tms: false,
+                    }
+                ).addTo(map)
+
+                // initialise gridviz
+                let gridvizLayer = new L.GridvizLayer({
+                    proj: 'EPSG:3035',
+                    onLayerDidMountCallback: () => {
+                        // define our gridviz layer once the layer is mounted
+                        gridvizLayer.app
+                            .addMultiScaleTiledGridLayer(
+                                [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                                (r) =>
+                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
+                                    r +
+                                    'm/',
+                                gridviz.TanakaStyle.get('2018', {
+                                    tFun: (v, r, s, zf) =>
+                                        gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
+                                    nb: 6,
+                                    color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
+                                    colDark: '#333',
+                                }),
+                                {
+                                    pixNb: 6,
+                                    cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
+                                }
+                            )
+                            .setBoundaryLayer(
+                                gridviz.getEurostatBoundariesLayer({
+                                    scale: '10M',
+                                    col: '#fff5',
+                                    lineDash: () => [],
+                                })
+                            )
+                        gridvizLayer._canvas.style.opacity = 0.7
+                        // gridvizLayer.onDrawLayer()
+                    },
+                })
+
+                // add gridviz canvas to the map
+                gridvizLayer.addTo(map)
+            }
+
+            main()
+        </script>
+    </body>
+</html>
