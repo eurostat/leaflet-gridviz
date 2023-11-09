@@ -181,13 +181,6 @@
                                     cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
                                 }
                             )
-                            .setBoundaryLayer(
-                                gridviz.getEurostatBoundariesLayer({
-                                    scale: '10M',
-                                    col: '#fff5',
-                                    lineDash: () => [],
-                                })
-                            )
                         gridvizLayer._canvas.style.opacity = 0.7
                     },
                 })
