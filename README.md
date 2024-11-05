@@ -33,7 +33,7 @@ let gridvizLayer = new L.GridvizLayer({
     proj: 'EPSG:3035',
     onLayerDidMountCallback: () => {
         // define our gridviz layer once the layer is mounted by accessing the app
-        gridvizLayer.app
+        gridvizLayer.map
             .addMultiScaleTiledGridLayer(
                 [1000, 2000, 5000, 10000, 20000, 50000, 100000],
                 (r) =>

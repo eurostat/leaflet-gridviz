@@ -1,4 +1,5 @@
-import { App } from 'gridviz'
+import { Map } from 'gridviz'
+//import { Map } from './gridviz.js'
 import './L.CanvasLayer.js'
 import proj4 from 'proj4'
 
@@ -29,10 +30,10 @@ export const GridvizLayer = function (opts) {
     this.proj = opts.proj || 'EPSG:3035'
 
     /**
-     * @description gridviz app. See https://eurostat.github.io/gridviz/docs/reference
+     * @description gridviz map. See https://eurostat.github.io/gridviz/docs/reference
      *
      */
-    this.app = null
+    this.gridvizMap = null
 
     /**
      * @description Specify a callback function to fire when the layer is added to the map and the gridviz app is built
@@ -46,10 +47,10 @@ export const GridvizLayer = function (opts) {
      */
     this.onLayerDidMount = function () {
         // build gridviz app
-        this.buildGridVizApp()
+        this.buildGridvizMap()
 
         // set callback if specified by user
-        if (this.onLayerDidMountCallback) this.onLayerDidMountCallback()
+        if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap)
 
         // listen to resize events on map container
         let mapContainer = this._map._container
@@ -64,16 +65,16 @@ export const GridvizLayer = function (opts) {
                     }
                     // update the app and canvas size
                     if (
-                        this.app.h !== mapContainer.clientHeight ||
-                        this.app.w !== mapContainer.clientWidth
+                        this.gridvizMap.h !== mapContainer.clientHeight ||
+                        this.gridvizMap.w !== mapContainer.clientWidth
                     ) {
-                        this.app.h = mapContainer.clientHeight
-                        this.app.w = mapContainer.clientWidth
-                        this.app.cg.h = mapContainer.clientHeight
-                        this.app.cg.w = mapContainer.clientWidth
-                        this._canvas.setAttribute('width', '' + this.app.w)
-                        this._canvas.setAttribute('height', '' + this.app.h)
-                        this.app.redraw()
+                        this.gridvizMap.h = mapContainer.clientHeight
+                        this.gridvizMap.w = mapContainer.clientWidth
+                        this.gridvizMap.geoCanvas.h = mapContainer.clientHeight
+                        this.gridvizMap.geoCanvas.w = mapContainer.clientWidth
+                        this._canvas.setAttribute('width', '' + this.gridvizMap.w)
+                        this._canvas.setAttribute('height', '' + this.gridvizMap.h)
+                        this.gridvizMap.redraw()
                     }
                 })
             }
@@ -89,7 +90,7 @@ export const GridvizLayer = function (opts) {
     this.onLayerWillUnmount = function () {
         // cleanup
         // destroy our gridviz app for this layer
-        this.app.destroy()
+        this.gridvizMap.destroy()
     }
 
     /**
@@ -111,11 +112,10 @@ export const GridvizLayer = function (opts) {
         // for some reason info.center is inaccurate so we take the map center in WGS84 and project
         let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
         let zoomFactor = this.leafletZoomToGridvizZoom()
-        this.app.setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
-        this.app.setZoomFactor(zoomFactor)
+        this.gridvizMap.setView(geoCenter[0],  geoCenter[1], zoomFactor )
         // redraw gridviz canvas
-        console.log({ x: geoCenter[0], y: geoCenter[1] }, zoomFactor)
-        this.app.redraw()
+        //console.log({ x: geoCenter[0], y: geoCenter[1] }, zoomFactor)
+        this.gridvizMap.redraw()
     }
 
     /**
@@ -180,20 +180,23 @@ export const GridvizLayer = function (opts) {
      * opts.selectionRectangleWidthPix
      * opts.legendDivId
      */
-    this.buildGridVizApp = function () {
+    this.buildGridvizMap = function () {
         let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
         opts.container = opts.container || this._canvas.parentElement
-        this.app = new App(opts.container, {
+        this.gridvizMap = new Map(opts.container, {
             canvas: this._canvas,
             w: window.innerWidth,
             h: window.innerHeight,
+            x: geoCenter[0],
+            y: geoCenter[1],
+            z: this.leafletZoomToGridvizZoom(),
             disableZoom: true,
             transparentBackground: true,
-            selectionRectangleColor: opts.selectionRectangleColor || 'red',
-            selectionRectangleWidthPix: opts.selectionRectangleWidthPix || '4',
-            legendDivId: opts.legendDivId || 'gvizLegend',
+            // selectionRectangleColor: opts.selectionRectangleColor || 'red',
+            // selectionRectangleWidthPix: opts.selectionRectangleWidthPix || '4',
+            // legendDivId: opts.legendDivId || 'gvizLegend',
             tooltip: { parentElement: document.body },
-        }).setGeoCenter({ x: geoCenter[0], y: geoCenter[1] })
+        })
     }
 }
 
