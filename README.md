@@ -14,7 +14,7 @@ A plugin for Leaflet to show [gridviz](https://github.com/eurostat/gridviz) maps
 
 ## Demo
 
-[Population census gridviz layer in leaflet](https://eurostat.github.io/leaflet-gridviz/examples/demo.html) | [see code](./examples/demo.html)
+[See demo here](https://eurostat.github.io/leaflet-gridviz/examples/demo.html) | [see code](./examples/demo.html)
 
 ## Usage
 
