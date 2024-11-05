@@ -31,28 +31,41 @@ var map = new L.Map('map', {
 // define your leaflet-gridviz layer
 let gridvizLayer = new L.GridvizLayer({
     proj: 'EPSG:3035',
-    onLayerDidMountCallback: () => {
-        // define our gridviz layer once the layer is mounted by accessing the app
-        gridvizLayer.map
-            .addMultiScaleTiledGridLayer(
-                [1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                (r) =>
-                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population/' +
-                    r +
-                    'm/',
-                gridviz.TanakaStyle.get('2018', {
-                    tFun: (v, r, s, zf) =>
-                        gridviz.sExpRev((v - s.min) / (s.max - s.min), -7),
-                    nb: 6,
-                    color: (t) => d3.interpolateInferno(t * 0.9 + 0.1),
-                    colDark: '#333',
-                }),
-                {
-                    pixNb: 6,
-                    cellInfoHTML: (c) => '<b>' + c['2018'] + '</b> inhabitant(s)',
-                }
-            )
-    }
+    onLayerDidMountCallback: (gridvizMap) => {
+        //define multi resolution dataset
+        const dataset = new gridviz.MultiResolutionDataset(
+            //the resolutions
+            [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+            //the function returning each dataset from the resolution
+            (resolution) =>
+                new gridviz.TiledGrid(
+                    gridvizMap,
+                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population2/' +
+                        resolution +
+                        'm/'
+                )
+        )
+
+        //define color for each cell c
+        const colorFunction = (cell, resolution) => {
+            const density = (1000000 * cell.TOT_P_2021) / (resolution * resolution)
+            if (density > 1500) return '#993404'
+            else if (density > 600) return '#d95f0e'
+            else if (density > 200) return '#fe9929'
+            else if (density > 60) return '#fec44f'
+            else if (density > 15) return '#fee391'
+            else return '#ffffd4'
+        }
+
+        //define style
+        const style = new gridviz.ShapeColorSizeStyle({ color: colorFunction })
+
+        //add layer to map
+        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], {minPixelsPerCell: 5})]
+
+        //custom opacity
+        gridvizLayer._canvas.style.opacity = 0.7
+    },
 })
 
 // add it to the map
