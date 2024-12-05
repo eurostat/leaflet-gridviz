@@ -15,9 +15,7 @@ L.DomUtil.setTransform =
         var pos = offset || new L.Point(0, 0)
 
         el.style[L.DomUtil.TRANSFORM] =
-            (L.Browser.ie3d
-                ? 'translate(' + pos.x + 'px,' + pos.y + 'px)'
-                : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
+            (L.Browser.ie3d ? 'translate(' + pos.x + 'px,' + pos.y + 'px)' : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
             (scale ? ' scale(' + scale + ')' : '')
     }
 
@@ -84,7 +82,11 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         var animated = this._map.options.zoomAnimation && L.Browser.any3d
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'))
 
-        map._panes.overlayPane.appendChild(this._canvas)
+        // map._panes.overlayPane.appendChild(this._canvas)
+        //create our own gridviz pane
+        let ourPane = map.createPane('gridviz')
+        map.getPane('gridviz').style.zIndex = 399
+        ourPane.appendChild(this._canvas)
 
         map.on(this.getEvents(), this)
 
@@ -104,7 +106,8 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         }
 
         let panes = map.getPanes()
-        let overlayPane = panes.overlayPane
+        // let overlayPane = panes.overlayPane
+        let overlayPane = map.getPane('gridviz')
 
         if (this._canvas) {
             if (this._canvas.parentElement === overlayPane) {
@@ -159,9 +162,7 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         var pos = offset || new L.Point(0, 0)
 
         el.style[L.DomUtil.TRANSFORM] =
-            (L.Browser.ie3d
-                ? 'translate(' + pos.x + 'px,' + pos.y + 'px)'
-                : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
+            (L.Browser.ie3d ? 'translate(' + pos.x + 'px,' + pos.y + 'px)' : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
             (scale ? ' scale(' + scale + ')' : '')
     },
 
@@ -171,10 +172,7 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         // -- different calc of animation zoom  in leaflet 1.0.3 thanks @peterkarabinovic, @jduggan1
         var offset = L.Layer
             ? this._map._latLngBoundsToNewLayerBounds(this._map.getBounds(), e.zoom, e.center).min
-            : this._map
-                  ._getCenterOffset(e.center)
-                  ._multiplyBy(-scale)
-                  .subtract(this._map._getMapPanePos())
+            : this._map._getCenterOffset(e.center)._multiplyBy(-scale).subtract(this._map._getMapPanePos())
 
         L.DomUtil.setTransform(this._canvas, offset, scale)
     },

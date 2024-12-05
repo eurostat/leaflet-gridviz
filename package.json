@@ -1,6 +1,6 @@
 {
     "name": "leaflet-gridviz",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "description": "Leaflet plugin for gridviz",
     "main": "src/main.js",
     "scripts": {
