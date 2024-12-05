@@ -43,7 +43,7 @@
     <body>
         <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
         <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
-        <script src="../build/leaflet-gridviz.js"></script>
+        <script src="../dist/leaflet-gridviz.min.js"></script>
         <script src="https://d3js.org/d3.v4.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
@@ -141,7 +141,7 @@
                 }).addTo(leafletMap)
 
                 let continents = L.tileLayer(
-                    'https://ec.europa.eu/statistical-atlas/arcgis/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                    'https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
                     {
                         maxZoom: 19,
                         minZoom: 0,
