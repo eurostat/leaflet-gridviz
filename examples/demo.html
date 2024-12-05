@@ -27,6 +27,13 @@
             #gridviz-legend {
                 z-index: 99999999999999;
             }
+            #gridviz-legend {
+                position: absolute;
+                bottom: 0px;
+                left: 0px;
+                background: white;
+                padding: 10px;
+            }
         </style>
     </head>
     <body>
@@ -52,6 +59,7 @@
         ></script>
 
         <div id="map"></div>
+        <div id="gridviz-legend"></div>
 
         <script>
             // define our projection
@@ -148,6 +156,7 @@
                 // initialise gridviz layers
                 let shapeColorSizeStyleLayer = new L.GridvizLayer({
                     proj: 'EPSG:3035',
+                    legendContainer: document.getElementById('gridviz-legend'),
                     onLayerDidMountCallback: (gridvizMap) => {
                         //define multi resolution dataset
                         const dataset = new gridviz.MultiResolutionDataset(
@@ -161,19 +170,22 @@
                                 )
                         )
 
-                        //define color for each cell c
-                        const colorFunction = (cell, resolution) => {
-                            const density = (1000000 * cell.TOT_P_2021) / (resolution * resolution)
-                            if (density > 1500) return '#993404'
-                            else if (density > 600) return '#d95f0e'
-                            else if (density > 200) return '#fe9929'
-                            else if (density > 60) return '#fec44f'
-                            else if (density > 15) return '#fee391'
-                            else return '#ffffd4'
-                        }
-
-                        //define style
-                        const style = new gridviz.ShapeColorSizeStyle({ color: colorFunction })
+                        //define color for each cell c\
+                        const DATAFIELD = 'TOT_P_2021'
+                        const style = new gridviz.ShapeColorSizeStyle({
+                            color: (c, r, z, viewScale) => viewScale(+c[DATAFIELD]),
+                            viewScale: gridviz.viewScaleColor({ valueFunction: (c) => +c[DATAFIELD], colorScale: d3.interpolateYlOrRd, stretching: gridviz.logarithmicScale(-7) }),
+                        })
+                        //add legend
+                        const legend = new gridviz.ColorLegend({
+                            //title: 'Change in number of inhabitants',
+                            ticks: 4,
+                            width: 290,
+                            colorScale: d3.interpolateYlOrRd,
+                            textScale: (t, viewScale) => viewScale?.invert(t),
+                            tickFormat: Math.round,
+                        })
+                        style.legends = [legend]
 
                         //add layer to map
                         gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 }), labelLayer]

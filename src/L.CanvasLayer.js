@@ -108,7 +108,6 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         let panes = map.getPanes()
         // let overlayPane = panes.overlayPane
         let overlayPane = map.getPane('gridviz')
-
         if (this._canvas) {
             if (this._canvas.parentElement === overlayPane) {
                 overlayPane.removeChild(this._canvas)
@@ -135,25 +134,7 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
     //------------------------------------------------------------------------------
     drawLayer: function () {
-        // -- todo make the viewInfo properties  flat objects.
-        var size = this._map.getSize()
-        var bounds = this._map.getBounds()
-        var zoom = this._map.getZoom()
-
-        var center = this.LatLonToMercator(this._map.getCenter())
-        var corner = this.LatLonToMercator(this._map.containerPointToLatLng(this._map.getSize()))
-
-        var del = this._delegate || this
-        del.onDrawLayer &&
-            del.onDrawLayer({
-                layer: this,
-                canvas: this._canvas,
-                bounds: bounds,
-                size: size,
-                zoom: zoom,
-                center: center,
-                corner: corner,
-            })
+        this.onDrawLayer()
         this._frame = null
     },
     // -- L.DomUtil.setTransform from leaflet 1.0.0 to work on 0.0.7
@@ -176,6 +157,7 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
         L.DomUtil.setTransform(this._canvas, offset, scale)
     },
+
 })
 
 L.canvasLayer = function () {

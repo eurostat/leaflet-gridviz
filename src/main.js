@@ -185,9 +185,9 @@ L.GridvizLayer = function (opts) {
             z: this.leafletZoomToGridvizZoom(),
             disableZoom: true,
             transparentBackground: true,
-            // selectionRectangleColor: opts.selectionRectangleColor || 'red',
-            // selectionRectangleWidthPix: opts.selectionRectangleWidthPix || '4',
-            // legendDivId: opts.legendDivId || 'gvizLegend',
+            selectionRectangleColor: opts.selectionRectangleColor,
+            selectionRectangleWidthPix: opts.selectionRectangleWidthPix,
+            legendContainer: opts.legendContainer,
             tooltip: { parentElement: document.body },
         })
     }
