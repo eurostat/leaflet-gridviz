@@ -1,13 +1,9 @@
-import { Map } from 'gridviz'
-//import { Map } from './gridviz.js'
-import './L.CanvasLayer.js'
 import proj4 from 'proj4'
+import { Map } from 'gridviz'
+import './L.CanvasLayer.js'
 
 // define our projection
-proj4.defs(
-    'EPSG:3035',
-    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
-)
+proj4.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs')
 
 /** An extension of L.CanvasLayer (leaflet-canvas-layer) for integrating gridviz into Leaflet
  *  @description 
@@ -16,7 +12,7 @@ proj4.defs(
     delegate(object) - optionaly set receiver of the events if not 'inheriting' from L.CanvasLayer
  * 
  */
-export const GridvizLayer = function (opts) {
+L.GridvizLayer = function (opts) {
     /**
      * @description Options object defined by the user
      *
@@ -64,10 +60,7 @@ export const GridvizLayer = function (opts) {
                         return
                     }
                     // update the app and canvas size
-                    if (
-                        this.gridvizMap.h !== mapContainer.clientHeight ||
-                        this.gridvizMap.w !== mapContainer.clientWidth
-                    ) {
+                    if (this.gridvizMap.h !== mapContainer.clientHeight || this.gridvizMap.w !== mapContainer.clientWidth) {
                         this.gridvizMap.h = mapContainer.clientHeight
                         this.gridvizMap.w = mapContainer.clientWidth
                         this.gridvizMap.geoCanvas.h = mapContainer.clientHeight
@@ -112,7 +105,7 @@ export const GridvizLayer = function (opts) {
         // for some reason info.center is inaccurate so we take the map center in WGS84 and project
         let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
         let zoomFactor = this.leafletZoomToGridvizZoom()
-        this.gridvizMap.setView(geoCenter[0],  geoCenter[1], zoomFactor )
+        this.gridvizMap.setView(geoCenter[0], geoCenter[1], zoomFactor)
         // redraw gridviz canvas
         //console.log({ x: geoCenter[0], y: geoCenter[1] }, zoomFactor)
         this.gridvizMap.redraw()
@@ -200,5 +193,4 @@ export const GridvizLayer = function (opts) {
     }
 }
 
-L.GridvizLayer = GridvizLayer
 L.GridvizLayer.prototype = new L.CanvasLayer() // -- setup prototype

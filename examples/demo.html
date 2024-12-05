@@ -27,23 +27,13 @@
             #gridviz-legend {
                 z-index: 99999999999999;
             }
-            .leaflet-control-layers-expanded,
-            .leaflet-control-layers .leaflet-control-layers-list,
-            .leaflet-control-layers-expanded {
-                display: block !important;
-            }
-            .leaflet-control-layers {
-                padding: 6px 10px 6px 6px;
-            }
-            .leaflet-control-layers-toggle {
-                display: none !important;
-            }
         </style>
     </head>
     <body>
         <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
         <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
-        <script src="../dist/leaflet-gridviz.min.js"></script>
+        <script src="https://unpkg.com/gridviz-eurostat"></script>
+        <script src="../build/leaflet-gridviz.js"></script>
         <script src="https://d3js.org/d3.v4.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
         <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
@@ -131,7 +121,7 @@
                 })
 
                 // add basemap(s)
-                let osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoCompositeEN/EPSG3035/{z}/{x}/{y}.png', {
+                let osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoV4Background/EPSG3035/{z}/{x}/{y}.png', {
                     type: 'tiles',
                     maxZoom: 19,
                     minZoom: 0,
@@ -152,6 +142,8 @@
                         tms: false,
                     }
                 )
+
+                const labelLayer = new gridviz.LabelLayer(gridviz_eurostat.getEuronymeLabelLayer('EUR', 50, { ex: 1.8, fontFamily: 'Arial', exSize: 1.8 }))
 
                 // initialise gridviz layers
                 let shapeColorSizeStyleLayer = new L.GridvizLayer({
@@ -184,7 +176,7 @@
                         const style = new gridviz.ShapeColorSizeStyle({ color: colorFunction })
 
                         //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 })]
+                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 }), labelLayer]
 
                         //custom opacity
                         gridvizMap._canvas.style.opacity = 0.7
@@ -490,7 +482,7 @@
                         )
 
                         //define ternary classifier
-                        const trivariateClassifier = gridviz.trivariateColorClassifier(
+                        const trivariateClassifier = gridviz.ternaryColorClassifier(
                             //the three groups
                             ['yo', 'mi', 'ol'],
                             //the function returning the total of the three
@@ -524,7 +516,7 @@
 
                         //legend
                         style.legends = [
-                            new gridviz.TrivariateLegend({
+                            new gridviz.TernaryLegend({
                                 title: 'Age',
                                 classifier: trivariateClassifier,
                                 width: 90,
@@ -897,11 +889,11 @@
                 }
                 let layerControl = L.control.layers(baseMaps, gridvizLayers).addTo(leafletMap)
                 // Adding titles to basemap sections
-                var basemapTitle = L.DomUtil.create('div', 'basemap-title')
+                const basemapTitle = L.DomUtil.create('div', 'basemap-title')
                 basemapTitle.innerHTML = '<strong>Basemaps</strong>'
                 layerControl._baseLayersList.prepend(basemapTitle)
 
-                var overlayTitle = L.DomUtil.create('div', 'overlay-title')
+                const overlayTitle = L.DomUtil.create('div', 'overlay-title')
                 overlayTitle.innerHTML = '<strong>Gridviz styles</strong>'
                 layerControl._overlaysList.prepend(overlayTitle)
 

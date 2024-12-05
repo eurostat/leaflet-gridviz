@@ -178,15 +178,15 @@
                 gridvizLayer.addTo(leafletMap)
 
                 // add layer toggle
-                var baseMaps = {
+                const baseMaps = {
                     OpenStreetMap: osm,
                     Continents: continents,
                 }
 
-                var overlayMaps = {
+                const overlayMaps = {
                     gridvizLayer: gridvizLayer,
                 }
-                var layerControl = L.control.layers(baseMaps, overlayMaps).addTo(leafletMap)
+                const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(leafletMap)
 
                 // change basemap might require a change in CRS definition
                 leafletMap.on('baselayerchange', function (e) {
