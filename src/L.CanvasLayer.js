@@ -181,3 +181,5 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 L.canvasLayer = function () {
     return new L.CanvasLayer()
 }
+
+export default L.CanvasLayer

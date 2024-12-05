@@ -2,7 +2,14 @@
     "name": "leaflet-gridviz",
     "version": "2.0.2",
     "description": "Leaflet plugin for gridviz",
-    "main": "src/main.js",
+    "keywords": [
+        "leaflet",
+        "gridviz",
+        "plugin",
+        "mapping",
+        "gis"
+    ],
+    "main": "dist/leaflet-gridviz.min.js",
     "scripts": {
         "start": "webpack serve --open --config webpack.dev.js",
         "build-prod": "webpack --config webpack.prod.js",
