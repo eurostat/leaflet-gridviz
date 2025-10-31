@@ -67,12 +67,9 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         var events = {
             resize: this._onLayerDidResize,
             moveend: this._onLayerDidMove,
+            zoomanim: this._animateZoom,
             zoom: this._onLayerDidMove,
         }
-        if (this._map.options.zoomAnimation && L.Browser.any3d) {
-            events.zoomanim = this._animateZoom
-        }
-
         return events
     },
     //-------------------------------------------------------------
@@ -101,6 +98,19 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         this._updatePosition()
         this.needRedraw()
     },
+
+_animateZoom(e) {
+  // scale from current zoom to target zoom
+  const scale = this._map.getZoomScale(e.zoom, this._map.getZoom());
+
+  // compute how the current viewport bounds would move at target zoom/center
+  const offset = this._map
+    ._latLngBoundsToNewLayerBounds(this._map.getBounds(), e.zoom, e.center)
+    .min;
+
+  // apply translate+scale in one go (requires transformOrigin '0 0')
+  L.DomUtil.setTransform(this._canvas, offset, scale);
+},
 
     //-------------------------------------------------------------
     onRemove: function (map) {
@@ -145,24 +155,13 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     },
     // -- L.DomUtil.setTransform from leaflet 1.0.0 to work on 0.0.7
     //------------------------------------------------------------------------------
-    _setTransform: function (el, offset, scale) {
-        var pos = offset || new L.Point(0, 0)
+    // _setTransform: function (el, offset, scale) {
+    //     var pos = offset || new L.Point(0, 0)
 
-        el.style[L.DomUtil.TRANSFORM] =
-            (L.Browser.ie3d ? 'translate(' + pos.x + 'px,' + pos.y + 'px)' : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
-            (scale ? ' scale(' + scale + ')' : '')
-    },
-
-    //------------------------------------------------------------------------------
-    _animateZoom: function (e) {
-        var scale = this._map.getZoomScale(e.zoom)
-        // -- different calc of animation zoom  in leaflet 1.0.3 thanks @peterkarabinovic, @jduggan1
-        var offset = L.Layer
-            ? this._map._latLngBoundsToNewLayerBounds(this._map.getBounds(), e.zoom, e.center).min
-            : this._map._getCenterOffset(e.center)._multiplyBy(-scale).subtract(this._map._getMapPanePos())
-
-        L.DomUtil.setTransform(this._canvas, offset, scale)
-    },
+    //     el.style[L.DomUtil.TRANSFORM] =
+    //         (L.Browser.ie3d ? 'translate(' + pos.x + 'px,' + pos.y + 'px)' : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
+    //         (scale ? ' scale(' + scale + ')' : '')
+    // },
 
 })
 
