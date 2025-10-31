@@ -13,29 +13,10 @@ proj4.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=321000
  * 
  */
 L.GridvizLayer = function (opts) {
-    /**
-     * @description Options object defined by the user
-     *
-     */
     opts = opts || {}
-
-    /**
-     * @description proj4 projection definition name. Make sure to add it using proj4.defs() first
-     *
-     */
-    this.proj = opts.proj || 'EPSG:3035'
-
-    /**
-     * @description gridviz map. See https://eurostat.github.io/gridviz/docs/reference
-     *
-     */
-    this.gridvizMap = null
-
-    /**
-     * @description Specify a callback function to fire when the layer is added to the map and the gridviz app is built
-     *
-     */
-    this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null
+    this.proj = opts.proj || 'EPSG:3035'     // proj4 projection definition name. Make sure to add it using proj4.defs() first
+    this.gridvizMap = null //gridviz map. See https://eurostat.github.io/gridviz/docs/reference
+    this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null // Specify a callback function to fire when the layer is added to the map and the gridviz app is built
 
     /**
      * @description Fires after leaflet layer canvas is attached/added to the map
@@ -43,37 +24,33 @@ L.GridvizLayer = function (opts) {
      */
     this.onLayerDidMount = function () {
         // build gridviz app
-        this.buildGridvizMap()
+        this.buildGridvizMap();
 
-        // set callback if specified by user
-        if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap)
+        if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap);
 
-        // listen to resize events on map container
-        let mapContainer = this._map._container
+        // Resize observer
+        this.addResizeObserver()
+
+    };
+
+    this.addResizeObserver = function () {
+        const mapContainer = this._map._container;
         const resizeObserver = new ResizeObserver((entries) => {
-            // make sure canvas has been built
-            if (mapContainer.clientWidth > 0 && mapContainer.clientHeight > 0) {
-                // make sure we dont exceed loop limit first
-                // see: https://stackoverflow.com/questions/49384120/resizeobserver-loop-limit-exceeded
-                window.requestAnimationFrame(() => {
-                    if (!Array.isArray(entries) || !entries.length) {
-                        return
-                    }
-                    // update the app and canvas size
-                    if (this.gridvizMap.h !== mapContainer.clientHeight || this.gridvizMap.w !== mapContainer.clientWidth) {
-                        this.gridvizMap.h = mapContainer.clientHeight
-                        this.gridvizMap.w = mapContainer.clientWidth
-                        this.gridvizMap.geoCanvas.h = mapContainer.clientHeight
-                        this.gridvizMap.geoCanvas.w = mapContainer.clientWidth
-                        this._canvas.setAttribute('width', '' + this.gridvizMap.w)
-                        this._canvas.setAttribute('height', '' + this.gridvizMap.h)
-                        this.gridvizMap.redraw()
-                    }
-                })
-            }
-        })
-
-        resizeObserver.observe(mapContainer)
+            window.requestAnimationFrame(() => {
+                if (!Array.isArray(entries) || !entries.length) return;
+                if (this.gridvizMap.h !== mapContainer.clientHeight || this.gridvizMap.w !== mapContainer.clientWidth) {
+                    this.gridvizMap.h = mapContainer.clientHeight;
+                    this.gridvizMap.w = mapContainer.clientWidth;
+                    this.gridvizMap.geoCanvas.h = mapContainer.clientHeight;
+                    this.gridvizMap.geoCanvas.w = mapContainer.clientWidth;
+                    this._canvas.setAttribute('width', '' + this.gridvizMap.w);
+                    this._canvas.setAttribute('height', '' + this.gridvizMap.h);
+                    this.gridvizMap.redraw();
+                    this.needRedraw()
+                }
+            });
+        });
+        resizeObserver.observe(mapContainer);
     }
 
     /**
@@ -81,10 +58,8 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.onLayerWillUnmount = function () {
-        // cleanup
-        // destroy our gridviz app for this layer
-        this.gridvizMap.destroy()
-    }
+        this.gridvizMap.destroy();
+    };
 
     /**
      * @description Fires when layer data changes
@@ -101,15 +76,16 @@ L.GridvizLayer = function (opts) {
      *
      */
     this.onDrawLayer = function (info) {
-        // set gridviz center and zoom to match leaflet
-        // for some reason info.center is inaccurate so we take the map center in WGS84 and project
-        let geoCenter = this.leafletToGeoCenter(this._map.getCenter())
-        let zoomFactor = this.leafletZoomToGridvizZoom()
-        this.gridvizMap.setView(geoCenter[0], geoCenter[1], zoomFactor)
-        // redraw gridviz canvas
-        //console.log({ x: geoCenter[0], y: geoCenter[1] }, zoomFactor)
-        this.gridvizMap.redraw()
-    }
+        if (this._zooming) return; // defer to zoomend
+
+        // Sync view to Leaflet
+        const geoCenter = this.leafletToGeoCenter(this._map.getCenter());
+        const zoomFactor = this.leafletZoomToGridvizZoom();
+        this.gridvizMap.setView(geoCenter[0], geoCenter[1], zoomFactor);
+
+        // Redraw gridviz canvas
+        this.gridvizMap.redraw();
+    };
 
     /**
      * @description Converts gridviz geoCenter to leaflet center
