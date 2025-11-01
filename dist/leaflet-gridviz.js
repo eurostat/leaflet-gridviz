@@ -5,17 +5,15 @@
 /***/ (() => {
 
 /*
-  Generic  Canvas Layer for leaflet 0.7 and 1.0-rc, 1.2, 1.3
-  copyright Stanislav Sumbera,  2016-2018, sumbera.com , license MIT
-  originally created and motivated by L.CanvasOverlay  available here: https://gist.github.com/Sumbera/11114288  
+  Generic Canvas Layer for Leaflet 0.7–1.9
+  Based on L.CanvasOverlay by Stanislav Sumbera (MIT)
+  Updated by Joseph Davies for Leaflet 1.9+ and gridviz (EPSG:3035 / Proj4Leaflet)
 
-  also thanks to contributors: heyyeyheman,andern,nikiv3, anyoneelse ?
-  enjoy !
+  This version reproduces Leaflet’s GridLayer zoom animation behavior precisely,
+  ensuring perfect alignment with tiled layers even after panning.
 */
 
-// updated heavily by Joseph Davies in order to support Leaflet 1.9+ and gridviz in EPSG:3035
-//------------------------------------------------------------------------------
-
+// -----------------------------------------------------------------------------
 // Polyfill for very old Leaflet builds
 L.DomUtil.setTransform =
   L.DomUtil.setTransform ||
@@ -28,9 +26,9 @@ L.DomUtil.setTransform =
       (scale ? ' scale(' + scale + ')' : '');
   };
 
-// -- support for both 0.0.7 and 1.0.0 rc2 leaflet
+// -----------------------------------------------------------------------------
+// Canvas Layer definition
 L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
-  // -- initialized is called on prototype
   initialize: function (options) {
     this._map = null;
     this._canvas = null;
@@ -40,11 +38,13 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     L.setOptions(this, options);
   },
 
+  // Optional: external object (e.g., Gridviz) can handle draw callbacks
   delegate: function (del) {
     this._delegate = del;
     return this;
   },
 
+  // Request an animation frame to trigger redraw
   needRedraw: function () {
     if (!this._frame) {
       this._frame = L.Util.requestAnimFrame(this.drawLayer, this);
@@ -52,109 +52,132 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     return this;
   },
 
-  // ---------------------------------------------------------------------------
-  // Positioning: keep classic overlay anchoring for panning
+  // Anchors the canvas to the map’s current top-left corner
   _updatePosition: function () {
-    // original overlay anchor: containerPointToLayerPoint([0,0])
     var topLeft = this._map.containerPointToLayerPoint([0, 0]);
     L.DomUtil.setPosition(this._canvas, topLeft);
   },
 
-  // ---------------------------------------------------------------------------
+  // Event bindings for panning, zooming, resizing
   getEvents: function () {
     return {
       resize: this._onLayerDidResize,
-      // Keep original "pan at end" behavior that Gridviz expects:
       moveend: this._onLayerDidMove,
       viewreset: this._onLayerDidMove,
-      zoom: this._onLayerDidMove,
-
-      // Smooth zoom animation:
       zoomstart: this._onZoomStart,
       zoomanim: this._onAnimZoom,
       zoomend: this._onZoomEnd
     };
   },
 
+
   // ---------------------------------------------------------------------------
+  // Add layer to map and initialize canvas
   onAdd: function (map) {
     this._map = map;
     this._canvas = L.DomUtil.create('canvas', 'leaflet-layer');
     this._canvas.style.transformOrigin = '0 0';
     L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated');
-    this.tiles = {};
 
-    var size = this._map.getSize();
+    var size = map.getSize();
     this._canvas.width = size.x;
     this._canvas.height = size.y;
 
-    var animated = this._map.options.zoomAnimation && L.Browser.any3d;
+    var animated = map.options.zoomAnimation && L.Browser.any3d;
     L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'));
 
-    // Create our own pane for Gridviz
-    var ourPane = map.createPane('gridviz');
-    map.getPane('gridviz').style.zIndex = 399;
-    ourPane.appendChild(this._canvas);
+    // Create a dedicated pane for the canvas (useful for ordering)
+    var pane = map.createPane('gridviz');
+    pane.style.zIndex = 399;
+    pane.appendChild(this._canvas);
 
     map.on(this.getEvents(), this);
 
+    // Fire callback when mounted (e.g., to build gridviz app)
     var del = this._delegate || this;
-    if (del.onLayerDidMount) del.onLayerDidMount(); // callback
+    if (del.onLayerDidMount) del.onLayerDidMount();
 
-    this._updatePosition();
-    this.needRedraw();
-
-    // Seed virtual level for zoom animations
-    this._initCanvasLevel();
+    this._updatePosition();      // Place for current view
+    this._initCanvasLevel();     // Seed for zoom animation math
     L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1);
+    this.needRedraw();
   },
 
   // ---------------------------------------------------------------------------
+  // Remove layer and clean up
   onRemove: function (map) {
     var del = this._delegate || this;
-    if (del.onLayerWillUnmount) del.onLayerWillUnmount(); // callback
+    if (del.onLayerWillUnmount) del.onLayerWillUnmount();
 
-    if (this._frame) {
-      L.Util.cancelAnimFrame(this._frame);
-    }
+    if (this._frame) L.Util.cancelAnimFrame(this._frame);
 
-    var overlayPane = map.getPane('gridviz');
-    if (this._canvas && this._canvas.parentElement === overlayPane) {
-      overlayPane.removeChild(this._canvas);
+    var pane = map.getPane('gridviz');
+    if (this._canvas && this._canvas.parentElement === pane) {
+      pane.removeChild(this._canvas);
       map.off(this.getEvents(), this);
       this._canvas = null;
     }
   },
 
   // ---------------------------------------------------------------------------
-  // Virtual level initializer used for zoom animation math (GridLayer-identical)
+  // Initialize a virtual canvas "level" that mirrors GridLayer logic
+  // This ensures zoom animations stay aligned with Leaflet’s tile transforms
   _initCanvasLevel: function () {
     var z = this._map.getZoom();
-    this._canvasLevel = {
-      zoom: z,
-      origin: this._map.project(this._map.unproject(this._map.getPixelOrigin()), z).round(),
-      el: this._canvas
-    };
+    var c = this._map.getCenter();
+
+    // The top-left point of the current map view in pixel coordinates
+    // This is the same origin used by Leaflet’s GridLayer for its zoom math
+    var topLeft = this._map._getTopLeftPoint(c, z).round();
+
+    this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas };
   },
 
   // ---------------------------------------------------------------------------
-  // Pan + non-animated changes (original behavior Gridviz expects)
+  // Handle non-animated moves (pans or programmatic view changes)
   _onLayerDidMove: function () {
+    if (this._zooming) return; // don’t interfere with ongoing zoom animation
     this._updatePosition();
     this.drawLayer();
   },
 
   // ---------------------------------------------------------------------------
-  // Smooth zoom handlers
+  // Zoom animation lifecycle
+
   _onZoomStart: function () {
+    // Check if map is currently panning with inertia
+    const isPanning = this._map._panAnim && this._map._panAnim._inProgress;
+
+    if (isPanning) {
+      // Hide the layer temporarily during momentum zoom
+      this._canvas.style.visibility = 'hidden';
+      this._wasHiddenForPan = true;
+    }
+
+    // Mark as zooming and reset transform baseline
     this._zooming = true;
-    // Snap element to pane origin so GridLayer formula applies cleanly
     L.DomUtil.setPosition(this._canvas, L.point(0, 0));
+
+    // Recompute base origin for correct zoom scaling
+    this._initCanvasLevel();
+  },
+
+  _onZoomEnd: function () {
+    this._zooming = false;
+
+    // Restore visibility if it was hidden during momentum zoom
+    if (this._wasHiddenForPan) {
+      this._canvas.style.visibility = 'visible';
+      this._wasHiddenForPan = false;
+    }
+
+    // Re-align after zoom ends
+    this._updatePosition();
     this._initCanvasLevel();
   },
 
   _onAnimZoom: function (e) {
-    // IDENTICAL to GridLayer's _setZoomTransform
+    // Replicates GridLayer._setZoomTransform
     var level = this._canvasLevel;
     var scale = this._map.getZoomScale(e.zoom, level.zoom);
     var translate = level.origin
@@ -169,16 +192,8 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     }
   },
 
-  _onZoomEnd: function () {
-    this._zooming = false;
-    // Reset transform and restore overlay anchoring for panning
-    L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1);
-    this._updatePosition();
-    this._initCanvasLevel();
-    this.needRedraw();
-  },
-
   // ---------------------------------------------------------------------------
+  // Resize or view reset
   _onLayerDidResize: function (e) {
     this._canvas.width = e.newSize.x;
     this._canvas.height = e.newSize.y;
@@ -189,27 +204,23 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
   },
 
   // ---------------------------------------------------------------------------
+  // Add helper for chaining
   addTo: function (map) {
     map.addLayer(this);
     return this;
   },
 
-  // --------------------------------------------------------------------------------
-  LatLonToMercator: function (latlon) {
-    return {
-      x: (latlon.lng * 6378137 * Math.PI) / 180,
-      y: Math.log(Math.tan(((90 + latlon.lat) * Math.PI) / 360)) * 6378137
-    };
-  },
-
-  //------------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Triggered when drawing is needed
   drawLayer: function () {
-    // delegate to consumer (e.g., Gridviz) for actual drawing
-    if (this.onDrawLayer) this.onDrawLayer();
+    // Skip if zooming (Gridviz redraws on zoomend)
+    if (this._zooming) return;
+    if (this.onDrawLayer) this.onDrawLayer(); // delegate to external renderer
     this._frame = null;
   }
 });
 
+// Factory helper
 L.canvasLayer = function () {
   return new L.CanvasLayer();
 };
