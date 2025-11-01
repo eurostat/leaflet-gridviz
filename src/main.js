@@ -88,17 +88,6 @@ L.GridvizLayer = function (opts) {
     };
 
     /**
-     * @description Converts gridviz geoCenter to leaflet center
-     * proj4(fromProjection, toProjection, [coordinates])
-     * @param {number} x
-     * @param {number} y
-     */
-    this.geoCenterToLeaflet = function (x, y) {
-        let xy = proj4(this.proj, 'WGS84', [x, y])
-        return [xy[1], xy[0]] // leaflet uses [lat,lon]
-    }
-
-    /**
      * @description Converts leaflet center to gridviz projection's geoCenter
      * proj4(fromProjection, toProjection, [coordinates])
      * @param {{lng: number, lat: number}} latLon leaflet latLon object
