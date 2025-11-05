@@ -1,936 +1,934 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-        <title>gridviz-leaflet demo</title>
 
-        <link
-            rel="stylesheet"
-            href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-            integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
-            crossorigin=""
-        />
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>gridviz-leaflet demo</title>
 
-        <style>
-            span,
-            strong {
-                font-size: 16px;
-                cursor: pointer;
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+        integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
+
+    <style>
+        span,
+        strong {
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #map {
+            height: 98vh;
+            width: 100%;
+        }
+
+        #gridviz-tooltip,
+        #gridviz-legend {
+            z-index: 99999999999999;
+        }
+
+        #gridviz-legend {
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            background: white;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"></script>
+    <script src="https://unpkg.com/gridviz@3.0.23/dist/gridviz.min.js"></script>
+    <script src="https://unpkg.com/gridviz-eurostat@2.0.3/dist/gridviz-eurostat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gridviz-smoothing@2.0.2"></script>
+
+    <!-- Use the file your build actually outputs -->
+    <script src="../dist/leaflet-gridviz.js"></script>
+
+
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
+
+
+    <div id="map"></div>
+    <div id="gridviz-legend"></div>
+
+    <script>
+        // define our projection
+        proj4.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs')
+
+        async function main() {
+            // get 3035 basemap capabilities
+            const response = await fetch('https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer?f=pjson')
+            const basemap = await response.json()
+
+            // define EPSG 3035
+
+            // for gisco map-proxy
+            const GISCOCRS = new L.Proj.CRS('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs', {
+                resolutions: [
+                    156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564,
+                    1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063,
+                    9.554628535647032, 4.777314267823516, 2.388657133911758, 1.19432856695,
+                ],
+                bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                origin: [0, 6000000],
+            })
+
+            // for esri map services
+            let resolutions = []
+            for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
+                resolutions.push(basemap.tileInfo.lods[i].resolution)
             }
-            #map {
-                height: 98vh;
-                width: 100%;
-            }
-            #gridviz-tooltip,
-            #gridviz-legend {
-                z-index: 99999999999999;
-            }
-            #gridviz-legend {
-                position: absolute;
-                bottom: 0px;
-                left: 0px;
-                background: white;
-                padding: 10px;
-            }
-        </style>
-    </head>
-    <body>
-        <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
-        <script src="https://unpkg.com/gridviz/dist/gridviz.min.js"></script>
-        <script src="https://unpkg.com/gridviz-eurostat"></script>
-        <script src="../build/leaflet-gridviz.js"></script>
-        <script src="https://d3js.org/d3.v4.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
-        <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
-        <script src="https://cdn.jsdelivr.net/npm/gridviz-smoothing@2.0.2"></script>
-        <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"
-            integrity="sha512-lO8f7sIViqr9x5VE6Q72PS6f4FoZcuh5W9YzeSyfNRJ9z/qL3bkweiwG6keGzWS0BQzNDqAWXdBhYzFD6KffIw=="
-            crossorigin="anonymous"
-            referrerpolicy="no-referrer"
-        ></script>
-        <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"
-            integrity="sha512-GsAYl1wxzWW6azVpXkhyYfjMb2LbaOnlrqWMBdAk9xDcilinFvGMN+48Ajp/10u/9lcnh8YyS2CYNgung7ewHg=="
-            crossorigin="anonymous"
-            referrerpolicy="no-referrer"
-        ></script>
-
-        <div id="map"></div>
-        <div id="gridviz-legend"></div>
-
-        <script>
-            // define our projection
-            proj4.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs')
-
-            async function main() {
-                // get 3035 basemap capabilities
-                const response = await fetch('https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer?f=pjson')
-                const basemap = await response.json()
-
-                // define EPSG 3035
-
-                // for gisco map-proxy
-                const GISCOCRS = new L.Proj.CRS('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs', {
-                    resolutions: [
-                        156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564,
-                        1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063,
-                        9.554628535647032, 4.777314267823516, 2.388657133911758, 1.19432856695,
-                    ],
-                    bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
-                    origin: [0, 6000000],
-                })
-
-                // for esri map services
-                let resolutions = []
-                for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
-                    resolutions.push(basemap.tileInfo.lods[i].resolution)
+            let bounds = L.bounds(L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin), L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax))
+            let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
+            const ESRICRS = new L.Proj.CRS(
+                'EPSG:3035',
+                '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
+                {
+                    //bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                    //origin: [0, 6000000],
+                    origin: origin,
+                    bounds: bounds,
+                    resolutions: resolutions,
+                    tileSize: basemap.tileInfo.rows,
                 }
-                let bounds = L.bounds(L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin), L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax))
-                let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
-                const ESRICRS = new L.Proj.CRS(
-                    'EPSG:3035',
-                    '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
-                    {
-                        //bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
-                        //origin: [0, 6000000],
-                        origin: origin,
-                        bounds: bounds,
-                        resolutions: resolutions,
-                        tileSize: basemap.tileInfo.rows,
-                    }
-                )
-                ESRICRS.distance = L.CRS.Earth.distance
-                ESRICRS.R = 6378137
+            )
+            ESRICRS.distance = L.CRS.Earth.distance
+            ESRICRS.R = 6378137
 
-                // create leaflet map
-                let leafletMap = new L.Map('map', {
-                    crs: GISCOCRS,
-                    center: ['50.00754', '19.98211'],
-                    maxBounds: {
-                        _northEast: {
-                            lat: -38,
-                            lng: 173,
-                        },
-                        _southWest: {
-                            lat: -57,
-                            lng: -152,
-                        },
+            // create leaflet map
+            let leafletMap = new L.Map('map', {
+                crs: GISCOCRS,
+                center: ['50.00754', '19.98211'],
+                maxBounds: {
+                    _northEast: {
+                        lat: -38,
+                        lng: 173,
                     },
-                    maxBoundsViscosity: 1,
-                    maxZoom: 17,
-                    minZoom: 1,
-                    touchZoom: true,
-                    zoom: 5,
-                    zoomAnimation: false,
-                    zoomControl: false,
-                })
+                    _southWest: {
+                        lat: -57,
+                        lng: -152,
+                    },
+                },
+                maxBoundsViscosity: 1,
+                maxZoom: 17,
+                minZoom: 1,
+                touchZoom: true,
+                zoom: 5,
+                zoomAnimation: false,
+                zoomControl: false,
+            })
 
-                // add basemap(s)
-                let osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoV4Background/EPSG3035/{z}/{x}/{y}.png', {
-                    type: 'tiles',
+            // add basemap(s)
+            let osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoV4Background/EPSG3035/{z}/{x}/{y}.png', {
+                type: 'tiles',
+                maxZoom: 19,
+                minZoom: 0,
+                attribution:
+                    "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
+                noWrap: false,
+            }).addTo(leafletMap)
+
+            let continents = L.tileLayer(
+                'https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                {
                     maxZoom: 19,
                     minZoom: 0,
-                    attribution:
-                        "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
-                    noWrap: false,
-                }).addTo(leafletMap)
+                    errorTileUrl: 'assets/image/error-tile.png',
+                    noWrap: true,
+                    opacity: 1,
+                    tileSize: 256,
+                    tms: false,
+                }
+            )
 
-                let continents = L.tileLayer(
-                    'https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
-                    {
-                        maxZoom: 19,
-                        minZoom: 0,
-                        errorTileUrl: 'assets/image/error-tile.png',
-                        noWrap: true,
-                        opacity: 1,
-                        tileSize: 256,
-                        tms: false,
+            const labelLayer = new gridviz.LabelLayer(gridviz_eurostat.getEuronymeLabelLayer('EUR', 50, { ex: 1.8, fontFamily: 'Arial', exSize: 1.8 }))
+
+            // initialise gridviz layers
+            let shapeColorSizeStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                legendContainer: document.getElementById('gridviz-legend'),
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        //the resolutions
+                        [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        //the function returning each dataset from the resolution
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population2/' + resolution + 'm/'
+                            )
+                    )
+
+                    //define color for each cell c\
+                    const DATAFIELD = 'TOT_P_2021'
+                    const style = new gridviz.ShapeColorSizeStyle({
+                        color: (c, r, z, viewScale) => viewScale(+c[DATAFIELD]),
+                        viewScale: gridviz.viewScaleColor({ valueFunction: (c) => +c[DATAFIELD], colorScale: d3.interpolateYlOrRd, stretching: gridviz.logarithmicScale(-7) }),
+                    })
+                    //add legend
+                    const legend = new gridviz.ColorLegend({
+                        //title: 'Change in number of inhabitants',
+                        ticks: 4,
+                        width: 290,
+                        colorScale: d3.interpolateYlOrRd,
+                        textScale: (t, viewScale) => viewScale?.invert(t),
+                        tickFormat: Math.round,
+                    })
+                    style.legends = [legend]
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 }), labelLayer]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let tanakaStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define dataset
+                    const dataset = new gridviz.TiledGrid(
+                        gridvizMap,
+                        'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/elevation/5000m/'
+                    )
+
+                    //define style
+                    const styles = gridviz.TanakaStyle.get(
+                        (cell) => cell.elevation,
+                        [100, 200, 500, 1000, 2000],
+                        ['#ffffd4', '#fee391', '#fec44f', '#fe9929', '#d95f0e', '#993404']
+                    )
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, styles)]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let joyplotStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    //define dataset
+                    const dataset = new gridviz.CSVGrid(
+                        gridvizMap,
+                        'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
+                        10000
+                    )
+
+                    //define style
+                    const style = new gridviz.JoyPlotStyle({
+                        height: (c) => Math.sqrt(c.population) * 50,
+                        lineColor: () => 'white',
+                        lineWidth: (y, ys, r, z) => (z < 2000 ? 2 * z : 1 * z),
+                        fillColor: () => 'black',
+                    })
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let legoStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/clc/' + resolution + 'm/'
+                            )
+                    )
+
+                    //define colors for categories
+                    const clcColors = {
+                        1: '#e6004d',
+                        2: '#ff0000',
+                        3: '#cc4df2',
+                        4: '#cc0000',
+                        5: '#e6cccc',
+                        6: '#e6cce6',
+                        7: '#a600cc',
+                        8: '#a64d00',
+                        9: '#ff4dff',
+                        10: '#ffa6ff',
+                        11: '#ffe6ff',
+                        12: '#ffffa8',
+                        13: '#ffff00',
+                        14: '#e6e600',
+                        15: '#e68000',
+                        16: '#f2a64d',
+                        17: '#e6a600',
+                        18: '#e6e64d',
+                        19: '#ffe6a6',
+                        20: '#ffe64d',
+                        21: '#e6cc4d',
+                        22: '#f2cca6',
+                        23: '#80ff00',
+                        24: '#00a600',
+                        25: '#4dff00',
+                        26: '#ccf24d',
+                        27: '#a6ff80',
+                        28: '#a6e64d',
+                        29: '#a6f200',
+                        30: '#e6e6e6',
+                        31: '#cccccc',
+                        32: '#ccffcc',
+                        33: '#000000',
+                        34: '#a6e6cc',
+                        35: '#a6a6ff',
+                        36: '#4d4dff',
+                        37: '#ccccff',
+                        38: '#e6e6ff',
+                        39: '#a6a6e6',
+                        40: '#00ccf2',
+                        41: '#80f2e6',
+                        42: '#00ffa6',
+                        43: '#a6ffe6',
+                        44: '#e6f2ff',
+                        48: 'gray',
                     }
-                )
 
-                const labelLayer = new gridviz.LabelLayer(gridviz_eurostat.getEuronymeLabelLayer('EUR', 50, { ex: 1.8, fontFamily: 'Arial', exSize: 1.8 }))
+                    //define labels for categories
+                    const clcLabels = {
+                        1: 'Continuous urban fabric',
+                        2: 'Discontinuous urban fabric',
+                        3: 'Industrial or commercial units',
+                        4: 'Road and rail networks and associated land',
+                        5: 'Port areas',
+                        6: 'Airports',
+                        7: 'Mineral extraction sites',
+                        8: 'Dump sites',
+                        9: 'Construction sites',
+                        10: 'Green urban areas',
+                        11: 'Sport and leisure facilities',
+                        12: 'Non-irrigated arable land',
+                        13: 'Permanently irrigated land',
+                        14: 'Rice fields',
+                        15: 'Vineyards',
+                        16: 'Fruit trees and berry plantations',
+                        17: 'Olive groves',
+                        18: 'Pastures',
+                        19: 'Annual crops associated with permanent crops',
+                        20: 'Complex cultivation patterns',
+                        21: 'Land principally occupied by agriculture with significant areas of natural vegetation',
+                        22: 'Agro-forestry areas',
+                        23: 'Broad-leaved forest',
+                        24: 'Coniferous forest',
+                        25: 'Mixed forest',
+                        26: 'Natural grasslands',
+                        27: 'Moors and heathland',
+                        28: 'Sclerophyllous vegetation',
+                        29: 'Transitional woodland-shrub',
+                        30: 'sands',
+                        31: 'Bare rocks',
+                        32: 'Sparsely vegetated areas',
+                        33: 'Burnt areas',
+                        34: 'Glaciers and perpetual snow',
+                        35: 'Inland marshes',
+                        36: 'Peat bogs',
+                        37: 'Salt marshes',
+                        38: 'Salines',
+                        39: 'Intertidal flats',
+                        40: 'Water courses',
+                        41: 'Water bodies',
+                        42: 'Coastal lagoons',
+                        43: 'Estuaries',
+                        44: 'Sea and ocean',
+                        48: 'No data',
+                    }
 
-                // initialise gridviz layers
-                let shapeColorSizeStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    legendContainer: document.getElementById('gridviz-legend'),
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            //the resolutions
-                            [1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            //the function returning each dataset from the resolution
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population2/' + resolution + 'm/'
-                                )
-                        )
+                    //define lego style
+                    const legoStyle = gridviz.LegoStyle.getCategory((cell) => cell.clc, clcColors)
 
-                        //define color for each cell c\
-                        const DATAFIELD = 'TOT_P_2021'
-                        const style = new gridviz.ShapeColorSizeStyle({
-                            color: (c, r, z, viewScale) => viewScale(+c[DATAFIELD]),
-                            viewScale: gridviz.viewScaleColor({ valueFunction: (c) => +c[DATAFIELD], colorScale: d3.interpolateYlOrRd, stretching: gridviz.logarithmicScale(-7) }),
-                        })
-                        //add legend
-                        const legend = new gridviz.ColorLegend({
-                            //title: 'Change in number of inhabitants',
-                            ticks: 4,
-                            width: 290,
-                            colorScale: d3.interpolateYlOrRd,
-                            textScale: (t, viewScale) => viewScale?.invert(t),
-                            tickFormat: Math.round,
-                        })
-                        style.legends = [legend]
+                    //add layer to map
+                    gridvizMap.layers = [
+                        new gridviz.GridLayer(dataset, legoStyle, {
+                            minPixelsPerCell: 7,
+                            cellInfoHTML: (cell) => clcLabels[cell.clc],
+                        }),
+                    ]
 
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 }), labelLayer]
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
 
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
+            let pillarStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define dataset
+                    const dataset = new gridviz.CSVGrid(
+                        gridvizMap,
+                        'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
+                        10000
+                    )
 
-                let tanakaStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define dataset
-                        const dataset = new gridviz.TiledGrid(
-                            gridvizMap,
-                            'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/elevation/5000m/'
-                        )
+                    //define style
+                    const style = new gridviz.PillarStyle({
+                        height: (cell, resolution, z) => 0.3 * cell.population,
+                        simple: (resolution, z) => z > 1000,
+                    })
 
-                        //define style
-                        const styles = gridviz.TanakaStyle.get(
-                            (cell) => cell.elevation,
-                            [100, 200, 500, 1000, 2000],
-                            ['#ffffd4', '#fee391', '#fec44f', '#fe9929', '#d95f0e', '#993404']
-                        )
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
 
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, styles)]
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
 
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
+            let imageStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define dataset
+                    const dataset = new gridviz.CSVGrid(
+                        gridvizMap,
+                        'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
+                        10000
+                    )
 
-                let joyplotStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        //define dataset
-                        const dataset = new gridviz.CSVGrid(
-                            gridvizMap,
-                            'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
-                            10000
-                        )
+                    //define image style
+                    const style = new gridviz.ImageStyle({
+                        // image URL from cell
+                        image: (cell) => {
+                            if (cell.population > 70000) return 'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/images/kitten_dark.png'
+                            else if (cell.population > 7000)
+                                return 'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/images/kitten_gray.png'
+                            else if (cell.population > 1500)
+                                return 'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/images/kitten_white.png'
+                        },
 
-                        //define style
-                        const style = new gridviz.JoyPlotStyle({
-                            height: (c) => Math.sqrt(c.population) * 50,
-                            lineColor: () => 'white',
-                            lineWidth: (y, ys, r, z) => (z < 2000 ? 2 * z : 1 * z),
-                            fillColor: () => 'black',
-                        })
+                        // cell size
+                        size: (c, r, z, viewScale) => r * 0.9,
+                    })
 
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
 
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
 
-                let legoStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/clc/' + resolution + 'm/'
-                                )
-                        )
+            let textStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/elevation/' + resolution + 'm/'
+                            )
+                    )
 
-                        //define colors for categories
-                        const clcColors = {
-                            1: '#e6004d',
-                            2: '#ff0000',
-                            3: '#cc4df2',
-                            4: '#cc0000',
-                            5: '#e6cccc',
-                            6: '#e6cce6',
-                            7: '#a600cc',
-                            8: '#a64d00',
-                            9: '#ff4dff',
-                            10: '#ffa6ff',
-                            11: '#ffe6ff',
-                            12: '#ffffa8',
-                            13: '#ffff00',
-                            14: '#e6e600',
-                            15: '#e68000',
-                            16: '#f2a64d',
-                            17: '#e6a600',
-                            18: '#e6e64d',
-                            19: '#ffe6a6',
-                            20: '#ffe64d',
-                            21: '#e6cc4d',
-                            22: '#f2cca6',
-                            23: '#80ff00',
-                            24: '#00a600',
-                            25: '#4dff00',
-                            26: '#ccf24d',
-                            27: '#a6ff80',
-                            28: '#a6e64d',
-                            29: '#a6f200',
-                            30: '#e6e6e6',
-                            31: '#cccccc',
-                            32: '#ccffcc',
-                            33: '#000000',
-                            34: '#a6e6cc',
-                            35: '#a6a6ff',
-                            36: '#4d4dff',
-                            37: '#ccccff',
-                            38: '#e6e6ff',
-                            39: '#a6a6e6',
-                            40: '#00ccf2',
-                            41: '#80f2e6',
-                            42: '#00ffa6',
-                            43: '#a6ffe6',
-                            44: '#e6f2ff',
-                            48: 'gray',
+                    //define style
+                    const style = new gridviz.TextStyle({
+                        text: (cell) => cell.elevation,
+                        viewScale: (cells) => d3.extent(cells, (cell) => +cell.elevation),
+                        color: (cell, resolution, z, [min, max]) => d3.interpolateSpectral(1 - (cell.elevation - min) / (max - min)),
+                        fontSize: (cell, r) => 0.4 * r,
+                    })
+
+                    //define grid layer
+                    const gridLayer = new gridviz.GridLayer(dataset, [style], {
+                        minPixelsPerCell: 20,
+                        cellInfoHTML: (cell) => cell.elevation + ' m',
+                    })
+
+                    //add layer to map
+                    gridvizMap.layers = [gridLayer]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let trivariateStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiled-grid-germany-zensus2011/main/out/ALTER_KURZcsv/' + resolution + 'm/'
+                            ),
+                        {
+                            preprocess: (c) => {
+                                /*population by age (5 age groups)  ALTER_KURZ   1 Under 18     2 18 - 29    3 30 - 49    4 50 - 64   5 65 and over */
+                                //total
+                                c.TOT = 0
+                                for (let i = 1; i <= 5; i++) c.TOT += +c[i]
+                                //define 3 age groups:
+                                //<18
+                                c.yo = +c['1']
+                                //between
+                                c.mi = +c['2'] + +c['3'] + +c['4']
+                                //>65
+                                c.ol = +c['5']
+                            },
                         }
+                    )
 
-                        //define labels for categories
-                        const clcLabels = {
-                            1: 'Continuous urban fabric',
-                            2: 'Discontinuous urban fabric',
-                            3: 'Industrial or commercial units',
-                            4: 'Road and rail networks and associated land',
-                            5: 'Port areas',
-                            6: 'Airports',
-                            7: 'Mineral extraction sites',
-                            8: 'Dump sites',
-                            9: 'Construction sites',
-                            10: 'Green urban areas',
-                            11: 'Sport and leisure facilities',
-                            12: 'Non-irrigated arable land',
-                            13: 'Permanently irrigated land',
-                            14: 'Rice fields',
-                            15: 'Vineyards',
-                            16: 'Fruit trees and berry plantations',
-                            17: 'Olive groves',
-                            18: 'Pastures',
-                            19: 'Annual crops associated with permanent crops',
-                            20: 'Complex cultivation patterns',
-                            21: 'Land principally occupied by agriculture with significant areas of natural vegetation',
-                            22: 'Agro-forestry areas',
-                            23: 'Broad-leaved forest',
-                            24: 'Coniferous forest',
-                            25: 'Mixed forest',
-                            26: 'Natural grasslands',
-                            27: 'Moors and heathland',
-                            28: 'Sclerophyllous vegetation',
-                            29: 'Transitional woodland-shrub',
-                            30: 'sands',
-                            31: 'Bare rocks',
-                            32: 'Sparsely vegetated areas',
-                            33: 'Burnt areas',
-                            34: 'Glaciers and perpetual snow',
-                            35: 'Inland marshes',
-                            36: 'Peat bogs',
-                            37: 'Salt marshes',
-                            38: 'Salines',
-                            39: 'Intertidal flats',
-                            40: 'Water courses',
-                            41: 'Water bodies',
-                            42: 'Coastal lagoons',
-                            43: 'Estuaries',
-                            44: 'Sea and ocean',
-                            48: 'No data',
+                    //define ternary classifier
+                    const trivariateClassifier = gridviz.ternaryColorClassifier(
+                        //the three groups
+                        ['yo', 'mi', 'ol'],
+                        //the function returning the total of the three
+                        (c) => c.TOT,
+                        //the colors
+                        ['#4daf4a', '#377eb8', '#e41a1c'],
+                        {
+                            //the center point of the ternary classification
+                            center: [0.17, 0.63, 0.2],
+                            //the size of the central class
+                            centerCoefficient: 0.15,
                         }
+                    )
 
-                        //define lego style
-                        const legoStyle = gridviz.LegoStyle.getCategory((cell) => cell.clc, clcColors)
+                    //define style
+                    const classNumberSize = 4
+                    const style = new gridviz.ShapeColorSizeStyle({
+                        color: (c) => trivariateClassifier(c) || 'black',
+                        viewScale: gridviz.viewScaleQuantile({
+                            valueFunction: (c) => +c.TOT,
+                            classNumber: classNumberSize,
+                            minSizePix: 3,
+                            maxSizeFactor: 1.1,
+                        }),
+                        size: (c, r, z, viewScale) => viewScale(c.TOT),
+                        shape: () => 'circle',
+                    })
 
-                        //add layer to map
-                        gridvizMap.layers = [
-                            new gridviz.GridLayer(dataset, legoStyle, {
-                                minPixelsPerCell: 7,
-                                cellInfoHTML: (cell) => clcLabels[cell.clc],
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 })]
+
+                    //legend
+                    style.legends = [
+                        new gridviz.TernaryLegend({
+                            title: 'Age',
+                            classifier: trivariateClassifier,
+                            width: 90,
+                            tooltip: map.tooltip,
+                            texts: {
+                                0: 'Over representation of persons aged <18',
+                                1: 'Over representation of persons aged 18 to 64',
+                                2: 'Over representation of persons aged >=65',
+                                12: 'Under representation of persons aged <18',
+                                '02': 'Under representation of<br>persons aged 18 to 64',
+                                '01': 'Under representation of persons aged >=65',
+                                center: 'Balanced representation of age groups',
+                            },
+                            leftText: '<18',
+                            topText: '18 to 64',
+                            rightText: '>65',
+                            centerCoefficient: 0.5,
+                        }),
+                    ]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let mosaicStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define dataset
+                    const dataset = new gridviz.CSVGrid(
+                        gridvizMap,
+                        'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
+                        10000
+                    )
+
+                    //define color for each cell c
+                    const colorFunction = (cell) => {
+                        if (cell.population > 150000) return '#993404'
+                        else if (cell.population > 60000) return '#d95f0e'
+                        else if (cell.population > 20000) return '#fe9929'
+                        else if (cell.population > 6000) return '#fec44f'
+                        else if (cell.population > 1500) return '#fee391'
+                        else return '#ffffd4'
+                    }
+
+                    //define style
+                    const style = new gridviz.MosaicStyle({ color: colorFunction })
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let dotDensityStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define dataset
+                    const dataset = new gridviz.CSVGrid(
+                        gridvizMap,
+                        'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
+                        10000
+                    )
+
+                    //define style
+                    const style = new gridviz.DotDensityStyle({
+                        dotNumber: (c, r, z) => c.population / z / 5,
+                        dotSize: (r, z) => 1.2 * z,
+                        color: () => '#FF5733',
+                    })
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let compositionStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [200, 400, 600, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiled-grid-france-filosofi/main/out/csv/met/men/2019/' + resolution + 'm/'
+                            ),
+                        {
+                            preprocess: (c) => {
+                                c.men_2_4ind = +c.men - +c.men_1ind - +c.men_5ind
+                            },
+                        }
+                    )
+
+                    //define style
+                    const style = new gridviz.CompositionStyle({
+                        color: {
+                            men_1ind: '#7570b3', //blue
+                            men_2_4ind: '#1b9e77', //green
+                            men_5ind: '#d95f02', //orange
+                        },
+                        type: () => 'ring',
+                        stripesOrientation: () => 0,
+                        size: (c, r, z, scale) => scale(+c.men),
+                        viewScale: gridviz.viewScaleQuantile({ valueFunction: (c) => +c.men, classNumber: 5, minSizePix: 8 }),
+                        offsetAngle: () => 90,
+                    })
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 18 })]
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let isometricFenceStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [200, 400, 600, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiled-grid-france-filosofi/main/out/csv/met/ind/2019/' + resolution + 'm/'
+                            ),
+                        {
+                            preprocess: (c) => {
+                                //aggregate to 3 age groups only
+                                c.ind_0_24 = +c.ind_0_3 + +c.ind_4_5 + +c.ind_6_10 + +c.ind_11_17 + +c.ind_18_24
+                                c.ind_25_64 = +c.ind_25_39 + +c.ind_40_54 + +c.ind_55_64
+                                c.ind_65p = +c.ind_65_79 + +c.ind_80p
+                            },
+                        }
+                    )
+
+                    //define style
+                    const style = new gridviz.IsoFenceStyle({
+                        color: {
+                            ind_0_24: 'rgb(240, 112, 74)',
+                            ind_25_64: 'rgb(254, 221, 141)',
+                            ind_65p: 'rgb(66, 136, 181)',
+                        },
+                        angle: 50,
+                        viewScale: gridviz.viewScale({ valueFunction: (c) => +c.ind, stretching: gridviz.logarithmicScale(-7) }),
+                        height: (c, r, z, viewScale) => 1.5 * viewScale(c.ind),
+                    })
+
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 25 })]
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let smoothingStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population2/' + resolution + 'm/'
+                            )
+                    )
+
+                    //define style
+                    const sig = 10
+                    const smoothingStyle = new gridviz_smoothing.KernelSmoothingStyle({
+                        value: (cell) => +cell.TOT_P_2021,
+                        filterSmoothed: (value) => value > 0.001,
+                        sigma: (resolution, z) => (resolution * sig) / 10,
+                    })
+                    let webgl = true
+
+                    if (webgl) {
+                        smoothingStyle.factor = 3
+                        const scale = gridviz.exponentialScale(-20)
+                        smoothingStyle.styles = [
+                            new gridviz.SquareColorWebGLStyle({
+                                color: (t) => d3.interpolateYlOrRd(t), //d3.interpolateCividis, interpolateSpectral
+                                viewScale: (cells) => d3.max(cells, (cell) => +cell.ksmval),
+                                tFun: (cell, resolution, z, max) => {
+                                    const t = scale(cell.ksmval / max)
+                                    return t
+                                },
                             }),
                         ]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let pillarStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define dataset
-                        const dataset = new gridviz.CSVGrid(
-                            gridvizMap,
-                            'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
-                            10000
-                        )
-
-                        //define style
-                        const style = new gridviz.PillarStyle({
-                            height: (cell, resolution, z) => 0.3 * cell.population,
-                            simple: (resolution, z) => z > 1000,
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let imageStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define dataset
-                        const dataset = new gridviz.CSVGrid(
-                            gridvizMap,
-                            'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
-                            10000
-                        )
-
-                        //define image style
-                        const style = new gridviz.ImageStyle({
-                            // image URL from cell
-                            image: (cell) => {
-                                if (cell.population > 70000) return 'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/images/kitten_dark.png'
-                                else if (cell.population > 7000)
-                                    return 'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/images/kitten_gray.png'
-                                else if (cell.population > 1500)
-                                    return 'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/images/kitten_white.png'
-                            },
-
-                            // cell size
-                            size: (c, r, z, viewScale) => r * 0.9,
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let textStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/elevation/' + resolution + 'm/'
-                                )
-                        )
-
-                        //define style
-                        const style = new gridviz.TextStyle({
-                            text: (cell) => cell.elevation,
-                            viewScale: (cells) => d3.extent(cells, (cell) => +cell.elevation),
-                            color: (cell, resolution, z, [min, max]) => d3.interpolateSpectral(1 - (cell.elevation - min) / (max - min)),
-                            fontSize: (cell, r) => 0.4 * r,
-                        })
-
-                        //define grid layer
-                        const gridLayer = new gridviz.GridLayer(dataset, [style], {
-                            minPixelsPerCell: 20,
-                            cellInfoHTML: (cell) => cell.elevation + ' m',
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [gridLayer]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let trivariateStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiled-grid-germany-zensus2011/main/out/ALTER_KURZcsv/' + resolution + 'm/'
-                                ),
-                            {
-                                preprocess: (c) => {
-                                    /*population by age (5 age groups)  ALTER_KURZ   1 Under 18     2 18 - 29    3 30 - 49    4 50 - 64   5 65 and over */
-                                    //total
-                                    c.TOT = 0
-                                    for (let i = 1; i <= 5; i++) c.TOT += +c[i]
-                                    //define 3 age groups:
-                                    //<18
-                                    c.yo = +c['1']
-                                    //between
-                                    c.mi = +c['2'] + +c['3'] + +c['4']
-                                    //>65
-                                    c.ol = +c['5']
-                                },
-                            }
-                        )
-
-                        //define ternary classifier
-                        const trivariateClassifier = gridviz.ternaryColorClassifier(
-                            //the three groups
-                            ['yo', 'mi', 'ol'],
-                            //the function returning the total of the three
-                            (c) => c.TOT,
-                            //the colors
-                            ['#4daf4a', '#377eb8', '#e41a1c'],
-                            {
-                                //the center point of the ternary classification
-                                center: [0.17, 0.63, 0.2],
-                                //the size of the central class
-                                centerCoefficient: 0.15,
-                            }
-                        )
-
-                        //define style
-                        const classNumberSize = 4
-                        const style = new gridviz.ShapeColorSizeStyle({
-                            color: (c) => trivariateClassifier(c) || 'black',
-                            viewScale: gridviz.viewScaleQuantile({
-                                valueFunction: (c) => +c.TOT,
-                                classNumber: classNumberSize,
-                                minSizePix: 3,
-                                maxSizeFactor: 1.1,
-                            }),
-                            size: (c, r, z, viewScale) => viewScale(c.TOT),
-                            shape: () => 'circle',
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 4 })]
-
-                        //legend
-                        style.legends = [
-                            new gridviz.TernaryLegend({
-                                title: 'Age',
-                                classifier: trivariateClassifier,
-                                width: 90,
-                                tooltip: map.tooltip,
-                                texts: {
-                                    0: 'Over representation of persons aged <18',
-                                    1: 'Over representation of persons aged 18 to 64',
-                                    2: 'Over representation of persons aged >=65',
-                                    12: 'Under representation of persons aged <18',
-                                    '02': 'Under representation of<br>persons aged 18 to 64',
-                                    '01': 'Under representation of persons aged >=65',
-                                    center: 'Balanced representation of age groups',
-                                },
-                                leftText: '<18',
-                                topText: '18 to 64',
-                                rightText: '>65',
-                                centerCoefficient: 0.5,
-                            }),
-                        ]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let mosaicStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define dataset
-                        const dataset = new gridviz.CSVGrid(
-                            gridvizMap,
-                            'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
-                            10000
-                        )
-
-                        //define color for each cell c
-                        const colorFunction = (cell) => {
-                            if (cell.population > 150000) return '#993404'
-                            else if (cell.population > 60000) return '#d95f0e'
-                            else if (cell.population > 20000) return '#fe9929'
-                            else if (cell.population > 6000) return '#fec44f'
-                            else if (cell.population > 1500) return '#fee391'
-                            else return '#ffffd4'
-                        }
-
-                        //define style
-                        const style = new gridviz.MosaicStyle({ color: colorFunction })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let dotDensityStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define dataset
-                        const dataset = new gridviz.CSVGrid(
-                            gridvizMap,
-                            'https://raw.githubusercontent.com/eurostat/gridviz/master/assets/csv/Europe/pop_2018_10km.csv',
-                            10000
-                        )
-
-                        //define style
-                        const style = new gridviz.DotDensityStyle({
-                            dotNumber: (c, r, z) => c.population / z / 5,
-                            dotSize: (r, z) => 1.2 * z,
-                            color: () => '#FF5733',
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style])]
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let compositionStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [200, 400, 600, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiled-grid-france-filosofi/main/out/csv/met/men/2019/' + resolution + 'm/'
-                                ),
-                            {
-                                preprocess: (c) => {
-                                    c.men_2_4ind = +c.men - +c.men_1ind - +c.men_5ind
-                                },
-                            }
-                        )
-
-                        //define style
-                        const style = new gridviz.CompositionStyle({
-                            color: {
-                                men_1ind: '#7570b3', //blue
-                                men_2_4ind: '#1b9e77', //green
-                                men_5ind: '#d95f02', //orange
-                            },
-                            type: () => 'ring',
-                            stripesOrientation: () => 0,
-                            size: (c, r, z, scale) => scale(+c.men),
-                            viewScale: gridviz.viewScaleQuantile({ valueFunction: (c) => +c.men, classNumber: 5, minSizePix: 8 }),
-                            offsetAngle: () => 90,
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 18 })]
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let isometricFenceStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [200, 400, 600, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiled-grid-france-filosofi/main/out/csv/met/ind/2019/' + resolution + 'm/'
-                                ),
-                            {
-                                preprocess: (c) => {
-                                    //aggregate to 3 age groups only
-                                    c.ind_0_24 = +c.ind_0_3 + +c.ind_4_5 + +c.ind_6_10 + +c.ind_11_17 + +c.ind_18_24
-                                    c.ind_25_64 = +c.ind_25_39 + +c.ind_40_54 + +c.ind_55_64
-                                    c.ind_65p = +c.ind_65_79 + +c.ind_80p
-                                },
-                            }
-                        )
-
-                        //define style
-                        const style = new gridviz.IsoFenceStyle({
-                            color: {
-                                ind_0_24: 'rgb(240, 112, 74)',
-                                ind_25_64: 'rgb(254, 221, 141)',
-                                ind_65p: 'rgb(66, 136, 181)',
-                            },
-                            angle: 50,
-                            viewScale: gridviz.viewScale({ valueFunction: (c) => +c.ind, stretching: gridviz.logarithmicScale(-7) }),
-                            height: (c, r, z, viewScale) => 1.5 * viewScale(c.ind),
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 25 })]
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let smoothingStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population2/' + resolution + 'm/'
-                                )
-                        )
-
-                        //define style
-                        const sig = 10
-                        const smoothingStyle = new gridviz_smoothing.KernelSmoothingStyle({
-                            value: (cell) => +cell.TOT_P_2021,
-                            filterSmoothed: (value) => value > 0.001,
-                            sigma: (resolution, z) => (resolution * sig) / 10,
-                        })
-                        let webgl = true
-
-                        if (webgl) {
-                            smoothingStyle.factor = 3
-                            const scale = gridviz.exponentialScale(-20)
-                            smoothingStyle.styles = [
-                                new gridviz.SquareColorWebGLStyle({
-                                    color: (t) => d3.interpolateYlOrRd(t), //d3.interpolateCividis, interpolateSpectral
-                                    viewScale: (cells) => d3.max(cells, (cell) => +cell.ksmval),
-                                    tFun: (cell, resolution, z, max) => {
-                                        const t = scale(cell.ksmval / max)
-                                        return t
-                                    },
-                                }),
-                            ]
-                        } else {
-                            smoothingStyle.factor = 2
-                            smoothingStyle.styles = [
-                                new gridviz.ShapeColorSizeStyle({
-                                    color: (c, r, z, viewScale) => viewScale(c.ksmval),
-                                    viewScale: gridviz.viewScaleColor({
-                                        valueFunction: (c) => +c.ksmval,
-                                        colors: d3.schemeYlOrRd[7],
-                                        stretching: gridviz.logarithmicScale(-7),
-                                    }),
-                                }),
-                            ]
-                        }
-
-                        //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [smoothingStyle], { minPixelsPerCell: 3 })]
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                let SquareColorCategoryWebGLStyleLayer = new L.GridvizLayer({
-                    proj: 'EPSG:3035',
-                    onLayerDidMountCallback: (gridvizMap) => {
-                        //define multi resolution dataset
-                        const dataset = new gridviz.MultiResolutionDataset(
-                            [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
-                            (resolution) =>
-                                new gridviz.TiledGrid(
-                                    gridvizMap,
-                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/clc/' + resolution + 'm/'
-                                )
-                        )
-
-                        //define colors for categories
-                        const clcColors = {
-                            1: '#e6004d',
-                            2: '#ff0000',
-                            3: '#cc4df2',
-                            4: '#cc0000',
-                            5: '#e6cccc',
-                            6: '#e6cce6',
-                            7: '#a600cc',
-                            8: '#a64d00',
-                            9: '#ff4dff',
-                            10: '#ffa6ff',
-                            11: '#ffe6ff',
-                            12: '#ffffa8',
-                            13: '#ffff00',
-                            14: '#e6e600',
-                            15: '#e68000',
-                            16: '#f2a64d',
-                            17: '#e6a600',
-                            18: '#e6e64d',
-                            19: '#ffe6a6',
-                            20: '#ffe64d',
-                            21: '#e6cc4d',
-                            22: '#f2cca6',
-                            23: '#80ff00',
-                            24: '#00a600',
-                            25: '#4dff00',
-                            26: '#ccf24d',
-                            27: '#a6ff80',
-                            28: '#a6e64d',
-                            29: '#a6f200',
-                            30: '#e6e6e6',
-                            31: '#cccccc',
-                            32: '#ccffcc',
-                            33: '#000000',
-                            34: '#a6e6cc',
-                            35: '#a6a6ff',
-                            36: '#4d4dff',
-                            37: '#ccccff',
-                            38: '#e6e6ff',
-                            39: '#a6a6e6',
-                            40: '#00ccf2',
-                            41: '#80f2e6',
-                            42: '#00ffa6',
-                            43: '#a6ffe6',
-                            44: '#e6f2ff',
-                            48: 'gray',
-                        }
-
-                        //define labels for categories
-                        const clcLabels = {
-                            1: 'Continuous urban fabric',
-                            2: 'Discontinuous urban fabric',
-                            3: 'Industrial or commercial units',
-                            4: 'Road and rail networks and associated land',
-                            5: 'Port areas',
-                            6: 'Airports',
-                            7: 'Mineral extraction sites',
-                            8: 'Dump sites',
-                            9: 'Construction sites',
-                            10: 'Green urban areas',
-                            11: 'Sport and leisure facilities',
-                            12: 'Non-irrigated arable land',
-                            13: 'Permanently irrigated land',
-                            14: 'Rice fields',
-                            15: 'Vineyards',
-                            16: 'Fruit trees and berry plantations',
-                            17: 'Olive groves',
-                            18: 'Pastures',
-                            19: 'Annual crops associated with permanent crops',
-                            20: 'Complex cultivation patterns',
-                            21: 'Land principally occupied by agriculture with significant areas of natural vegetation',
-                            22: 'Agro-forestry areas',
-                            23: 'Broad-leaved forest',
-                            24: 'Coniferous forest',
-                            25: 'Mixed forest',
-                            26: 'Natural grasslands',
-                            27: 'Moors and heathland',
-                            28: 'Sclerophyllous vegetation',
-                            29: 'Transitional woodland-shrub',
-                            30: 'sands',
-                            31: 'Bare rocks',
-                            32: 'Sparsely vegetated areas',
-                            33: 'Burnt areas',
-                            34: 'Glaciers and perpetual snow',
-                            35: 'Inland marshes',
-                            36: 'Peat bogs',
-                            37: 'Salt marshes',
-                            38: 'Salines',
-                            39: 'Intertidal flats',
-                            40: 'Water courses',
-                            41: 'Water bodies',
-                            42: 'Coastal lagoons',
-                            43: 'Estuaries',
-                            44: 'Sea and ocean',
-                            48: 'No data',
-                        }
-
-                        //define style
-                        const style = new gridviz.SquareColorCategoryWebGLStyle({
-                            code: (cell) => cell.clc,
-                            color: clcColors,
-                        })
-
-                        //add layer to map
-                        gridvizMap.layers = [
-                            new gridviz.GridLayer(dataset, [style], {
-                                minPixelsPerCell: 4,
-                                cellInfoHTML: (cell) => clcLabels[cell.clc],
-                            }),
-                        ]
-
-                        //custom opacity
-                        gridvizMap._canvas.style.opacity = 0.7
-                    },
-                })
-
-                // add first gridviz layer to the map
-                shapeColorSizeStyleLayer.addTo(leafletMap)
-
-                // add layer toggle
-                let baseMaps = {
-                    OpenStreetMap: osm,
-                    Continents: continents,
-                }
-
-                let gridvizLayers = {
-                    'Shape / Color / Size': shapeColorSizeStyleLayer,
-                    'Joyplot style': joyplotStyleLayer,
-                    'Lego style': legoStyleLayer,
-                    'Pillar style': pillarStyleLayer,
-                    'Image style': imageStyleLayer,
-                    'Text style': textStyleLayer,
-                    'Trivariate style': trivariateStyleLayer,
-                    'Mosaic style': mosaicStyleLayer,
-                    'Dot density style': dotDensityStyleLayer,
-                    'Composition style': compositionStyleLayer,
-                    'Isometric fence style': isometricFenceStyleLayer,
-                    'Kernel smoothing style': smoothingStyleLayer,
-                    'Square Color Category WebGL': SquareColorCategoryWebGLStyleLayer,
-                    'Tanaka style': tanakaStyleLayer,
-                }
-                let layerControl = L.control.layers(baseMaps, gridvizLayers).addTo(leafletMap)
-                // Adding titles to basemap sections
-                const basemapTitle = L.DomUtil.create('div', 'basemap-title')
-                basemapTitle.innerHTML = '<strong>Basemaps</strong>'
-                layerControl._baseLayersList.prepend(basemapTitle)
-
-                const overlayTitle = L.DomUtil.create('div', 'overlay-title')
-                overlayTitle.innerHTML = '<strong>Gridviz styles</strong>'
-                layerControl._overlaysList.prepend(overlayTitle)
-
-                // change basemap might require a change in CRS definition
-                leafletMap.on('baselayerchange', function (e) {
-                    if (e.name == 'Continents') {
-                        leafletMap.options.crs = ESRICRS
                     } else {
-                        leafletMap.options.crs = GISCOCRS
-                    }
-                    let center, zoom
-                    try {
-                        center = leafletMap.getCenter()
-                        zoom = leafletMap.getZoom()
-                    } catch {
-                        center = L.latLng(50.5, 19)
-                        zoom = 5
+                        smoothingStyle.factor = 2
+                        smoothingStyle.styles = [
+                            new gridviz.ShapeColorSizeStyle({
+                                color: (c, r, z, viewScale) => viewScale(c.ksmval),
+                                viewScale: gridviz.viewScaleColor({
+                                    valueFunction: (c) => +c.ksmval,
+                                    colors: d3.schemeYlOrRd[7],
+                                    stretching: gridviz.logarithmicScale(-7),
+                                }),
+                            }),
+                        ]
                     }
 
-                    //leafletMap.setView(center, zoom)
-                    leafletMap._resetView(center, zoom)
-                })
+                    //add layer to map
+                    gridvizMap.layers = [new gridviz.GridLayer(dataset, [smoothingStyle], { minPixelsPerCell: 3 })]
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            let SquareColorCategoryWebGLStyleLayer = new L.GridvizLayer({
+                proj: 'EPSG:3035',
+                onLayerDidMountCallback: (gridvizMap) => {
+                    //define multi resolution dataset
+                    const dataset = new gridviz.MultiResolutionDataset(
+                        [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                        (resolution) =>
+                            new gridviz.TiledGrid(
+                                gridvizMap,
+                                'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/clc/' + resolution + 'm/'
+                            )
+                    )
+
+                    //define colors for categories
+                    const clcColors = {
+                        1: '#e6004d',
+                        2: '#ff0000',
+                        3: '#cc4df2',
+                        4: '#cc0000',
+                        5: '#e6cccc',
+                        6: '#e6cce6',
+                        7: '#a600cc',
+                        8: '#a64d00',
+                        9: '#ff4dff',
+                        10: '#ffa6ff',
+                        11: '#ffe6ff',
+                        12: '#ffffa8',
+                        13: '#ffff00',
+                        14: '#e6e600',
+                        15: '#e68000',
+                        16: '#f2a64d',
+                        17: '#e6a600',
+                        18: '#e6e64d',
+                        19: '#ffe6a6',
+                        20: '#ffe64d',
+                        21: '#e6cc4d',
+                        22: '#f2cca6',
+                        23: '#80ff00',
+                        24: '#00a600',
+                        25: '#4dff00',
+                        26: '#ccf24d',
+                        27: '#a6ff80',
+                        28: '#a6e64d',
+                        29: '#a6f200',
+                        30: '#e6e6e6',
+                        31: '#cccccc',
+                        32: '#ccffcc',
+                        33: '#000000',
+                        34: '#a6e6cc',
+                        35: '#a6a6ff',
+                        36: '#4d4dff',
+                        37: '#ccccff',
+                        38: '#e6e6ff',
+                        39: '#a6a6e6',
+                        40: '#00ccf2',
+                        41: '#80f2e6',
+                        42: '#00ffa6',
+                        43: '#a6ffe6',
+                        44: '#e6f2ff',
+                        48: 'gray',
+                    }
+
+                    //define labels for categories
+                    const clcLabels = {
+                        1: 'Continuous urban fabric',
+                        2: 'Discontinuous urban fabric',
+                        3: 'Industrial or commercial units',
+                        4: 'Road and rail networks and associated land',
+                        5: 'Port areas',
+                        6: 'Airports',
+                        7: 'Mineral extraction sites',
+                        8: 'Dump sites',
+                        9: 'Construction sites',
+                        10: 'Green urban areas',
+                        11: 'Sport and leisure facilities',
+                        12: 'Non-irrigated arable land',
+                        13: 'Permanently irrigated land',
+                        14: 'Rice fields',
+                        15: 'Vineyards',
+                        16: 'Fruit trees and berry plantations',
+                        17: 'Olive groves',
+                        18: 'Pastures',
+                        19: 'Annual crops associated with permanent crops',
+                        20: 'Complex cultivation patterns',
+                        21: 'Land principally occupied by agriculture with significant areas of natural vegetation',
+                        22: 'Agro-forestry areas',
+                        23: 'Broad-leaved forest',
+                        24: 'Coniferous forest',
+                        25: 'Mixed forest',
+                        26: 'Natural grasslands',
+                        27: 'Moors and heathland',
+                        28: 'Sclerophyllous vegetation',
+                        29: 'Transitional woodland-shrub',
+                        30: 'sands',
+                        31: 'Bare rocks',
+                        32: 'Sparsely vegetated areas',
+                        33: 'Burnt areas',
+                        34: 'Glaciers and perpetual snow',
+                        35: 'Inland marshes',
+                        36: 'Peat bogs',
+                        37: 'Salt marshes',
+                        38: 'Salines',
+                        39: 'Intertidal flats',
+                        40: 'Water courses',
+                        41: 'Water bodies',
+                        42: 'Coastal lagoons',
+                        43: 'Estuaries',
+                        44: 'Sea and ocean',
+                        48: 'No data',
+                    }
+
+                    //define style
+                    const style = new gridviz.SquareColorCategoryWebGLStyle({
+                        code: (cell) => cell.clc,
+                        color: clcColors,
+                    })
+
+                    //add layer to map
+                    gridvizMap.layers = [
+                        new gridviz.GridLayer(dataset, [style], {
+                            minPixelsPerCell: 4,
+                            cellInfoHTML: (cell) => clcLabels[cell.clc],
+                        }),
+                    ]
+
+                    //custom opacity
+                    gridvizMap._canvas.style.opacity = 0.7
+                },
+            })
+
+            // add first gridviz layer to the map
+            shapeColorSizeStyleLayer.addTo(leafletMap)
+
+            // add layer toggle
+            let baseMaps = {
+                OpenStreetMap: osm,
+                Continents: continents,
             }
 
-            main()
-        </script>
-    </body>
+            let gridvizLayers = {
+                'Shape / Color / Size': shapeColorSizeStyleLayer,
+                'Joyplot style': joyplotStyleLayer,
+                'Lego style': legoStyleLayer,
+                'Pillar style': pillarStyleLayer,
+                'Image style': imageStyleLayer,
+                'Text style': textStyleLayer,
+                'Trivariate style': trivariateStyleLayer,
+                'Mosaic style': mosaicStyleLayer,
+                'Dot density style': dotDensityStyleLayer,
+                'Composition style': compositionStyleLayer,
+                'Isometric fence style': isometricFenceStyleLayer,
+                'Kernel smoothing style': smoothingStyleLayer,
+                'Square Color Category WebGL': SquareColorCategoryWebGLStyleLayer,
+                'Tanaka style': tanakaStyleLayer,
+            }
+            let layerControl = L.control.layers(baseMaps, gridvizLayers).addTo(leafletMap)
+            // Adding titles to basemap sections
+            const basemapTitle = L.DomUtil.create('div', 'basemap-title')
+            basemapTitle.innerHTML = '<strong>Basemaps</strong>'
+            layerControl._baseLayersList.prepend(basemapTitle)
+
+            const overlayTitle = L.DomUtil.create('div', 'overlay-title')
+            overlayTitle.innerHTML = '<strong>Gridviz styles</strong>'
+            layerControl._overlaysList.prepend(overlayTitle)
+
+            // change basemap might require a change in CRS definition
+            leafletMap.on('baselayerchange', function (e) {
+                if (e.name == 'Continents') {
+                    leafletMap.options.crs = ESRICRS
+                } else {
+                    leafletMap.options.crs = GISCOCRS
+                }
+                let center, zoom
+                try {
+                    center = leafletMap.getCenter()
+                    zoom = leafletMap.getZoom()
+                } catch {
+                    center = L.latLng(50.5, 19)
+                    zoom = 5
+                }
+
+                //leafletMap.setView(center, zoom)
+                leafletMap._resetView(center, zoom)
+            })
+        }
+
+        main()
+    </script>
+</body>
+
 </html>
