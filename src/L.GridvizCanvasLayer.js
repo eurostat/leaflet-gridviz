@@ -22,7 +22,7 @@ L.DomUtil.setTransform =
 
 // -----------------------------------------------------------------------------
 // Canvas Layer definition
-L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
+L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
   initialize: function (options) {
     this._map = null;
     this._canvas = null;
@@ -52,17 +52,6 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     L.DomUtil.setPosition(this._canvas, topLeft);
   },
 
-  // Event bindings for panning, zooming, resizing
-  getEvents: function () {
-    return {
-      resize: this._onLayerDidResize,
-      moveend: this._onLayerDidMove,
-      viewreset: this._onLayerDidMove,
-      zoomstart: this._onZoomStart,
-      zoomanim: this._onAnimZoom,
-      zoomend: this._onZoomEnd
-    };
-  },
 
 
   // ---------------------------------------------------------------------------
@@ -128,9 +117,38 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
   },
 
   // ---------------------------------------------------------------------------
-  // Handle non-animated moves (pans or programmatic view changes)
+
+  // Event bindings for panning, zooming, resizing
+  getEvents: function () {
+    return {
+      resize: this._onLayerDidResize,
+      movestart: this._onMoveStart,   // ← panning begins (only real pan)
+      moveend: this._onMoveEnd,  // ← updated
+      viewreset: this._onLayerDidMove,
+      zoomstart: this._onZoomStart,
+      zoomanim: this._onAnimZoom,
+      zoomend: this._onZoomEnd
+    };
+  },
+
+  _onMoveStart: function (e) {
+    // If Leaflet is currently animating a zoom, this movestart is NOT a real pan.
+    //this._panning = true;
+  },
+
+  // handle move end
+  _onMoveEnd: function (e) {
+    //this._panning = false;
+    // if (this._wasHiddenForPan) {
+    //   this._canvas.style.visibility = 'visible';
+    //   this._wasHiddenForPan = false;
+    // }
+
+    // original behavior
+    this._onLayerDidMove();
+  },
+
   _onLayerDidMove: function () {
-    if (this._zooming) return; // don’t interfere with ongoing zoom animation
     this._updatePosition();
     this.drawLayer();
   },
@@ -139,38 +157,22 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
   // Zoom animation lifecycle
 
   _onZoomStart: function () {
-    // Check if map is currently panning with inertia
-    const isPanning = this._map._panAnim && this._map._panAnim._inProgress;
-
-    if (isPanning) {
-      // Hide the layer temporarily during momentum zoom
-      this._canvas.style.visibility = 'hidden';
-      this._wasHiddenForPan = true;
-    }
-
-    // Mark as zooming and reset transform baseline
-    this._zooming = true;
     L.DomUtil.setPosition(this._canvas, L.point(0, 0));
-
-    // Recompute base origin for correct zoom scaling
     this._initCanvasLevel();
   },
 
   _onZoomEnd: function () {
-    this._zooming = false;
-
-    // Restore visibility if it was hidden during momentum zoom
-    if (this._wasHiddenForPan) {
-      this._canvas.style.visibility = 'visible';
-      this._wasHiddenForPan = false;
-    }
-
     // Re-align after zoom ends
     this._updatePosition();
     this._initCanvasLevel();
   },
 
   _onAnimZoom: function (e) {
+    // if (this._panning) {
+    //   this._canvas.style.visibility = 'hidden';
+    //   this._wasHiddenForPan = true;
+    // }
+
     // Replicates GridLayer._setZoomTransform
     var level = this._canvasLevel;
     var scale = this._map.getZoomScale(e.zoom, level.zoom);
@@ -215,6 +217,6 @@ L.CanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 });
 
 // Factory helper
-L.canvasLayer = function () {
-  return new L.CanvasLayer();
+L.gridvizCanvasLayer = function () {
+  return new L.GridvizCanvasLayer();
 };

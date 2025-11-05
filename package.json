@@ -12,7 +12,7 @@
     "main": "dist/leaflet-gridviz.min.js",
     "scripts": {
         "start": "webpack serve --open --config webpack.dev.js",
-        "build-prod": "webpack --config webpack.prod.js",
+        "build": "webpack --config webpack.prod.js",
         "build-dev": "webpack --config webpack.build-dev.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },

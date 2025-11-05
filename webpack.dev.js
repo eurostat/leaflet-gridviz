@@ -1,22 +1,25 @@
 const path = require('path')
-const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 module.exports = {
     entry: './src/main.js',
     mode: 'development',
     output: {
         filename: 'leaflet-gridviz.js',
-        path: path.resolve(__dirname, 'build'),
+        path: path.resolve(__dirname, 'dist'),
+        library: {
+            name: "LeafletGridviz", // window.LeafletGridviz when loaded in browser
+            type: "umd"
+        },
     },
-    plugins: [new CleanWebpackPlugin()],
-    module: {},
-    devServer: {
-        static: './build',
-        devMiddleware: {
-            writeToDisk: true,
-        },
-        client: {
-            overlay: false,
-        },
+    externals: {
+        leaflet: { root: 'L', commonjs: 'leaflet', commonjs2: 'leaflet', amd: 'leaflet' },
+        proj4: { root: 'proj4', commonjs: 'proj4', commonjs2: 'proj4', amd: 'proj4' },
+        gridviz: { root: 'gridviz', commonjs: 'gridviz', commonjs2: 'gridviz', amd: 'gridviz' }
+    },
+    //plugins: [new CleanWebpackPlugin()],
+    watch: false,
+    optimization: {
+        usedExports: true,
+        minimize: false,
     },
 }
