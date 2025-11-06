@@ -48,8 +48,12 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
   // Anchors the canvas to the map’s current top-left corner
   _updatePosition: function () {
-    var topLeft = this._map.containerPointToLayerPoint([0, 0]);
-    L.DomUtil.setPosition(this._canvas, topLeft);
+    requestAnimationFrame(() => {
+      if (this._map == null) return;
+      if (this._map.containerPointToLayerPoint == null) return;
+      var topLeft = this._map.containerPointToLayerPoint([0, 0]);
+      L.DomUtil.setPosition(this._canvas, topLeft);
+    });
   },
 
 
