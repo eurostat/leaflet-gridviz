@@ -76,6 +76,7 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     // Create a dedicated pane for the canvas (useful for ordering)
     var pane = map.createPane('gridviz');
     pane.style.zIndex = 399;
+    pane.style.cursor = 'pointer'; // do this in gridviz instead?
     pane.appendChild(this._canvas);
 
     map.on(this.getEvents(), this);
