@@ -111,14 +111,16 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
   // Initialize a virtual canvas "level" that mirrors GridLayer logic
   // This ensures zoom animations stay aligned with Leaflet’s tile transforms
   _initCanvasLevel: function () {
-    var z = this._map.getZoom();
-    var c = this._map.getCenter();
+    if (this._map) {
+      var z = this._map.getZoom();
+      var c = this._map.getCenter();
 
-    // The top-left point of the current map view in pixel coordinates
-    // This is the same origin used by Leaflet’s GridLayer for its zoom math
-    var topLeft = this._map._getTopLeftPoint(c, z).round();
+      // The top-left point of the current map view in pixel coordinates
+      // This is the same origin used by Leaflet’s GridLayer for its zoom math
+      var topLeft = this._map._getTopLeftPoint(c, z).round();
 
-    this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas };
+      this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas };
+    }
   },
 
   // ---------------------------------------------------------------------------
