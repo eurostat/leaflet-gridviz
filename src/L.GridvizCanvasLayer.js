@@ -120,6 +120,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
       var topLeft = this._map._getTopLeftPoint(c, z).round();
 
       this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas };
+    } else {
+      console.warn('GridvizCanvasLayer: _initCanvasLevel called before map init');
     }
   },
 

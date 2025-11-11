@@ -42,6 +42,7 @@ export function registerGridvizLayer(Lin = L) {
             const mapContainer = map._container;
 
             const resizeObserver = new ResizeObserver((entries) => {
+                console.log('GridvizLayer: resizeObserver callback', entries);
                 if (!Array.isArray(entries) || !entries.length) return;
 
                 // Let Leaflet settle its size, then sync to the final dimensions.
