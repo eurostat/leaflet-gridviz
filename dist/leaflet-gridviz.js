@@ -82,7 +82,6 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     // Create a dedicated pane for the canvas (useful for ordering)
     var pane = map.createPane('gridviz');
     pane.style.zIndex = 399;
-    pane.style.cursor = 'pointer'; // do this in gridviz instead?
     pane.appendChild(this._canvas);
 
     map.on(this.getEvents(), this);
@@ -126,6 +125,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
       var topLeft = this._map._getTopLeftPoint(c, z).round();
 
       this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas };
+    } else {
+      console.warn('GridvizCanvasLayer: _initCanvasLevel called before map init');
     }
   },
 
@@ -14586,6 +14587,7 @@ class GeoCanvas {
 
         /** @type {HTMLCanvasElement} */
         this.canvas = canvas
+        this.canvas.style.cursor = 'grab'          // default shown when hover
 
         /** @type {number} */
         this.w = this.canvas.offsetWidth
@@ -14641,6 +14643,7 @@ class GeoCanvas {
                 // to make the zooming a bit faster
                 .wheelDelta((e) => -e.deltaY * (e.deltaMode === 1 ? 0.07 : e.deltaMode ? 1 : 0.004))
                 .on('zoom', (e) => {
+                    this._isZooming = true;
                     const t = e.transform
                     const zoomFactor = tP.k / t.k
                     if (zoomFactor == 1) {
@@ -14657,7 +14660,9 @@ class GeoCanvas {
                 })
                 .on('start', (e) => {
                     // start of zoom event
-                     this._isZooming = true;
+                    // show grabbing during pan/zoom
+                    try { this.canvas.style.cursor = 'grabbing' } catch (err) { }
+                    this._isZooming = true;
                     // save the current canvas state to keep onscreen during pan/zoom before redrawing
                     this.canvasSave.c = document.createElement('canvas')
                     this.canvasSave.c.setAttribute('width', '' + this.w)
@@ -14670,11 +14675,13 @@ class GeoCanvas {
                 })
                 .on('end', (e) => {
                     // end of pan/zoom event
+                    // restore cursor
+                    try { this.canvas.style.cursor = 'grab' } catch (err) { }
                     this._isZooming = false;
                     this.redraw()
                     this.canvasSave = { c: null, dx: 0, dy: 0, f: 1 }
                     if (this.onZoomEndFun) this.onZoomEndFun(e)
-                        
+
                 })
             // @ts-ignore
             z(src_select(this.canvas))
@@ -15752,6 +15759,7 @@ class Map_Map {
         }
 
         if (focus) {
+            this.geoCanvas.canvas.style.cursor = 'pointer';
             this.tooltip.html(focus.html)
             this.tooltip.setPosition(e)
             this.tooltip.show()
@@ -15785,6 +15793,7 @@ class Map_Map {
             ctx.stroke()
             this.geoCanvas.ctx.drawImage(this.geoCanvas.offscreenCanvas, 0, 0)
         } else {
+            this.geoCanvas.canvas.style.cursor = 'default';
             this.tooltip.hide()
             if (this.canvasSave) this.geoCanvas.ctx.drawImage(this.canvasSave, 0, 0)
         }
@@ -23029,6 +23038,7 @@ function registerGridvizLayer(Lin = L) {
             const mapContainer = map._container;
 
             const resizeObserver = new ResizeObserver((entries) => {
+                console.log('GridvizLayer: resizeObserver callback', entries);
                 if (!Array.isArray(entries) || !entries.length) return;
 
                 // Let Leaflet settle its size, then sync to the final dimensions.
