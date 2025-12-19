@@ -22,11 +22,11 @@
         }
 
         #gridviz-tooltip,
-        .my-gridviz-legend {
+        #gridviz-legend {
             z-index: 99999999999999;
         }
 
-        .my-gridviz-legend {
+        #gridviz-legend {
             position: absolute;
             bottom: 0px;
             left: 0px;
@@ -40,9 +40,9 @@
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"></script>
-    <script src="https://unpkg.com/gridviz@3.0.31/dist/gridviz.min.js"></script>
-    <script src="https://unpkg.com/gridviz-eurostat@2.2.2/dist/gridviz-eurostat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gridviz-smoothing@2.0.3"></script>
+    <script src="https://unpkg.com/gridviz@3.0.23/dist/gridviz.min.js"></script>
+    <script src="https://unpkg.com/gridviz-eurostat@2.0.3/dist/gridviz-eurostat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gridviz-smoothing@2.0.2"></script>
 
     <!-- Use the file your build actually outputs -->
     <script src="../dist/leaflet-gridviz.js"></script>
@@ -53,42 +53,22 @@
     <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
 
-    <div class="container">
-        <div id="map"></div>
-        <div id="my-legend" class="my-gridviz-legend"></div>
-    </div>
 
+    <div id="map"></div>
+    <div id="gridviz-legend"></div>
 
     <script>
         // define our projection
         proj4.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs')
 
         async function main() {
-            // for roads basemap
-            const ROADSCRS = new L.Proj.CRS('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs', {
-                resolutions: [
-                    114688,
-                    57344,
-                    28672,
-                    14336,
-                    7168,
-                    3584,
-                    1792,
-                    896,
-                    448,
-                    224,
-                    112,
-                    56,
-                    28,
-                    14,
-                    7
-                ],
-                bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
-                origin: [0, 6000000],
-                tileSize: 512,
-            })
+            // get 3035 basemap capabilities
+            const response = await fetch('https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer?f=pjson')
+            const basemap = await response.json()
 
-            // map proxy basemaps
+            // define EPSG 3035
+
+            // for gisco map-proxy
             const GISCOCRS = new L.Proj.CRS('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs', {
                 resolutions: [
                     156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564,
@@ -99,9 +79,31 @@
                 origin: [0, 6000000],
             })
 
+            // for esri map services
+            let resolutions = []
+            for (let i = 0; i < basemap.tileInfo.lods.length; i++) {
+                resolutions.push(basemap.tileInfo.lods[i].resolution)
+            }
+            let bounds = L.bounds(L.point(basemap.fullExtent.xmin, basemap.fullExtent.ymin), L.point(basemap.fullExtent.xmax, basemap.fullExtent.ymax))
+            let origin = [basemap.tileInfo.origin.x, basemap.tileInfo.origin.y]
+            const ESRICRS = new L.Proj.CRS(
+                'EPSG:3035',
+                '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs',
+                {
+                    //bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                    //origin: [0, 6000000],
+                    origin: origin,
+                    bounds: bounds,
+                    resolutions: resolutions,
+                    tileSize: basemap.tileInfo.rows,
+                }
+            )
+            ESRICRS.distance = L.CRS.Earth.distance
+            ESRICRS.R = 6378137
+
             // create leaflet map
             let leafletMap = new L.Map('map', {
-                crs: ROADSCRS,
+                crs: GISCOCRS,
                 center: ['50.00754', '19.98211'],
                 maxBounds: {
                     _northEast: {
@@ -123,31 +125,34 @@
             })
 
             // add basemap(s)
-            const roads = L.tileLayer('https://ec.europa.eu/eurostat/cache/GISCO/mbkg/road/{z}/{x}/{y}.png', {
+            let osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoV4Background/EPSG3035/{z}/{x}/{y}.png', {
                 type: 'tiles',
                 maxZoom: 19,
                 minZoom: 0,
                 attribution:
                     "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
                 noWrap: false,
-                tileSize: 512,
             }).addTo(leafletMap)
 
-            const osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoV4Background/EPSG3035/{z}/{x}/{y}.png', {
-                type: 'tiles',
-                maxZoom: 19,
-                minZoom: 0,
-                attribution:
-                    "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
-                noWrap: false,
-            })
+            let continents = L.tileLayer(
+                'https://ec.europa.eu/statistical-atlas/rest/services/Basemaps/StatAtlas_Continents_2021_3035/MapServer/tile/{z}/{y}/{x}',
+                {
+                    maxZoom: 19,
+                    minZoom: 0,
+                    errorTileUrl: 'assets/image/error-tile.png',
+                    noWrap: true,
+                    opacity: 1,
+                    tileSize: 256,
+                    tms: false,
+                }
+            )
 
             const labelLayer = new gridviz.LabelLayer(gridviz_eurostat.getEuronymeLabelLayer('EUR', 50, { ex: 1.8, fontFamily: 'Arial', exSize: 1.8 }))
 
             // initialise gridviz layers
             let shapeColorSizeStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
+                legendContainer: document.getElementById('gridviz-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -212,7 +217,6 @@
 
             let joyplotStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     //define dataset
@@ -240,7 +244,6 @@
 
             let legoStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -368,7 +371,6 @@
 
             let pillarStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define dataset
                     const dataset = new gridviz.CSVGrid(
@@ -393,7 +395,6 @@
 
             let imageStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define dataset
                     const dataset = new gridviz.CSVGrid(
@@ -427,7 +428,6 @@
 
             let textStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -463,7 +463,6 @@
 
             let trivariateStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -526,7 +525,6 @@
                     //legend
                     style.legends = [
                         new gridviz.TernaryLegend({
-                            id: 'ternary-legend',
                             title: 'Age',
                             classifier: trivariateClassifier,
                             width: 90,
@@ -554,7 +552,6 @@
 
             let mosaicStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define dataset
                     const dataset = new gridviz.CSVGrid(
@@ -586,7 +583,6 @@
 
             let dotDensityStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define dataset
                     const dataset = new gridviz.CSVGrid(
@@ -611,7 +607,6 @@
 
             let compositionStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -651,7 +646,6 @@
 
             let isometricFenceStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -692,7 +686,6 @@
 
             let smoothingStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -749,7 +742,6 @@
 
             let SquareColorCategoryWebGLStyleLayer = new L.GridvizLayer({
                 proj: 'EPSG:3035',
-                legendContainer: document.getElementById('my-legend'),
                 onLayerDidMountCallback: (gridvizMap) => {
                     //define multi resolution dataset
                     const dataset = new gridviz.MultiResolutionDataset(
@@ -883,8 +875,8 @@
 
             // add layer toggle
             let baseMaps = {
-                Roads: roads,
-                OSM: osm,
+                OpenStreetMap: osm,
+                Continents: continents,
             }
 
             let gridvizLayers = {
@@ -913,13 +905,12 @@
             overlayTitle.innerHTML = '<strong>Gridviz styles</strong>'
             layerControl._overlaysList.prepend(overlayTitle)
 
-
             // change basemap might require a change in CRS definition
             leafletMap.on('baselayerchange', function (e) {
-                if (e.name == 'OSM') {
-                    leafletMap.options.crs = GISCOCRS
+                if (e.name == 'Continents') {
+                    leafletMap.options.crs = ESRICRS
                 } else {
-                    leafletMap.options.crs = ROADSCRS
+                    leafletMap.options.crs = GISCOCRS
                 }
                 let center, zoom
                 try {

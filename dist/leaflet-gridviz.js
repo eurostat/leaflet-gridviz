@@ -18225,7 +18225,7 @@ class PillarStyle extends Style {
  * @module style
  * @author Julien Gaffuri
  */
-class SideStyle_SideStyle extends Style {
+class SideStyle extends Style {
     /** @param {object} opts */
     constructor(opts = {}) {
         super(opts)
@@ -18262,7 +18262,7 @@ class SideStyle_SideStyle extends Style {
         //build sides
 
         /**  @type {Array.<Side>} */
-        const sides = SideStyle_SideStyle.buildSides(cells, resolution)
+        const sides = SideStyle.buildSides(cells, resolution)
         if (sides.length == 0) return
 
         //get side view scale
@@ -18424,6 +18424,102 @@ class SideStyle_SideStyle extends Style {
     }
 }
 
+;// ./node_modules/d3-array/src/max.js
+function max_max(values, valueof) {
+  let max;
+  if (valueof === undefined) {
+    for (const value of values) {
+      if (value != null
+          && (max < value || (max === undefined && value >= value))) {
+        max = value;
+      }
+    }
+  } else {
+    let index = -1;
+    for (let value of values) {
+      if ((value = valueof(value, ++index, values)) != null
+          && (max < value || (max === undefined && value >= value))) {
+        max = value;
+      }
+    }
+  }
+  return max;
+}
+
+;// ./node_modules/gridviz/src/style/ShadingStyle.js
+//@ts-check
+
+
+;
+
+
+/** @typedef {{ x:number, y:number, or:"v"|"h", c1:(import('../core/Dataset.js').Cell)|undefined, c2:(import('../core/Dataset.js').Cell)|undefined }} Side */
+
+
+/**
+ * @module style
+ * @author Julien Gaffuri
+ */
+class ShadingStyle extends SideStyle {
+
+    /** @param {object} opts
+     * @param {string} opts.elevation
+     * @param {boolean} opts.diamond
+     * @param {function} opts.scale
+     * @param {function} opts.width
+     * @param {number} opts.reliefDirection
+     * @param {string} opts.colorTopLeft
+     * @param {string} opts.colorBottomRight
+     */
+    constructor(opts = {}) {
+        super(opts)
+
+        /** The cell elevation field name
+         * @type {string} */
+        const elevation = opts.elevation
+
+        // compute side value as elevation difference and attach to side
+        const sideValue = (/** @type {Side} */ side) => {
+            if (!side.c1) side.v = 0
+            else if (!side.c2) side.v = 0
+            else if (!side.c1[elevation]) side.v = 0
+            else if (!side.c2[elevation]) side.v = 0
+            else side.v = +side.c2[elevation] - side.c1[elevation]
+            return side.v
+        }
+
+        // compute maximum side value for normalization
+        this.viewScale = sides => max_max(sides, s => sideValue(s))
+
+        // get colors
+        let colorTopLeft = opts.colorTopLeft || '255,255,255'
+        let colorBottomRight = opts.colorBottomRight || '0,0,0'
+
+        // revert colors (to revert the relief, show depressions as hills)
+        const revert = opts.revert == undefined? false : opts.revert
+        if(revert) {
+            let a = colorTopLeft
+            colorTopLeft = colorBottomRight
+            colorBottomRight = a
+        }
+
+        //
+        const scale = opts.scale
+
+        this.color = (side, resolution, z, max) => {
+            if (side.v == 0) return
+            let coeff = Math.abs(side.v / max)
+            if(scale) coeff = scale(coeff)
+            if ((side.v < 0 && side.or === 'h') || (side.v > 0 && side.or === 'v'))
+                return 'rgba(' + colorTopLeft + ',' + coeff + ')'
+            return 'rgba(' + colorBottomRight + ',' + coeff + ')'
+        }
+
+        this.width = (_, r, z) => opts.width | Math.min(2 * z, r / 3)
+        this.diamond = opts.diamond
+    }
+}
+
 ;// ./node_modules/gridviz/src/style/SideCategoryStyle.js
 //@ts-check
 
@@ -18436,7 +18532,7 @@ class SideStyle_SideStyle extends Style {
  * @module style
  * @author Julien Gaffuri
  */
-class SideCategoryStyle extends SideStyle_SideStyle {
+class SideCategoryStyle extends SideStyle {
     /** @param {object} opts */
     constructor(opts) {
         super(opts)
@@ -18468,7 +18564,7 @@ class SideCategoryStyle extends SideStyle_SideStyle {
         //build sides
 
         /**  @type {Array.<import('./SideStyle.js').Side>} */
-        const sides = SideStyle_SideStyle.buildSides(cells, resolution)
+        const sides = SideStyle.buildSides(cells, resolution)
         if (sides.length == 0) return
 
         //get side view scale
@@ -18579,18 +18675,19 @@ class SideCategoryStyle extends SideStyle_SideStyle {
  * @param {string} width
  * @param {string} height
  * @param {object} opts
- * @returns {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext}}
+ * @returns {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}
  */
 function makeWebGLCanvas(width, height, opts = {}) {
     const canvas = document.createElement('canvas')
     canvas.setAttribute('width', width)
     canvas.setAttribute('height', height)
+    const version2 = (opts && +opts.version==2)? "2" : ""
     /** @type {WebGLRenderingContext} */
-    const gl = canvas.getContext('webgl', opts)
+    const gl = canvas.getContext('webgl' + version2, opts)
     if (!gl) {
-        throw new Error('Unable to initialize WebGL. Your browser or machine may not support it.')
+        throw new Error('Unable to initialize WebGL'+version2+'. Your browser or machine may not support it.')
     }
-    return { canvas: canvas, gl: gl }
+    return { canvas: canvas, gl: gl, width: width, height: height }
 }
 
 /**
@@ -18900,139 +18997,158 @@ class DotDensityStyle extends Style {
     }
 }
 
-;// ./node_modules/gridviz/src/utils/WebGLSquareColoringCatAdvanced.js
+;// ./node_modules/gridviz/src/style/SideTanakaStyle.js
 //@ts-check
 
 
 ;
 
 
+/** @typedef {{ x:number, y:number, or:"v"|"h", c1:(import('../core/Dataset.js').Cell)|undefined, c2:(import('../core/Dataset.js').Cell)|undefined }} Side */
+
 /**
- * Everything to easily draw colored squares with webGL.
- * All the same size, but different fill color.
- * Color based on categories.
+ * @typedef {function(Array.<Side>,number, number):*} SideViewScale */
+
+/**
+ * @module style
+ * @author Julien Gaffuri
  */
-class WebGLSquareColoringCatAdvanced {
+class SideTanakaStyle_SideTanakaStyle extends Style {
+    /** @param {object} opts */
+    constructor(opts = {}) {
+        super(opts)
+
+        /** A function returning the cells classifier.
+         * The cell classifier is a function that for each cell returns its class number (int).
+        */
+        this.classifier = opts.classifier || ((cells, resolution, z) => c => 1)
+
+        /** A function returning the width of a cell side, in geo unit
+         * @type {function(Side, number, number, number, object):number} */
+        this.width = opts.width || ((side, sideValue, resolution, z, sidesScale) => Math.abs(sideValue) * Math.min(2 * z, resolution / 3))
+
+        /** A function returning the length of a cell side, in geo unit
+         * @type {function(Side, number, number, object):number} */
+        this.length = opts.length || ((side, resolution, z, sidesScale) => resolution)
+
+        // the dark color: for side facing away from light (coming from NW)
+        this.colorDark = opts.colorDark || '#111'
+        // the bright color: for side facing the light (coming from NW)
+        this.colorBright = opts.colorBright || '#ddd'
+        //
+        this.revert = opts.revert == undefined? false : opts.revert
+
+        /** Set to A or true so that the side is drawn as a diamond */
+        this.diamond = opts.diamond
+
+        /* Determines what to do for limit sides, between a cell with value and one with no value
+        * steep: the cell value absence is equivalent to 0. It shows potentially a steep limit then.
+        * skip: no side is drawn
+        * step: a side with a 1 step */
+        this.limit = opts.limit || "steep"
+    }
+
     /**
-     * @param {Array.<string>} colors
+     * @param {Array.<import("../core/Dataset.js").Cell>} cells
+     * @param {number} resolution
+     * @param {import("../core/GeoCanvas.js").GeoCanvas} geoCanvas
      */
-    constructor(colors) {
-        /**
-         * @type {Array.<string>} */
-        this.colors = colors
+    draw(cells, geoCanvas, resolution) {
+        //filter
+        if (this.filter) cells = cells.filter(this.filter)
 
-        /** Vector shader program
-         * @type {string} */
-        this.vshString = `
-        attribute vec2 pos;
-        uniform float sizePix;
-        uniform mat3 mat;
+        //
+        const z = geoCanvas.view.z
+        const ctx = geoCanvas.offscreenCtx
 
-        attribute float i;
-        varying float vi;
+        //get cell classifier
+        const classifier = this.classifier(cells, resolution, z)
 
-        void main() {
-          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
-          gl_PointSize = sizePix;
-          vi = i;
+        //get side value: class change difference
+        const getSideValue = (/** @type {{ c1: Side; c2: Side; }} */ side) => {
+            const cl1 = side.c1 ? classifier(side.c1) : undefined
+            const cl2 = side.c2 ? classifier(side.c2) : undefined
+            if (cl1 === undefined && cl2 === undefined) return undefined
+            if (cl1 === undefined) return this.limit=="none"? undefined : this.limit=="steep"? cl2 : Math.sign(cl2)
+            if (cl2 === undefined) return this.limit=="none"? undefined : this.limit=="steep"? -cl1 : Math.sign(-cl1)
+            return cl2 - cl1
         }
-        `
 
-        //prepare fragment shader code
-        //declare the uniform and other variables
-        const out = []
-        out.push('precision mediump float;\nvarying float vi;\n')
-        //add color uniforms
-        out.push('uniform vec4')
-        for (let i = 0; i < colors.length; i++) {
-            if (i > 0) out.push(',')
-            out.push(' c' + i)
+        //build sides
+        //TODO build only those with different codes ?
+        /**  @type {Array.<Side>} */
+        const sides = SideStyle.buildSides(cells, resolution)
+        if (sides.length == 0) return
+
+        //get side view scale
+        const viewScale = this.viewScale ? this.viewScale(sides, resolution, z) : undefined
+
+        //draw sides
+        ctx.lineCap = 'butt'
+        const r2 = resolution * 0.5
+        const cd = this.revert? this.colorBright : this.colorDark
+        const cb = this.revert? this.colorDark : this.colorBright
+        for (let side of sides) {
+
+            //get side value
+            const v = getSideValue(side)
+            if (v === undefined || v === 0) continue
+
+            //color
+            /** @type {string|undefined} */
+            const col = ((v < 0 && side.or === 'h') || (v > 0 && side.or === 'v')) ? cb : cd
+            if (!col || col == 'none') continue
+
+            if (this.diamond) {
+                //set color
+                ctx.fillStyle = col
+
+                //draw diamond
+                const x = side.x,
+                    y = side.y
+                ctx.beginPath()
+                ctx.moveTo(x - r2, y)
+                ctx.lineTo(x, y + r2)
+                ctx.lineTo(x + r2, y)
+                ctx.lineTo(x, y - r2)
+                ctx.closePath()
+                ctx.fill()
+            } else {
+                //width
+                /** @type {number|undefined} */
+                const wG = this.width ? this.width(side, v, resolution, z, viewScale) : undefined
+                if (!wG || wG <= 0) continue
+
+                //length
+                /** @type {number|undefined} */
+                const lG = this.length ? this.length(side, resolution, z, viewScale) : undefined
+                if (!lG || lG <= 0) continue
+                const lG2 = lG * 0.5
+
+                //set width
+                ctx.lineWidth = wG
+                //set color
+                ctx.strokeStyle = col
+
+                //draw segment with correct orientation
+                const x = side.x,
+                    y = side.y
+                ctx.beginPath()
+                if (side.or === 'v') {
+                    ctx.moveTo(x, y - lG2)
+                    ctx.lineTo(x, y + lG2)
+                } else {
+                    ctx.moveTo(x - lG2, y)
+                    ctx.lineTo(x + lG2, y)
+                }
+                ctx.stroke()
+            }
         }
-        out.push(';\n')
-        //start the main function
-        out.push('void main(void) {\n')
-        //choose color i
-        for (let i = 0; i < colors.length; i++) {
-            if (i > 0) out.push('else ')
-            out.push('if(vi==')
-            out.push(i)
-            out.push('.0) gl_FragColor = vec4(c')
-            out.push(i)
-            out.push('[0], c')
-            out.push(i)
-            out.push('[1], c')
-            out.push(i)
-            out.push('[2], c')
-            out.push(i)
-            out.push('[3]);\n')
-        }
-        out.push('else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);\n}')
-        /** Fragment shader program
-         * @type {string} */
-        this.fshString = out.join('')
+
+        //update legends
+        this.updateLegends({ style: this, resolution: resolution, z: z, viewScale: viewScale })
     }
 
-    /**  */
-    draw(gl, verticesBuffer, iBuffer, transfoMat, sizePix = 10) {
-        /** @type {WebGLShader} */
-        const vShader = createShader(gl, gl.VERTEX_SHADER, this.vshString)
-
-        /** @type {WebGLShader} */
-        const fShader = createShader(gl, gl.FRAGMENT_SHADER, this.fshString)
-
-        /** @type {WebGLProgram} */
-        const program = initShaderProgram(gl, vShader, fShader)
-        gl.useProgram(program)
-
-        //set uniforms
-
-        //sizePix
-        gl.uniform1f(gl.getUniformLocation(program, 'sizePix'), 1.0 * sizePix)
-
-        //colors
-        for (let i = 0; i < this.colors.length; i++) {
-            const c = color(this.colors[i])
-            gl.uniform4fv(gl.getUniformLocation(program, 'c' + i), [
-                +c.r / 255.0,
-                +c.g / 255.0,
-                +c.b / 255.0,
-                +c.opacity,
-            ])
-        }
-
-        //vertice data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.STATIC_DRAW)
-        const position = gl.getAttribLocation(program, 'pos')
-        gl.vertexAttribPointer(
-            position,
-            2, //numComponents
-            gl.FLOAT, //type
-            false, //normalise
-            0, //stride
-            0 //offset
-        )
-        gl.enableVertexAttribArray(position)
-
-        //i data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iBuffer), gl.STATIC_DRAW)
-        const i = gl.getAttribLocation(program, 'i')
-        gl.vertexAttribPointer(i, 1, gl.FLOAT, false, 0, 0)
-        gl.enableVertexAttribArray(i)
-
-        //transformation
-        gl.uniformMatrix3fv(gl.getUniformLocation(program, 'mat'), false, new Float32Array(transfoMat))
-
-        // Enable the depth test
-        //gl.enable(gl.DEPTH_TEST);
-        // Clear the color buffer bit
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        // Set the view port
-        //gl.viewport(0, 0, cg.w, cg.h);
-
-        gl.drawArrays(gl.POINTS, 0, verticesBuffer.length / 2)
-    }
 }
 
 ;// ./node_modules/gridviz/src/style/SquareColorCategoryWebGLStyle.js
@@ -19059,8 +19175,8 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
 
         /**
          * A function returning the category code of the cell, for coloring.
-         * @type {function(import('../core/Dataset.js').Cell):string} */
-        this.code = opts.code
+         * @type {function(import('../core/Dataset.js').Cell, number, number, viewScale):string} */
+        this.code = opts.code  // (c, resolution, z, viewScale) => "code1"
 
         /**
          * The dictionary (code -> color) which gives the color of each category code.
@@ -19083,11 +19199,148 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
          * @type {function(number,number):number} */
         this.size = opts.size // (resolution, z) => ...
 
-        /**
-         * @private
-         * @type { WebGLSquareColoringCatAdvanced } */
-        this.wgp = new WebGLSquareColoringCatAdvanced(this.colors)
+        /**  * @type {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}*/
+        this.cvWGL = undefined
+        this.programm = undefined
+
+        this.x = undefined
+        this.y = undefined
+        this.z = undefined
+        this.cellsNb = undefined
     }
+
+    init(w, h) {
+        this.cvWGL = makeWebGLCanvas(w + '', h + '')
+        if (!this.cvWGL) { console.error('No webGL'); return }
+
+        const gl = this.cvWGL.gl
+
+        //draw
+        const vectorShader = `
+        attribute vec2 pos;
+        uniform float sizePix;
+        uniform mat3 mat;
+        attribute float i;
+        varying float vi;
+        void main() {
+          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+          gl_PointSize = sizePix;
+          vi = i;
+        }`
+        /** @type {WebGLShader} */
+        const vShader = createShader(gl, gl.VERTEX_SHADER, vectorShader)
+
+        const fragmentShader = `
+        precision highp float;
+        varying float vi;
+        uniform sampler2D colorLUT;
+        uniform float lutSize;
+        void main(void) {
+            float idx = floor(vi + 0.5);
+            float u = (idx + 0.5) / lutSize;
+            gl_FragColor = texture2D(colorLUT, vec2(u, 0.5));
+        }`
+        /** @type {WebGLShader} */
+        const fShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShader)
+
+        /** @type {WebGLProgram} */
+        this.program = initShaderProgram(gl, vShader, fShader)
+        gl.useProgram(this.program)
+    }
+
+    bindColors() {
+        const gl = this.cvWGL.gl
+        const lutSize = this.colors.length;
+        const lutData = new Uint8Array(lutSize * 4); // RGBA for each entry
+
+        // Fill lutData with your color values (e.g., rainbow, grayscale, etc.)
+        for (let i = 0; i < lutSize; i++) {
+            const c = color(this.colors[i])
+            lutData[i * 4] = +c.r;     // R
+            lutData[i * 4 + 1] = c.g; // G
+            lutData[i * 4 + 2] = c.b; // B
+            lutData[i * 4 + 3] = c?.opacity * 255; // A
+        }
+
+        // Create and bind texture
+        const lutTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, lutSize, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Get uniform locations
+        const uColorLUT = gl.getUniformLocation(this.program, 'colorLUT');
+        const uLutSize = gl.getUniformLocation(this.program, 'lutSize');
+
+        // Set uniform values
+        gl.uniform1i(uColorLUT, 0); // Texture unit 0
+        gl.uniform1f(uLutSize, lutSize);
+
+        // Bind the texture to texture unit 0
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+    }
+
+    bindVertices(cells, resolution, z, viewScale) {
+        const gl = this.cvWGL.gl
+        //add vertice and fragment data
+        const r2 = resolution / 2
+        let c, nb = cells.length
+        const verticesBuffer = []
+        const iBuffer = []
+        for (let i = 0; i < nb; i++) {
+            c = cells[i]
+            const cat = this.code(c, resolution, z, viewScale)
+            if (cat == undefined) {
+                console.log('Unexpected category: ' + cat)
+                continue
+            }
+            const i_ = this.catToI[cat]
+            if (isNaN(+i_)) {
+                console.log('Unexpected category index: ' + cat + ' ' + i_)
+                continue
+            }
+            verticesBuffer.push(c.x + r2, c.y + r2)
+            iBuffer.push(+i_)
+        }
+
+        //bind vertice data
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.STATIC_DRAW)
+        const position = gl.getAttribLocation(this.program, 'pos')
+        gl.vertexAttribPointer(
+            position,
+            2, //numComponents
+            gl.FLOAT, //type
+            false, //normalise
+            0, //stride
+            0 //offset
+        )
+        gl.enableVertexAttribArray(position)
+
+        //i data
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iBuffer), gl.STATIC_DRAW)
+        const i = gl.getAttribLocation(this.program, 'i')
+        gl.vertexAttribPointer(i, 1, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(i)
+    }
+
+
+
+    // check if the vertices have to be bound again
+    mapContentChanged(v, cellsNb) {
+        if (v.x == this.x && v.y == this.y && v.z == this.z && this.cellsNb == cellsNb) return false
+        this.x = v.x
+        this.y = v.y
+        this.z = v.z
+        this.cellsNb = cellsNb
+        return true
+    }
+
 
     /**
      * @param {Array.<import("../core/Dataset.js").Cell>} cells
@@ -19101,125 +19354,108 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
         //
         const z = geoCanvas.view.z
 
-        //add vertice and fragment data
-        const r2 = resolution / 2
-        let c,
-            nb = cells.length
-        const verticesBuffer = []
-        const iBuffer = []
-        for (let i = 0; i < nb; i++) {
-            c = cells[i]
-            const cat = this.code(c)
-            if (cat == undefined) {
-                console.log('Unexpected category: ' + cat)
-                continue
-            }
-            /** @type {number} */
-            const i_ = this.catToI[cat]
-            if (isNaN(+i_)) {
-                console.log('Unexpected category index: ' + cat + ' ' + i_)
-                continue
-            }
-            verticesBuffer.push(c.x + r2, c.y + r2)
-            iBuffer.push(+i_)
-        }
+        //get view scale
+        const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
 
         //create canvas and webgl renderer
-        const cvWGL = makeWebGLCanvas(geoCanvas.w + '', geoCanvas.h + '')
-        if (!cvWGL) {
-            console.error('No webGL')
-            return
+        if (!this.cvWGL || geoCanvas.w != this.cvWGL.width || geoCanvas.h != this.cvWGL.height) {
+            this.init(geoCanvas.w, geoCanvas.h)
+            this.bindColors()
         }
+        const gl = this.cvWGL.gl
+        const canvas = this.cvWGL.canvas
 
-        //draw
-        const sizeGeo = this.size ? this.size(resolution, z) : resolution + 0.2 * z
-        this.wgp.draw(cvWGL.gl, verticesBuffer, iBuffer, geoCanvas.getWebGLTransform(), sizeGeo / z)
+        //bind sizePix
+        const sizePix = this.size ? this.size(resolution, z) / z : resolution / z + 0.2
+        gl.uniform1f(gl.getUniformLocation(this.program, 'sizePix'), 1.0 * sizePix)
+
+        //
+        if (this.mapContentChanged(geoCanvas.view, cells.length))
+            //bind vertices
+            this.bindVertices(cells, resolution, z, viewScale)
+            //transformation
+            gl.uniformMatrix3fv(gl.getUniformLocation(this.program, 'mat'), false, new Float32Array(geoCanvas.getWebGLTransform()))
+
+        // Enable the depth test
+        //gl.enable(gl.DEPTH_TEST);
+        // Clear the color buffer bit
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        // Set the view port
+        //gl.viewport(0, 0, cg.w, cg.h);
+
+        gl.drawArrays(gl.POINTS, 0, cells.length)
 
         //draw in canvas geo
         geoCanvas.initCanvasTransform()
-        geoCanvas.offscreenCtx.drawImage(cvWGL.canvas, 0, 0)
+        geoCanvas.offscreenCtx.drawImage(canvas, 0, 0)
 
         //update legends
         this.updateLegends({ style: this, resolution: resolution, z: z })
     }
 }
 
-;// ./node_modules/gridviz/src/style/TanakaStyle.js
-//@ts-check
 
 
-;
+// early tests for webgl2 migration
 
+/*
+function getVectorShader2() {
+    return `
+        #version 300 es
+        precision highp float;
 
+        in vec2 pos;
+        in int i;
 
-/**
- * @see https://manifold.net/doc/mfd9/example__tanaka_contours.htm
- *
- * @module style
- * @author Julien Gaffuri
- */
-class TanakaStyle_TanakaStyle {
-    /**
-     * @param {function(import('../core/Dataset.js').Cell):number} value Function that returns the value of a cell
-     * @param {Array.<number>} breaks The break values
-     * @param {Array.<string>} colors The colors, one more than the break values
-     * @param {object} opts
-     * @returns {Array.<import("../core/Style").Style>}
-     */
-    static get(value, breaks, colors, opts = {}) {
-        //shadow colors
-        opts.colorDark = opts.colorDark || '#111'
-        opts.colorBright = opts.colorBright || '#ddd'
+        uniform float sizePix;
+        uniform mat3 mat;
 
-        /** @type { function(number, number):number } */
-        opts.width =
-            opts.width ||
-            ((sideValue, resolution, z) => {
-                const minWG = 1 * z
-                const maxWG = 4 * z
-                const step = (maxWG - minWG) / 3
-                return Math.min(minWG + (sideValue - 1) * step, maxWG)
-            })
+        flat out int vi;
 
-        //make classifier
-        const classifier = clFun(breaks)
-        //make colors table
-        const colorsDict = {}
-        for (let i = 0; i < colors.length; i++) colorsDict[i + ''] = colors[i]
-
-        const cellStyle = new SquareColorCategoryWebGLStyle({
-            code: (cell) => classifier(value(cell)),
-            color: colorsDict,
-        })
-
-        const getSideValue = (side) => {
-            const cl1 = side.c1 ? classifier(value(side.c1)) : -1
-            const cl2 = side.c2 ? classifier(value(side.c2)) : -1
-            return cl1 - cl2
+        void main() {
+            gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+            gl_PointSize = sizePix;
+            vi = i;
         }
-
-        /** The side style, for the shadow effect */
-        const sideStyle = new SideStyle({
-            //white or black, depending on orientation and value
-            color: (side) => {
-                const v = getSideValue(side)
-                if (v === 0) return
-                if (side.or === 'v') return v < 0 ? opts.colorBright : opts.colorDark
-                return v < 0 ? opts.colorDark : opts.colorBright
-            },
-            //width depends on the value, that is the number of classes of difference
-            width: (side, resolution, z) => opts.width(Math.abs(getSideValue(side)), resolution, z),
-        })
-
-        return [cellStyle, sideStyle]
-    }
+        `
 }
 
+
+function getFragmentShader2(colors) {
+
+    //prepare fragment shader code
+    //declare the uniform and other variables
+    const out = []
+    out.push('#version 300 es\nprecision highp float;\nflat in int vi;\n')
+
+    //add color uniforms
+    //uniform vec4 colors[12];
+    out.push('uniform vec4 colors[')
+    out.push(colors.length)
+    out.push('];\n')
+
+    out.push('out vec4 fragColor;\n')
+
+    //start the main function
+    //void main() { fragColor = colors[clamp(vi, 0, 11)]; }
+    out.push('void main() { fragColor = colors[vi]; }\n')
+
+    /** Fragment shader program
+    const fshString = out.join('')
+    console.log(fshString)
+    return fshString
+}
+
+*/
 ;// ./node_modules/gridviz/src/style/LegoStyle.js
 //@ts-check
 
 
+//import { TanakaStyle } from './SideTanakaStyle___OLD.js'
 ;
+
+
+//import { SideStyle } from './SideStyle.js'
 
 
 
@@ -19248,12 +19484,30 @@ class LegoStyle {
             //"#eee" //whithe
         ]*/
 
-        opts.colDark = opts.colDark || '#333'
-        opts.colBright = opts.colBright || '#aaa'
-        opts.widthFactor = opts.widthFactor || 0.12
+        opts.colorDark = opts.colorDark || '#333'
+        opts.colorBright = opts.colorBright || '#aaa'
 
-        //reuse tanaka as basis
-        const ts = TanakaStyle.get(value, breaks, colors, opts)
+        //make classifier
+        const classifier = clFun(breaks)
+        const classifier2 = cell => classifier(value(cell))
+        //make colors table
+        const colorsDict = {}
+        for (let i = 0; i < colors.length; i++) colorsDict[i + ''] = colors[i]
+
+        //make cell fill style
+        const cellStyle = new SquareColorCategoryWebGLStyle({
+            code: classifier2,
+            color: colorsDict,
+        })
+
+        //make tanaka side style
+        const tanakaStyle = new SideTanakaStyle({
+            classifier: () => classifier2,
+            colorDark : opts.colorDark,
+            colorBright : opts.colorBright,
+            diamond: opts.diamond,
+        })
+
         //style to show limits between pieces
         const sst = new StrokeStyle({
             strokeColor: () => '#666',
@@ -19262,9 +19516,9 @@ class LegoStyle {
         })
 
         return [
-            ts[0],
+            cellStyle,
             sst,
-            ts[1],
+            tanakaStyle,
             new LegoTopStyle({ colDark: opts.colDark, colBright: opts.colBright, filter: opts.filter }),
         ]
     }
@@ -19383,86 +19637,85 @@ class WebGLSquareColoringAdvanced {
 
         //prepare fragment shader code
         //declare the uniform and other variables
-        let fshString =
-            '' +
-            'precision mediump float;\n' +
-            'varying float vt;\n' +
-            'uniform float alpha;\n' +
-            (() => {
-                const out = []
-                for (let i = 0; i < colors.length; i++) out.push('uniform vec4 c' + i + ';\n')
-                return out.join('')
-            })() +
-            //start the main function, apply the stretching of t
-            'void main(void) {\n'
+        const fshBuff = []
+        fshBuff.push('precision mediump float;')
+        fshBuff.push('varying float vt;')
+        fshBuff.push('uniform float alpha;')
+        for (let i = 0; i < colors.length; i++) fshBuff.push('uniform vec4 c' + i + ';')
+        //start the main function
+        fshBuff.push('void main(void) {')
 
+        // apply the stretching of t
         if (stretching) {
             if (stretching.fun == 'pow')
                 //sPow = (t, alpha = 3) => Math.pow(t, alpha);
-                fshString += '   float t = pow(vt, alpha);\n'
+                fshBuff.push('   float t = pow(vt, alpha);')
             else if (stretching.fun == 'powInv')
                 //sPowRev = (t, alpha = 3) => 1 - Math.pow(1 - t, 1 / alpha);
-                fshString += '   float t = 1.0-pow(1.0-vt, 1.0/alpha);\n'
+                fshBuff.push('   float t = 1.0-pow(1.0-vt, 1.0/alpha);')
             else if (stretching.fun == 'exp')
                 //sExp = (t, alpha = 3) => alpha == 0 ? t : (Math.exp(t * alpha) - 1) / (Math.exp(alpha) - 1);
-                fshString +=
+                fshBuff.push(
                     stretching.alpha == 0
                         ? `float t = vt;`
-                        : '   float t = (exp(vt * alpha) - 1.0) / (exp(alpha) - 1.0);\n'
+                        : '   float t = (exp(vt * alpha) - 1.0) / (exp(alpha) - 1.0);')
             else if (stretching.fun == 'log')
                 //sExpRev = (t, alpha = 3) => alpha == 0 ? t : 1 - (1 / alpha) * Math.log(Math.exp(alpha) * (1 - t) + t);
-                fshString +=
+                fshBuff.push(
                     stretching.alpha == 0
                         ? `float t = vt;`
-                        : '   float t = 1.0 - (1.0 / alpha) * log(exp(alpha) * (1.0 - vt) + vt);\n'
+                        : '   float t = 1.0 - (1.0 / alpha) * log(exp(alpha) * (1.0 - vt) + vt);')
             else if (stretching.fun == 'circle') {
                 if (stretching.alpha == 0)
                     //if (alpha == 0) return t;
-                    fshString += '   float t = vt;\n'
+                    fshBuff.push('   float t = vt;')
                 else if (stretching.alpha == 1)
                     // if (alpha == 1) return Math.sqrt(2 * t - t * t);
-                    fshString += '   float t = sqrt(vt * (2.0 - vt));\n'
+                    fshBuff.push('   float t = sqrt(vt * (2.0 - vt));')
                 else {
                     //const a = alpha / (1 - alpha);
                     //return Math.sqrt(1 / (a * a) + t * (2 / a + 2 - t)) - 1 / a;
-                    fshString +=
-                        '   float a = alpha / (1.0 - alpha);\n' +
-                        '   float t = sqrt(1.0 / (a * a) + vt * ( 2.0/a + 2.0 - vt )) - 1.0 / a;\n'
+                    fshBuff.push('   float a = alpha / (1.0 - alpha);')
+                    fshBuff.push('   float t = sqrt(1.0 / (a * a) + vt * ( 2.0/a + 2.0 - vt )) - 1.0 / a;')
                 }
             } else if (stretching.fun == 'circleInv') {
                 // 1 - sCircleLow(1 - t, alpha)
                 if (stretching.alpha == 0)
                     //if (alpha == 0) return t;
-                    fshString += '   float t = vt;\n'
+                    fshBuff.push('   float t = vt;')
                 else if (stretching.alpha == 1)
                     // if (alpha == 1) return Math.sqrt(2 * t - t * t);
-                    fshString += '   float t = 1.0 - sqrt((1.0 - vt) * (1.0 + vt));\n'
+                    fshBuff.push('   float t = 1.0 - sqrt((1.0 - vt) * (1.0 + vt));')
                 else {
                     //const a = alpha / (1 - alpha);
                     //return Math.sqrt(1 / (a * a) + (2 * t) / a + 2 * t - t * t) - 1 / a;
-                    fshString +=
-                        '   float a = alpha / (1.0 - alpha);\n' +
-                        '   float t = 1.0 - sqrt(1.0 / (a * a) + (1.0-vt) * ( 2.0/a + 1.0 + vt )) + 1.0 / a;\n'
+                    fshBuff.push('   float a = alpha / (1.0 - alpha);')
+                    fshBuff.push('   float t = 1.0 - sqrt(1.0 / (a * a) + (1.0-vt) * ( 2.0/a + 1.0 + vt )) + 1.0 / a;')
                 }
             } else {
                 console.error('Unexpected stretching function code: ' + stretching.fun)
-                fshString += '   float t = vt;\n'
+                fshBuff.push('   float t = vt;')
             }
         } else {
-            fshString += '   float t = vt;\n'
+            fshBuff.push('   float t = vt;')
         }
 
         //choose initial and final colors, and adjust t value
-        if (colors.length == 1) fshString += '   vec4 cI=c0;\n   vec4 cF=c0;\n'
-        else if (colors.length == 2) fshString += '   vec4 cI=c0;\n   vec4 cF=c1;\n'
-        else {
+        if (colors.length == 1) {
+            fshBuff.push('   vec4 cI=c0;')
+            fshBuff.push('   vec4 cF=c0;')
+        }
+        else if (colors.length == 2) {
+            fshBuff.push('   vec4 cI=c0;')
+            fshBuff.push('   vec4 cF=c1;')
+        } else {
             const nb = colors.length - 1
             const nbs = nb + '.0'
-            fshString += '   vec4 cI;\n'
-            fshString += '   vec4 cF;\n'
-            fshString += '   if(t<1.0/' + nbs + ') { cI=c0; cF=c1; t=t*' + nbs + '; }\n'
+            fshBuff.push('   vec4 cI;')
+            fshBuff.push('   vec4 cF;')
+            fshBuff.push('   if(t<1.0/' + nbs + ') { cI=c0; cF=c1; t=t*' + nbs + '; }')
             for (let i = 2; i < nb; i++)
-                fshString +=
+                fshBuff.push(
                     '   else if(t<' +
                     i +
                     '.0/' +
@@ -19475,16 +19728,17 @@ class WebGLSquareColoringAdvanced {
                     nbs +
                     '*t-' +
                     (i - 1) +
-                    '.0; }\n'
-            fshString +=
-                '   else { cI=c' + (nb - 1) + '; cF=c' + nb + '; t=' + nbs + '*t-' + (nb - 1) + '.0; }\n'
+                    '.0; }')
+            fshBuff.push('   else { cI=c' + (nb - 1) + '; cF=c' + nb + '; t=' + nbs + '*t-' + (nb - 1) + '.0; }')
         }
 
         //one single color
-        if (colors.length == 1) fshString += '   gl_FragColor = vec4(c0[0], c0[1], c0[2], c0[3]);}\n'
+        if (colors.length == 1) fshBuff.push('   gl_FragColor = vec4(c0[0], c0[1], c0[2], c0[3]);}')
         //set interpolated color, between initial and final one
-        else fshString += '   gl_FragColor = mix(cI, cF, t);}\n'
+        else fshBuff.push('   gl_FragColor = mix(cI, cF, t);}')
 
+        let fshString = fshBuff.join("")
+        //let fshString = fshBuff.join("\n")
         //console.log(fshString)
 
         /** @type {WebGLShader} */
@@ -19510,12 +19764,9 @@ class WebGLSquareColoringAdvanced {
             let opacity = c.opacity
             if (c.opacity == 1 && globalOpacity != undefined) opacity = globalOpacity
 
-            gl.uniform4fv(gl.getUniformLocation(this.program, 'c' + i), [
-                +c.r / 255.0,
-                +c.g / 255.0,
-                +c.b / 255.0,
-                +opacity,
-            ])
+            const colData = [+c.r / 255.0, +c.g / 255.0, +c.b / 255.0, +opacity]
+            //console.log(i, colors[i], c, colData)
+            gl.uniform4fv(gl.getUniformLocation(this.program, 'c' + i), colData)
         }
     }
 
@@ -20198,7 +20449,7 @@ class IsoFenceStyle extends Style {
 
         //make sides
         /**  @type {Array.<Side>} */
-        const sides = SideStyle_SideStyle.buildSides(
+        const sides = SideStyle.buildSides(
             cells,
             resolution,
             this.angle % 180 != 90 && this.sVert,
@@ -20478,7 +20729,7 @@ class GridLayer extends Layer {
     /**
      * @param {import("../core/Dataset").Dataset|import("../core/MultiResolutionDataset").MultiResolutionDataset} dataset The dataset to show.
      * @param {Array.<import("../core/Style").Style>} styles The styles, ordered in drawing order.
-     * @param {{visible?:function(number):boolean,alpha?:function(number):number,blendOperation?:function(number):GlobalCompositeOperation,minPixelsPerCell?:number,cellInfoHTML?:function(import("../core/Dataset").Cell):string}} opts
+     * @param {{visible?:function(number):boolean,alpha?:function(number):number,blendOperation?:function(number):GlobalCompositeOperation,minPixelsPerCell?:number,cellInfoHTML?:'none'|function(import("../core/Dataset").Cell):string}} opts
      */
     constructor(dataset, styles, opts = {}) {
         super(opts)
@@ -20503,7 +20754,8 @@ class GridLayer extends Layer {
         /**
          * The function returning cell information as HTML.
          * This is typically used for tooltip information.
-         * @type {function(import("../core/Dataset").Cell, number):string} */
+         * Set to 'none' to disable cell info.
+         * @type {'none'|function(import("../core/Dataset").Cell, number):string} */
         this.cellInfoHTML = opts.cellInfoHTML || GridLayer.defaultCellInfoHTML
     }
 
@@ -21274,8 +21526,7 @@ class GeoJSONLayer extends Layer {
         for (const f of this.fs) {
             const gt = f.geometry.type
 
-            if (gt == 'Point') {
-                const c = f.geometry.coordinates
+            if (gt == 'Point' || gt == 'MultiPoint') {
 
                 //get style parameters for the point feature
                 const shape = this.shape(f, z)
@@ -21291,24 +21542,29 @@ class GeoJSONLayer extends Layer {
                 if (fillStyle) ctx.fillStyle = fillStyle
                 if (lineWidth) ctx.lineWidth = lineWidth
 
+                let cs = f.geometry.coordinates
+                if (gt == 'Point') cs = [cs]
+
                 if (shape == 'circle') {
                     //draw circle - fill and stroke
-                    ctx.beginPath()
-                    ctx.arc(c[0], c[1], size / 2, 0, 2 * Math.PI, false)
-                    if (fillStyle) ctx.fill()
-                    if (strokeStyle && lineWidth) ctx.stroke()
+                    for (const c of cs) {
+                        ctx.beginPath()
+                        ctx.arc(c[0], c[1], size / 2, 0, 2 * Math.PI, false)
+                        if (fillStyle) ctx.fill()
+                        if (strokeStyle && lineWidth) ctx.stroke()
+                    }
                 } else if (shape == 'square') {
                     //draw square - fill and stroke
-                    ctx.beginPath()
-                    ctx.rect(c[0] - size / 2, c[1] - size / 2, size, size)
-                    if (fillStyle) ctx.fill()
-                    if (strokeStyle && lineWidth) ctx.stroke()
+                    for (const c of cs) {
+                        ctx.beginPath()
+                        ctx.rect(c[0] - size / 2, c[1] - size / 2, size, size)
+                        if (fillStyle) ctx.fill()
+                        if (strokeStyle && lineWidth) ctx.stroke()
+                    }
                 } else {
                     console.error('Unexpected shape for point geojson: ' + shape)
                 }
-            } else if (gt == 'LineString') {
-                const cs = f.geometry.coordinates
-                if (cs.length < 2) continue
+            } else if (gt == 'LineString' || gt == 'MultiLineString') {
 
                 //set color
                 const col = this.color(f, z)
@@ -21324,11 +21580,17 @@ class GeoJSONLayer extends Layer {
                 const ldP = this.lineDash(f, z)
                 if (ldP) ctx.setLineDash(ldP)
 
-                //draw line
-                ctx.beginPath()
-                ctx.moveTo(cs[0][0], cs[0][1])
-                for (let i = 1; i < cs.length; i++) ctx.lineTo(cs[i][0], cs[i][1])
-                ctx.stroke()
+                let css = f.geometry.coordinates
+                if (gt == 'LineString') css = [css]
+
+                //draw lines
+                for (const cs of css) {
+                    if (cs.length < 2) continue
+                    ctx.beginPath()
+                    ctx.moveTo(cs[0][0], cs[0][1])
+                    for (let i = 1; i < cs.length; i++) ctx.lineTo(cs[i][0], cs[i][1])
+                    ctx.stroke()
+                }
             } else {
                 console.log('Unsupported geometry type in GeoJSONLayer: ' + gt)
             }
@@ -22944,7 +23206,7 @@ function defaultLocale(definition) {
 
 
 
-//export { ContourStyle } from './style/ContourStyle.js'
+
 
 
 
@@ -23029,6 +23291,9 @@ function registerGridvizLayer(Lin = L) {
 
             if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap);
 
+            //set cursor to pointer
+            this._canvas.style.cursor = 'pointer';
+
             // Resize observer
             this.addResizeObserver();
         };
@@ -23038,7 +23303,6 @@ function registerGridvizLayer(Lin = L) {
             const mapContainer = map._container;
 
             const resizeObserver = new ResizeObserver((entries) => {
-                console.log('GridvizLayer: resizeObserver callback', entries);
                 if (!Array.isArray(entries) || !entries.length) return;
 
                 // Let Leaflet settle its size, then sync to the final dimensions.

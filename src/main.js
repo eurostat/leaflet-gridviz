@@ -26,12 +26,16 @@ export function registerGridvizLayer(Lin = L) {
         this.proj = opts.proj || 'EPSG:3035'; // make sure proj4.defs() has this first
         this.gridvizMap = null; // gridviz map. See https://eurostat.github.io/gridviz/docs/reference
         this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null;
+        this.legendContainer = opts.legendContainer || null;
 
         this.onLayerDidMount = function () {
             // build gridviz app
             this.buildGridvizMap();
 
             if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap);
+
+            //set cursor to pointer
+            this._canvas.style.cursor = 'pointer';
 
             // Resize observer
             this.addResizeObserver();
@@ -42,7 +46,6 @@ export function registerGridvizLayer(Lin = L) {
             const mapContainer = map._container;
 
             const resizeObserver = new ResizeObserver((entries) => {
-                console.log('GridvizLayer: resizeObserver callback', entries);
                 if (!Array.isArray(entries) || !entries.length) return;
 
                 // Let Leaflet settle its size, then sync to the final dimensions.
