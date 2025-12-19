@@ -23284,6 +23284,7 @@ function registerGridvizLayer(Lin = L) {
         this.proj = opts.proj || 'EPSG:3035'; // make sure proj4.defs() has this first
         this.gridvizMap = null; // gridviz map. See https://eurostat.github.io/gridviz/docs/reference
         this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null;
+        this.legendContainer = opts.legendContainer || null;
 
         this.onLayerDidMount = function () {
             // build gridviz app
