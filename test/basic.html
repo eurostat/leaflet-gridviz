@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <title>gridviz-leaflet basic example</title>
+
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+            integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
+            crossorigin=""
+        />
+
+        <style>
+            #map {
+                height: 98vh;
+                width: 100%;
+            }
+
+            #gridviz-tooltip {
+                z-index: 99999999999999;
+            }
+
+            .leaflet-gridviz-pane {
+                mix-blend-mode: multiply;
+            }
+
+            .leaflet-pane .leaflet-gridviz-pane .leaflet-drag-target {
+                cursor: grabbing !important;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="map"></div>
+
+        <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"></script>
+        <script src="https://unpkg.com/gridviz@3.0.31/dist/gridviz.min.js"></script>
+
+        <!-- Use the file your build actually outputs -->
+        <script src="../dist/leaflet-gridviz.js"></script>
+
+        <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
+        <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
+
+        <script>
+            // define our projection
+            proj4.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs')
+
+            async function main() {
+                // for roads basemap
+                const ROADSCRS = new L.Proj.CRS('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs', {
+                    resolutions: [114688, 57344, 28672, 14336, 7168, 3584, 1792, 896, 448, 224, 112, 56, 28, 14, 7],
+                    bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                    origin: [0, 6000000],
+                    tileSize: 512,
+                })
+
+                // map proxy basemaps
+                const GISCOCRS = new L.Proj.CRS('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs', {
+                    resolutions: [
+                        156543.03392804097, 78271.51696402048, 39135.75848201024, 19567.87924100512, 9783.93962050256, 4891.96981025128, 2445.98490512564,
+                        1222.99245256282, 611.49622628141, 305.748113140705, 152.8740565703525, 76.43702828517625, 38.21851414258813, 19.109257071294063,
+                        9.554628535647032, 4.777314267823516, 2.388657133911758, 1.19432856695,
+                    ],
+                    bounds: L.bounds([-1031235.09091, -3364908.9791], [8000000, 11736009]),
+                    origin: [0, 6000000],
+                })
+
+                // create leaflet map
+                let leafletMap = new L.Map('map', {
+                    crs: ROADSCRS,
+                    center: ['50.00754', '19.98211'],
+                    maxBounds: {
+                        _northEast: {
+                            lat: -38,
+                            lng: 173,
+                        },
+                        _southWest: {
+                            lat: -57,
+                            lng: -152,
+                        },
+                    },
+                    maxBoundsViscosity: 1,
+                    maxZoom: 17,
+                    minZoom: 1,
+                    touchZoom: true,
+                    zoom: 5,
+                    zoomAnimation: true,
+                    // zoom options for smoother fractional zooming
+                    zoomSnap: 0, // integer indices only
+                    zoomDelta: 0.5, // zoom buttons and double-click
+                    wheelPxPerZoomLevel: 50, // smoother wheel feel without fractional zoom
+                    markerZoomAnimation: true,
+                    zoomControl: false,
+                })
+
+                // add basemap(s)
+                const roads = L.tileLayer('https://ec.europa.eu/eurostat/cache/GISCO/mbkg/road/{z}/{x}/{y}.png', {
+                    type: 'tiles',
+                    maxZoom: 19,
+                    minZoom: 0,
+                    attribution:
+                        "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
+                    noWrap: false,
+                    tileSize: 512,
+                }).addTo(leafletMap)
+
+                const osm = L.tileLayer('https://gisco-services.ec.europa.eu/maps/tiles/OSMCartoV4Background/EPSG3035/{z}/{x}/{y}.png', {
+                    type: 'tiles',
+                    maxZoom: 19,
+                    minZoom: 0,
+                    attribution:
+                        "<a class='wt-link' href='//openstreetmap.org/copyright'>© OpenStreetMap</a> contributors <a class='wt-link' href='//ec.europa.eu/eurostat/web/gisco'>© GISCO</a>",
+                    noWrap: false,
+                })
+
+                // initialise gridviz
+                let gridvizLayer = new L.GridvizLayer({
+                    proj: 'EPSG:3035',
+                    onLayerDidMountCallback: (gridvizMap) => {
+                        //define multi resolution dataset
+                        const dataset = new gridviz.MultiResolutionDataset(
+                            //the resolutions
+                            [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+                            //the function returning each dataset from the resolution
+                            (resolution) =>
+                                new gridviz.TiledGrid(
+                                    gridvizMap,
+                                    'https://raw.githubusercontent.com/jgaffuri/tiledgrids/main/data/europe/population2/' + resolution + 'm/'
+                                )
+                        )
+
+                        //define color for each cell c
+                        const colorFunction = (cell, resolution) => {
+                            const density = (1000000 * cell.TOT_P_2021) / (resolution * resolution)
+                            if (density > 1500) return '#993404'
+                            else if (density > 600) return '#d95f0e'
+                            else if (density > 200) return '#fe9929'
+                            else if (density > 60) return '#fec44f'
+                            else if (density > 15) return '#fee391'
+                            else return '#ffffd4'
+                        }
+
+                        //define style
+                        const style = new gridviz.ShapeColorSizeStyle({ color: colorFunction })
+
+                        //add layer to map
+                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 5 })]
+
+                        //custom opacity
+                        gridvizLayer._canvas.style.opacity = 0.7
+                    },
+                })
+
+                // add gridviz canvas to the map
+                gridvizLayer.addTo(leafletMap)
+
+                // add layer toggle
+                const baseMaps = {
+                    Roads: roads,
+                    OSM: osm,
+                }
+
+                const overlayMaps = {
+                    gridvizLayer: gridvizLayer,
+                }
+                const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(leafletMap)
+
+                // change basemap might require a change in CRS definition
+                leafletMap.on('baselayerchange', function (e) {
+                    if (e.name == 'OSM') {
+                        leafletMap.options.crs = GISCOCRS
+                    } else {
+                        leafletMap.options.crs = ROADSCRS
+                    }
+                    let center, zoom
+                    try {
+                        center = leafletMap.getCenter()
+                        zoom = leafletMap.getZoom()
+                    } catch {
+                        center = L.latLng(50.5, 19)
+                        zoom = 5
+                    }
+
+                    //leafletMap.setView(center, zoom)
+                    leafletMap._resetView(center, zoom)
+                })
+            }
+
+            main()
+        </script>
+    </body>
+</html>

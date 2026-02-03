@@ -1,6 +1,6 @@
 {
     "name": "leaflet-gridviz",
-    "version": "3.0.32",
+    "version": "3.0.33",
     "description": "Leaflet plugin for gridviz",
     "keywords": [
         "leaflet",
@@ -9,7 +9,7 @@
         "mapping",
         "gis"
     ],
-    "main": "dist/leaflet-gridviz.min.js", 
+    "main": "dist/leaflet-gridviz.min.js",
     "scripts": {
         "start": "webpack serve --open --config webpack.dev.js",
         "build": "webpack --config webpack.prod.js",
@@ -32,7 +32,7 @@
     },
     "homepage": "https://github.com/eurostat/leaflet-gridviz#readme",
     "dependencies": {
-        "gridviz": "^3.0.31",
+        "gridviz": "^3.0.32",
         "leaflet-canvas-layer": "^1.0.8",
         "proj4": "^2.9.0"
     },
