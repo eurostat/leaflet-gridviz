@@ -9,231 +9,231 @@
   Based on L.CanvasOverlay by Stanislav Sumbera (MIT)
   Updated by Joseph Davies for Leaflet 1.9+ and gridviz (EPSG:3035 / Proj4Leaflet)
 
-  This version reproduces Leaflet’s GridLayer zoom animation behavior precisely,
+  This version reproduces Leaflet's GridLayer zoom animation behavior precisely,
   ensuring perfect alignment with tiled layers even after panning.
 */
 
 // -----------------------------------------------------------------------------
 // Polyfill for very old Leaflet builds
 L.DomUtil.setTransform =
-  L.DomUtil.setTransform ||
-  function (el, offset, scale) {
-    var pos = offset || new L.Point(0, 0);
-    el.style[L.DomUtil.TRANSFORM] =
-      (L.Browser.ie3d
-        ? 'translate(' + pos.x + 'px,' + pos.y + 'px)'
-        : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
-      (scale ? ' scale(' + scale + ')' : '');
-  };
+    L.DomUtil.setTransform ||
+    function (el, offset, scale) {
+        var pos = offset || new L.Point(0, 0)
+        el.style[L.DomUtil.TRANSFORM] =
+            (L.Browser.ie3d ? 'translate(' + pos.x + 'px,' + pos.y + 'px)' : 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)') +
+            (scale ? ' scale(' + scale + ')' : '')
+    }
 
 // -----------------------------------------------------------------------------
 // Canvas Layer definition
 L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
-  initialize: function (options) {
-    this._map = null;
-    this._canvas = null;
-    this._frame = null;
-    this._delegate = null;
-    this._zooming = false;
-    L.setOptions(this, options);
-  },
+    initialize: function (options) {
+        this._map = null
+        this._canvas = null
+        this._frame = null
+        this._delegate = null
+        this._zooming = false
+        L.setOptions(this, options)
+    },
 
-  // Optional: external object (e.g., Gridviz) can handle draw callbacks
-  delegate: function (del) {
-    this._delegate = del;
-    return this;
-  },
+    // Optional: external object (e.g., Gridviz) can handle draw callbacks
+    delegate: function (del) {
+        this._delegate = del
+        return this
+    },
 
-  // Request an animation frame to trigger redraw
-  needRedraw: function () {
-    if (!this._frame) {
-      this._frame = L.Util.requestAnimFrame(this.drawLayer, this);
-    }
-    return this;
-  },
+    // Request an animation frame to trigger redraw
+    needRedraw: function () {
+        if (!this._frame) {
+            this._frame = L.Util.requestAnimFrame(this.drawLayer, this)
+        }
+        return this
+    },
 
-  // Anchors the canvas to the map’s current top-left corner
-  _updatePosition: function () {
-    requestAnimationFrame(() => {
-      if (this._map == null) return;
-      if (this._map.containerPointToLayerPoint == null) return;
-      var topLeft = this._map.containerPointToLayerPoint([0, 0]);
-      L.DomUtil.setPosition(this._canvas, topLeft);
-    });
-  },
+    // Anchors the canvas to the map's current top-left corner
+    _updatePosition: function () {
+        requestAnimationFrame(() => {
+            if (this._map == null) return
+            if (this._map.containerPointToLayerPoint == null) return
+            var topLeft = this._map.containerPointToLayerPoint([0, 0])
+            L.DomUtil.setPosition(this._canvas, topLeft)
+        })
+    },
 
+    // ---------------------------------------------------------------------------
+    // Add layer to map and initialize canvas
+    onAdd: function (map) {
+        this._map = map
+        this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
+        this._canvas.style.transformOrigin = '0 0'
 
+        //add classes
+        L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated')
+        L.DomUtil.addClass(this._canvas, 'gridviz-canvas-layer')
 
-  // ---------------------------------------------------------------------------
-  // Add layer to map and initialize canvas
-  onAdd: function (map) {
-    this._map = map;
-    this._canvas = L.DomUtil.create('canvas', 'leaflet-layer');
-    this._canvas.style.transformOrigin = '0 0';
-    L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated');
+        var size = map.getSize()
+        this._canvas.width = size.x
+        this._canvas.height = size.y
 
-    var size = map.getSize();
-    this._canvas.width = size.x;
-    this._canvas.height = size.y;
+        var animated = map.options.zoomAnimation && L.Browser.any3d
+        L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'))
 
-    var animated = map.options.zoomAnimation && L.Browser.any3d;
-    L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'));
+        // Create a dedicated pane for the canvas (useful for ordering)
+        // var pane = map.createPane('gridviz')
+        // pane.style.zIndex = 399
+        // pane.appendChild(this._canvas)
+        var pane = map.getPane('overlayPane')
+        pane.appendChild(this._canvas)
 
-    // Create a dedicated pane for the canvas (useful for ordering)
-    var pane = map.createPane('gridviz');
-    pane.style.zIndex = 399;
-    pane.appendChild(this._canvas);
+        map.on(this.getEvents(), this)
 
-    map.on(this.getEvents(), this);
+        // Fire callback when mounted (e.g., to build gridviz app)
+        var del = this._delegate || this
+        if (del.onLayerDidMount) del.onLayerDidMount()
 
-    // Fire callback when mounted (e.g., to build gridviz app)
-    var del = this._delegate || this;
-    if (del.onLayerDidMount) del.onLayerDidMount();
+        this._updatePosition() // Place for current view
+        this._initCanvasLevel() // Seed for zoom animation math
+        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
+        this.needRedraw()
+    },
 
-    this._updatePosition();      // Place for current view
-    this._initCanvasLevel();     // Seed for zoom animation math
-    L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1);
-    this.needRedraw();
-  },
+    // ---------------------------------------------------------------------------
+    // Remove layer and clean up
+    onRemove: function (map) {
+        var del = this._delegate || this
+        if (del.onLayerWillUnmount) del.onLayerWillUnmount()
 
-  // ---------------------------------------------------------------------------
-  // Remove layer and clean up
-  onRemove: function (map) {
-    var del = this._delegate || this;
-    if (del.onLayerWillUnmount) del.onLayerWillUnmount();
+        if (this._frame) L.Util.cancelAnimFrame(this._frame)
 
-    if (this._frame) L.Util.cancelAnimFrame(this._frame);
+        var pane = map.getPane('gridviz')
+        if (this._canvas && this._canvas.parentElement === pane) {
+            pane.removeChild(this._canvas)
+            map.off(this.getEvents(), this)
+            this._canvas = null
+        }
+    },
 
-    var pane = map.getPane('gridviz');
-    if (this._canvas && this._canvas.parentElement === pane) {
-      pane.removeChild(this._canvas);
-      map.off(this.getEvents(), this);
-      this._canvas = null;
-    }
-  },
+    // ---------------------------------------------------------------------------
+    // Initialize a virtual canvas "level" that mirrors GridLayer logic
+    // This ensures zoom animations stay aligned with Leaflet's tile transforms
+    _initCanvasLevel: function () {
+        if (this._map) {
+            var z = this._map.getZoom()
+            var c = this._map.getCenter()
 
-  // ---------------------------------------------------------------------------
-  // Initialize a virtual canvas "level" that mirrors GridLayer logic
-  // This ensures zoom animations stay aligned with Leaflet’s tile transforms
-  _initCanvasLevel: function () {
-    if (this._map) {
-      var z = this._map.getZoom();
-      var c = this._map.getCenter();
+            // The top-left point of the current map view in pixel coordinates
+            // This is the same origin used by Leaflet's GridLayer for its zoom math
+            var topLeft = this._map._getTopLeftPoint(c, z).round()
 
-      // The top-left point of the current map view in pixel coordinates
-      // This is the same origin used by Leaflet’s GridLayer for its zoom math
-      var topLeft = this._map._getTopLeftPoint(c, z).round();
+            this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas }
+        } else {
+            console.warn('GridvizCanvasLayer: _initCanvasLevel called before map init')
+        }
+    },
 
-      this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas };
-    } else {
-      console.warn('GridvizCanvasLayer: _initCanvasLevel called before map init');
-    }
-  },
+    // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
+    // Event bindings for panning, zooming, resizing
+    getEvents: function () {
+        return {
+            resize: this._onLayerDidResize,
+            movestart: this._onMoveStart,
+            moveend: this._onMoveEnd,
+            viewreset: this._onLayerDidMove,
+            zoomstart: this._onZoomStart,
+            zoomanim: this._onAnimZoom,
+            zoomend: this._onZoomEnd,
+        }
+    },
 
-  // Event bindings for panning, zooming, resizing
-  getEvents: function () {
-    return {
-      resize: this._onLayerDidResize,
-      movestart: this._onMoveStart,   // ← panning begins (only real pan)
-      moveend: this._onMoveEnd,  // ← updated
-      viewreset: this._onLayerDidMove,
-      zoomstart: this._onZoomStart,
-      zoomanim: this._onAnimZoom,
-      zoomend: this._onZoomEnd
-    };
-  },
+    _onMoveStart: function (e) {
+        // If Leaflet is currently animating a zoom, this movestart is NOT a real pan.
+    },
 
-  _onMoveStart: function (e) {
-    // If Leaflet is currently animating a zoom, this movestart is NOT a real pan.
-    //this._panning = true;
-  },
+    // handle move end
+    _onMoveEnd: function (e) {
+        // Don't redraw if we're still in a zoom - zoomend will handle it
+        if (this._zooming) return
+        this._onLayerDidMove()
+    },
 
-  // handle move end
-  _onMoveEnd: function (e) {
-    //this._panning = false;
-    // if (this._wasHiddenForPan) {
-    //   this._canvas.style.visibility = 'visible';
-    //   this._wasHiddenForPan = false;
-    // }
+    _onLayerDidMove: function () {
+        this._updatePosition()
+        this.drawLayer()
+    },
 
-    // original behavior
-    this._onLayerDidMove();
-  },
+    // ---------------------------------------------------------------------------
+    // Zoom animation lifecycle
 
-  _onLayerDidMove: function () {
-    this._updatePosition();
-    this.drawLayer();
-  },
+    _onZoomStart: function () {
+        this._zooming = true
+        // Capture current state before zoom begins
+        this._initCanvasLevel()
+    },
 
-  // ---------------------------------------------------------------------------
-  // Zoom animation lifecycle
+    _onZoomEnd: function () {
+        this._zooming = false
 
-  _onZoomStart: function () {
-    L.DomUtil.setPosition(this._canvas, L.point(0, 0));
-    this._initCanvasLevel();
-  },
+        // Reset transform to identity
+        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
 
-  _onZoomEnd: function () {
-    // Re-align after zoom ends
-    this._updatePosition();
-    this._initCanvasLevel();
-  },
+        // Re-align canvas position
+        this._updatePosition()
 
-  _onAnimZoom: function (e) {
-    // if (this._panning) {
-    //   this._canvas.style.visibility = 'hidden';
-    //   this._wasHiddenForPan = true;
-    // }
+        // Re-initialize level for next zoom
+        this._initCanvasLevel()
 
-    // Replicates GridLayer._setZoomTransform
-    var level = this._canvasLevel;
-    var scale = this._map.getZoomScale(e.zoom, level.zoom);
-    var translate = level.origin
-      .multiplyBy(scale)
-      .subtract(this._map._getNewPixelOrigin(e.center, e.zoom))
-      .round();
+        // Force redraw at new zoom level
+        this.needRedraw()
+    },
 
-    if (L.Browser.any3d) {
-      L.DomUtil.setTransform(level.el, translate, scale);
-    } else {
-      L.DomUtil.setPosition(level.el, translate);
-    }
-  },
+    _onAnimZoom: function (e) {
+        if (!this._canvasLevel) return
 
-  // ---------------------------------------------------------------------------
-  // Resize or view reset
-  _onLayerDidResize: function (e) {
-    this._canvas.width = e.newSize.x;
-    this._canvas.height = e.newSize.y;
-    this._updatePosition();
-    L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1);
-    this._initCanvasLevel();
-    this.drawLayer();
-  },
+        // Replicates GridLayer._setZoomTransform
+        var level = this._canvasLevel
+        var scale = this._map.getZoomScale(e.zoom, level.zoom)
+        var translate = level.origin.multiplyBy(scale).subtract(this._map._getNewPixelOrigin(e.center, e.zoom)).round()
 
-  // ---------------------------------------------------------------------------
-  // Add helper for chaining
-  addTo: function (map) {
-    map.addLayer(this);
-    return this;
-  },
+        if (L.Browser.any3d) {
+            L.DomUtil.setTransform(level.el, translate, scale)
+        } else {
+            L.DomUtil.setPosition(level.el, translate)
+        }
+    },
 
-  // ---------------------------------------------------------------------------
-  // Triggered when drawing is needed
-  drawLayer: function () {
-    // Skip if zooming (Gridviz redraws on zoomend)
-    if (this._zooming) return;
-    if (this.onDrawLayer) this.onDrawLayer(); // delegate to external renderer
-    this._frame = null;
-  }
-});
+    // ---------------------------------------------------------------------------
+    // Resize or view reset
+    _onLayerDidResize: function (e) {
+        this._canvas.width = e.newSize.x
+        this._canvas.height = e.newSize.y
+        this._updatePosition()
+        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
+        this._initCanvasLevel()
+        this.drawLayer()
+    },
+
+    // ---------------------------------------------------------------------------
+    // Add helper for chaining
+    addTo: function (map) {
+        map.addLayer(this)
+        return this
+    },
+
+    // ---------------------------------------------------------------------------
+    // Triggered when drawing is needed
+    drawLayer: function () {
+        // Skip if zooming (canvas is being CSS-transformed, redraw on zoomend)
+        if (this._zooming) return
+        if (this.onDrawLayer) this.onDrawLayer()
+        this._frame = null
+    },
+})
 
 // Factory helper
 L.gridvizCanvasLayer = function () {
-  return new L.GridvizCanvasLayer();
-};
+    return new L.GridvizCanvasLayer()
+}
 
 
 /***/ })
@@ -15559,6 +15559,7 @@ class Map_Map {
         this.legend = opts.legendContainer
             ? src_select(opts.legendContainer) // Wrap the provided HTML node in a D3 selection
             : null
+        this._legendProvidedByUser = !!opts.legendContainer
         if (!this.legend) this.initialiseLegend()
 
         //tooltip
@@ -15664,14 +15665,19 @@ class Map_Map {
         const z = this.geoCanvas.view.z
         this.updateExtentGeo()
 
+        const ctx = this.geoCanvas.offscreenCtx
+
         //go through the layers
         for (const layer of this.layers) {
             //check if layer is visible
             if (layer.visible && !layer.visible(z)) continue
 
             //set layer alpha and blend mode
-            this.geoCanvas.offscreenCtx.globalAlpha = layer.alpha ? layer.alpha(z) : 1.0
-            if (layer.blendOperation) this.geoCanvas.offscreenCtx.globalCompositeOperation = layer.blendOperation(z)
+            if (layer.alpha || layer.blendOperation) {
+                ctx.save()
+                if (layer.alpha) ctx.globalAlpha = layer.alpha(z)
+                if (layer.blendOperation) ctx.globalCompositeOperation = layer.blendOperation(z)
+            }
 
             //set affin transform to draw with geographical coordinates
             this.geoCanvas.setCanvasTransform()
@@ -15683,8 +15689,7 @@ class Map_Map {
             if (layer.filterColor) layer.drawFilter(this.geoCanvas)
 
             //restore default alpha and blend operation
-            this.geoCanvas.offscreenCtx.globalAlpha = 1.0
-            this.geoCanvas.offscreenCtx.globalCompositeOperation = this.defaultGlobalCompositeOperation
+            if (layer.alpha || layer.blendOperation) ctx.restore()
         }
 
         // one drawImage call: draw the offscreen canvas to the main canvas
@@ -16019,7 +16024,10 @@ class Map_Map {
         this.geoCanvas.canvas.remove()
 
         // remove legend
-        this.legend?.remove()
+        // only remove legend if gridviz created it
+        if (!this._legendProvidedByUser) {
+            this.legend?.remove()
+        }
 
         // remove tooltip
         this.tooltip.tooltip?.remove()
@@ -16059,7 +16067,7 @@ class Drawable {
          * The function parameter is the zoom level.
          * (see CanvasRenderingContext2D: globalCompositeOperation property)
          * @type {function(number):GlobalCompositeOperation} */
-        this.blendOperation = opts.blendOperation || ((z) => 'source-over')
+        this.blendOperation = opts.blendOperation //|| ((z) => 'source-over')
 
         /** @type {(function(number):string)|undefined} */
         this.filterColor = opts.filterColor // (z) => "#eee7"
@@ -16068,7 +16076,7 @@ class Drawable {
     }
 
     /**
-     * Draw layer filter.
+     * Draw filter.
      *
      * @param {import("./GeoCanvas.js").GeoCanvas} geoCanvas The canvas where to draw the layer.
      * @returns {void}
@@ -17360,11 +17368,170 @@ class StrokeStyle_StrokeStyle extends Style {
     }
 }
 
+;// ./node_modules/d3-array/src/extent.js
+function extent_extent(values, valueof) {
+  let min;
+  let max;
+  if (valueof === undefined) {
+    for (const value of values) {
+      if (value != null) {
+        if (min === undefined) {
+          if (value >= value) min = max = value;
+        } else {
+          if (min > value) min = value;
+          if (max < value) max = value;
+        }
+      }
+    }
+  } else {
+    let index = -1;
+    for (let value of values) {
+      if ((value = valueof(value, ++index, values)) != null) {
+        if (min === undefined) {
+          if (value >= value) min = max = value;
+        } else {
+          if (min > value) min = value;
+          if (max < value) max = value;
+        }
+      }
+    }
+  }
+  return [min, max];
+}
+
+;// ./node_modules/gridviz/src/utils/utils.js
+//@ts-check
+
+
+;
+
+/**
+ * Get the class id from a value and class break values
+ *
+ * @param {number} v the value
+ * @param {Array.<number>} breaks the breaks
+ * @returns The class id, from 0 to breaks.length
+ * @deprecated use getClassifier instead.
+ */
+function getClass(v, breaks) {
+    if (!breaks) return
+    if (breaks.length == 0) return 0
+    if (v <= breaks[0]) return 0
+    for (let i = 1; i < breaks.length; i++) if (breaks[i - 1] < v && v <= breaks[i]) return i
+    return breaks.length
+}
+
+//take 'nice' value (power of ten, or multiple)
+function utils_nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
+    //compute bigger power of ten below
+    const v_ = Math.pow(10, Math.floor(Math.log10(v)))
+    for (let multiple of multiples) if (v_ * multiple <= v) return v_ * multiple
+    return v_
+}
+
+/**
+ * A grid cell.
+ * @typedef {{x: number, y: number}} Cell */
+
+/**
+ * Index cells by y and x
+ * @param {Array.<Cell>} cells
+ * @param {Function} [fun]
+ * @returns {Object}
+ */
+function utils_cellsToGrid(cells, fun) {
+    /** @type {Object} */
+    const ind = {}
+    for (const cell of cells) {
+        let row = ind[cell.y]
+        if (!row) {
+            row = {}
+            ind[cell.y] = row
+        }
+        row[cell.x] = fun ? fun(cell) : cell
+    }
+    return ind
+}
+
+
+
+/**
+ * Cells to grid.
+ * 
+ * @param {Array.<Cell>} cells
+ * @param {number} resolution
+ * @param {Function} [fun]
+ * @returns {Object}
+ * Grid[i][j] is the value for line i and column j.
+ * Numbered from top to bottom, from left to right.
+ * Properties x0 and y0 are the geo coordinates of the lower left corner of the top left cell.
+ * Properties minI, maxI, minJ, maxJ are the extent of the grid.
+ */
+function cellsToMatrix(cells, resolution, fun) {
+
+    // get cells extent
+    const [minx, maxx] = extent_extent(cells, c => c.x)
+    const [miny, maxy] = extent_extent(cells, c => c.y)
+
+    // get grid dimension
+    const rows = Math.ceil((maxy - miny) / resolution) + 1
+    const cols = Math.ceil((maxx - minx) / resolution) + 1
+
+    // make empty grid
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(undefined));
+    grid.x0 = minx
+    grid.y0 = maxy
+    grid.resolution = resolution
+
+    for (const c of cells) {
+        const i = Math.floor((maxy - c.y) / resolution)
+        const j = Math.floor((c.x - minx) / resolution)
+        const v = fun ? fun(c) : c
+        grid[i][j] = v
+    }
+    return grid
+}
+
+
+
+/*
+//no longer used
+export function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { reject(new Error('Error loading image')); };
+        img.src = src;
+    });
+}
+*/
+
+/*
+export let monitor = false
+
+let previousDate
+export function monitorDuration(message) {
+    const nowDate = Date.now()
+
+    //first call
+    if (!previousDate) {
+        previousDate = nowDate
+        console.log(previousDate, message)
+        return
+    }
+
+    const d = nowDate - previousDate
+    previousDate = nowDate
+    console.log(d, message)
+}
+*/
+
 ;// ./node_modules/gridviz/src/style/JoyPlotStyle.js
 //@ts-check
 
 
 ;
+
 
 /**
  * @module style
@@ -17410,15 +17577,70 @@ class JoyPlotStyle extends Style {
 
         //index cells by y and x
         /**  @type {object} */
-        const ind = {}
-        for (const cell of cells) {
-            let row = ind[cell.y]
-            if (!row) {
-                row = {}
-                ind[cell.y] = row
+        const ind = utils_cellsToGrid(cells, cell => this.height(cell, resolution, z, viewScale))
+
+
+        //make grid
+        /**  @type {object} */
+        /*const grid = cellsToGrid2(cells, resolution, cell => this.height(cell, resolution, z, viewScale))
+        if (!grid.maxI || !grid.maxJ) return
+
+        //TODO
+        const ys = { min: grid.y0 + resolution * grid.minI, max: grid.y0 + resolution * grid.maxI }
+
+        //draw lines, row by row, stating from the top
+        ctx.lineJoin = 'round'
+        for (let i = grid.minI; i <= grid.maxI; i++) {
+
+            //Get row data
+            const row = grid[i]
+            if (!row) continue
+
+            // y of the row
+            const y = grid.y0 - i * resolution
+
+            //store the previous height
+            let hG_
+
+            for (let j = grid.minJ; j <= grid.maxJ; j++) {
+                //get column value
+                let hG = row[j]
+                if (!hG) hG = 0
+
+                // x of the cell
+                const x = grid.x0 + j * resolution
+
+                if (hG || hG_) {
+                    //draw line only when at least one of both values is non-null
+                    //TODO test bezierCurveTo
+                    ctx.lineTo(x + resolution / 2, y + hG)
+                } else {
+                    //else move the point
+                    ctx.moveTo(x + resolution / 2, y)
+                }
+                //store the previous value
+                hG_ = hG
             }
-            row[cell.x] = this.height(cell, resolution, z, viewScale)
+            //last point
+            if (hG_) ctx.lineTo(grid.x0 + resolution * grid.maxJ + resolution / 2, y)
+
+            //draw fill
+            const fc = this.fillColor(y, ys, resolution, z)
+            if (fc && fc != 'none') {
+                ctx.fillStyle = fc
+                ctx.fill()
+            }
+
+            //draw line
+            const lc = this.lineColor(y, ys, resolution, z)
+            const lw = this.lineWidth(y, ys, resolution, z)
+            if (lc && lc != 'none' && lw > 0) {
+                ctx.strokeStyle = lc
+                ctx.lineWidth = lw
+                ctx.stroke()
+            }
         }
+        */
 
         //compute extent
         const e = geoCanvas.extGeo
@@ -17428,7 +17650,6 @@ class JoyPlotStyle extends Style {
         const yMin = Math.floor(e.yMin / resolution) * resolution
         const yMax = Math.floor(e.yMax / resolution) * resolution
 
-        /**  @type {{min:number, max:number}} */
         const ys = { min: yMin, max: yMax }
 
         //draw lines, row by row, stating from the top
@@ -17445,13 +17666,11 @@ class JoyPlotStyle extends Style {
             ctx.moveTo(xMin - resolution / 2, y)
 
             //store the previous height
-            /** @type {number|undefined} */
             let hG_
 
             //go through the line cells
             for (let x = xMin; x <= xMax; x += resolution) {
                 //get column value
-                /** @type {number} */
                 let hG = row[x]
                 if (!hG) hG = 0
 
@@ -18337,11 +18556,16 @@ class SideStyle extends Style {
      * @param {boolean} center Set to true so that the side coordinate are those of its center point rather than its left/bottom point (the side x,y coordinates are those of the left point for horizontal sides, and of the bottom point for vertical sides)
      * @returns { Array.<Side> }
      */
-    static buildSides(cells, resolution, withHorizontal = true, withVertical = true, center = true) {
+    static buildSides(cells, resolution, withHorizontal = true, withVertical = true, center = true, eps = 0.01) {
         /** @type { Array.<Side> } */
         const sides = []
 
+        // half resolution
         const r2 = center ? resolution / 2 : 0
+
+        // epsilon
+        eps = resolution * eps
+        const abs = Math.abs
 
         //make horizontal sides
         //sort cells by x and y
@@ -18350,7 +18574,7 @@ class SideStyle extends Style {
         for (let i = 1; i < cells.length; i++) {
             let c2 = cells[i]
 
-            if (c1.y + resolution == c2.y && c1.x == c2.x)
+            if (abs(c1.y + resolution - c2.y) < eps && abs(c1.x - c2.x) < eps)
                 //cells in same column and touch along horizontal side
                 //make shared side
                 sides.push({
@@ -18389,7 +18613,7 @@ class SideStyle extends Style {
         for (let i = 1; i < cells.length; i++) {
             let c2 = cells[i]
 
-            if (c1.x + resolution == c2.x && c1.y == c2.y)
+            if (abs(c1.x + resolution - c2.x) < eps && abs(c1.y - c2.y) < eps)
                 //cells in same row and touch along vertical side
                 //make shared side
                 sides.push({
@@ -18423,6 +18647,659 @@ class SideStyle extends Style {
         return sides
     }
 }
+
+;// ./node_modules/gridviz/src/utils/webGLUtils.js
+//@ts-check
+
+
+/**
+ * @param {string} width
+ * @param {string} height
+ * @param {object} opts
+ * @returns {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}
+ */
+function makeWebGLCanvas(width, height, opts = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.setAttribute('width', width)
+    canvas.setAttribute('height', height)
+    const version2 = (opts && +opts.version==2)? "2" : ""
+    /** @type {WebGLRenderingContext} */
+    const gl = canvas.getContext('webgl' + version2, opts)
+    if (!gl) {
+        throw new Error('Unable to initialize WebGL'+version2+'. Your browser or machine may not support it.')
+    }
+    return { canvas: canvas, gl: gl, width: width, height: height }
+}
+
+/**
+ * Initialize a shader program, so WebGL knows how to draw our data
+ *
+ * @param {WebGLRenderingContext} gl
+ * @param  {...WebGLShader} shaders
+ * @returns {WebGLProgram}
+ */
+function initShaderProgram(gl, ...shaders) {
+    /** @type {WebGLProgram|null} */
+    const program = gl.createProgram()
+    if (program == null) throw new Error('Cannot create webGL program')
+    for (const shader of shaders) gl.attachShader(program, shader)
+    gl.linkProgram(program)
+    if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program
+    throw new Error(gl.getProgramInfoLog(program) || 'Cannot create webGL program (2)')
+}
+
+/**
+ * Creates a shader of the given type, uploads the source and compiles it.
+ *
+ * @param {WebGLRenderingContext} gl
+ * @param {number} type
+ * @param  {...string} sources
+ * @returns {WebGLShader}
+ */
+function createShader(gl, type, ...sources) {
+    /** @type {WebGLShader|null} */
+    const shader = gl.createShader(type)
+    if (shader == null) throw new Error('Cannot create webGL shader')
+    gl.shaderSource(shader, sources.join('\n'))
+    gl.compileShader(shader)
+    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader
+    throw new Error(gl.getShaderInfoLog(shader) || 'Cannot create webGL shader (2)')
+}
+
+/**
+ * Check if webGL is supported
+ *
+ * @returns {boolean}
+ */
+function checkWebGLSupport() {
+    try {
+        const canvas = document.createElement('canvas')
+        return !!(
+            !!window.WebGLRenderingContext &&
+            (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+        )
+    } catch (err) {
+        return false
+    }
+}
+
+;// ./node_modules/gridviz/src/style/SquareColorCategoryWebGLStyle.js
+//@ts-check
+
+
+;
+
+
+
+/**
+ * Style based on webGL
+ * To show cells as colored squares, from categories.
+ * All cells are drawn as squares, with the same size
+ *
+ * @module style
+ * @author Julien Gaffuri
+ */
+class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style {
+    /** @param {object} opts */
+    constructor(opts) {
+        super(opts)
+        opts = opts || {}
+
+        /**
+         * A function returning the category code of the cell, for coloring.
+         * @type {function(import('../core/Dataset.js').Cell, number, number, viewScale):string} */
+        this.code = opts.code  // (c, resolution, z, viewScale) => "code1"
+
+        /**
+         * The dictionary (code -> color) which gives the color of each category code.
+         * @type {object} */
+        opts.color = opts.color || undefined
+
+        /** @type { Array.<string> } */
+        const codes = Object.keys(opts.color)
+
+        /** @type { object } @private */
+        this.catToI = {}
+        for (let i = 0; i < codes.length; i++) this.catToI[codes[i]] = i + ''
+
+        /** @type { Array.<string> } @private */
+        this.colors = []
+        for (const code of codes) this.colors.push(opts.color['' + code])
+
+        /**
+         * A function returning the size of the cells, in geographical unit. All cells have the same size.
+         * @type {function(number,number):number} */
+        this.size = opts.size // (resolution, z) => ...
+
+        /**  * @type {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}*/
+        this.cvWGL = undefined
+        this.programm = undefined
+
+        this.x = undefined
+        this.y = undefined
+        this.z = undefined
+        this.cellsNb = undefined
+    }
+
+    init(w, h) {
+        this.cvWGL = makeWebGLCanvas(w + '', h + '')
+        if (!this.cvWGL) { console.error('No webGL'); return }
+
+        const gl = this.cvWGL.gl
+
+        //draw
+        const vectorShader = `
+        attribute vec2 pos;
+        uniform float sizePix;
+        uniform mat3 mat;
+        attribute float i;
+        varying float vi;
+        void main() {
+          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+          gl_PointSize = sizePix;
+          vi = i;
+        }`
+        /** @type {WebGLShader} */
+        const vShader = createShader(gl, gl.VERTEX_SHADER, vectorShader)
+
+        const fragmentShader = `
+        precision highp float;
+        varying float vi;
+        uniform sampler2D colorLUT;
+        uniform float lutSize;
+        void main(void) {
+            float idx = floor(vi + 0.5);
+            float u = (idx + 0.5) / lutSize;
+            gl_FragColor = texture2D(colorLUT, vec2(u, 0.5));
+        }`
+        /** @type {WebGLShader} */
+        const fShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShader)
+
+        /** @type {WebGLProgram} */
+        this.program = initShaderProgram(gl, vShader, fShader)
+        gl.useProgram(this.program)
+    }
+
+    bindColors() {
+        const gl = this.cvWGL.gl
+        const lutSize = this.colors.length;
+        const lutData = new Uint8Array(lutSize * 4); // RGBA for each entry
+
+        // Fill lutData with your color values (e.g., rainbow, grayscale, etc.)
+        for (let i = 0; i < lutSize; i++) {
+            const c = color(this.colors[i])
+            lutData[i * 4] = +c.r;     // R
+            lutData[i * 4 + 1] = c.g; // G
+            lutData[i * 4 + 2] = c.b; // B
+            lutData[i * 4 + 3] = c?.opacity * 255; // A
+        }
+
+        // Create and bind texture
+        const lutTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, lutSize, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Get uniform locations
+        const uColorLUT = gl.getUniformLocation(this.program, 'colorLUT');
+        const uLutSize = gl.getUniformLocation(this.program, 'lutSize');
+
+        // Set uniform values
+        gl.uniform1i(uColorLUT, 0); // Texture unit 0
+        gl.uniform1f(uLutSize, lutSize);
+
+        // Bind the texture to texture unit 0
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+    }
+
+    bindVertices(cells, resolution, z, viewScale) {
+        const gl = this.cvWGL.gl
+        //add vertice and fragment data
+        const r2 = resolution / 2
+        let c, nb = cells.length
+        const verticesBuffer = []
+        const iBuffer = []
+        for (let i = 0; i < nb; i++) {
+            c = cells[i]
+            const cat = this.code(c, resolution, z, viewScale)
+            if (cat == undefined) {
+                //console.log('Unexpected category: ' + cat)
+                continue
+            }
+            const i_ = this.catToI[cat]
+            if (isNaN(+i_)) {
+                console.log('Unexpected category index: ' + cat + ' ' + i_)
+                continue
+            }
+            verticesBuffer.push(c.x + r2, c.y + r2)
+            iBuffer.push(+i_)
+        }
+
+        //bind vertice data
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.STATIC_DRAW)
+        const position = gl.getAttribLocation(this.program, 'pos')
+        gl.vertexAttribPointer(
+            position,
+            2, //numComponents
+            gl.FLOAT, //type
+            false, //normalise
+            0, //stride
+            0 //offset
+        )
+        gl.enableVertexAttribArray(position)
+
+        //i data
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iBuffer), gl.STATIC_DRAW)
+        const i = gl.getAttribLocation(this.program, 'i')
+        gl.vertexAttribPointer(i, 1, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(i)
+    }
+
+
+
+    // check if the vertices have to be bound again
+    mapContentChanged(v, cellsNb) {
+        if (v.x == this.x && v.y == this.y && v.z == this.z && this.cellsNb == cellsNb) return false
+        this.x = v.x
+        this.y = v.y
+        this.z = v.z
+        this.cellsNb = cellsNb
+        return true
+    }
+
+
+    /**
+     * @param {Array.<import("../core/Dataset.js").Cell>} cells
+     * @param {import("../core/GeoCanvas.js").GeoCanvas} geoCanvas
+     * @param {number} resolution
+     */
+    draw(cells, geoCanvas, resolution) {
+        //filter
+        if (this.filter) cells = cells.filter(this.filter)
+
+        //
+        const z = geoCanvas.view.z
+
+        //get view scale
+        const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
+
+        //create canvas and webgl renderer
+        if (!this.cvWGL || geoCanvas.w != this.cvWGL.width || geoCanvas.h != this.cvWGL.height) {
+            this.init(geoCanvas.w, geoCanvas.h)
+            this.bindColors()
+        }
+        const gl = this.cvWGL.gl
+        const canvas = this.cvWGL.canvas
+
+        //bind sizePix
+        const sizePix = this.size ? this.size(resolution, z) / z : resolution / z + 0.2
+        gl.uniform1f(gl.getUniformLocation(this.program, 'sizePix'), 1.0 * sizePix)
+
+        //
+        if (this.mapContentChanged(geoCanvas.view, cells.length))
+            //bind vertices
+            this.bindVertices(cells, resolution, z, viewScale)
+            //transformation
+            gl.uniformMatrix3fv(gl.getUniformLocation(this.program, 'mat'), false, new Float32Array(geoCanvas.getWebGLTransform()))
+
+        // Enable the depth test
+        //gl.enable(gl.DEPTH_TEST);
+        // Clear the color buffer bit
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        // Set the view port
+        //gl.viewport(0, 0, cg.w, cg.h);
+
+        gl.drawArrays(gl.POINTS, 0, cells.length)
+
+        //draw in canvas geo
+        geoCanvas.initCanvasTransform()
+        geoCanvas.offscreenCtx.drawImage(canvas, 0, 0)
+
+        //update legends
+        this.updateLegends({ style: this, resolution: resolution, z: z, viewScale: viewScale })
+    }
+}
+
+
+
+// early tests for webgl2 migration
+
+/*
+function getVectorShader2() {
+    return `
+        #version 300 es
+        precision highp float;
+
+        in vec2 pos;
+        in int i;
+
+        uniform float sizePix;
+        uniform mat3 mat;
+
+        flat out int vi;
+
+        void main() {
+            gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+            gl_PointSize = sizePix;
+            vi = i;
+        }
+        `
+}
+
+
+function getFragmentShader2(colors) {
+
+    //prepare fragment shader code
+    //declare the uniform and other variables
+    const out = []
+    out.push('#version 300 es\nprecision highp float;\nflat in int vi;\n')
+
+    //add color uniforms
+    //uniform vec4 colors[12];
+    out.push('uniform vec4 colors[')
+    out.push(colors.length)
+    out.push('];\n')
+
+    out.push('out vec4 fragColor;\n')
+
+    //start the main function
+    //void main() { fragColor = colors[clamp(vi, 0, 11)]; }
+    out.push('void main() { fragColor = colors[vi]; }\n')
+
+    /** Fragment shader program
+    const fshString = out.join('')
+    console.log(fshString)
+    return fshString
+}
+
+*/
+;// ./node_modules/gridviz/src/style/ShadingRayStyle.js
+//@ts-check
+
+
+;
+
+
+//import { SquareColorWebGLStyle } from './SquareColorWebGLStyle.js'
+
+
+
+//TODO:
+// make faster algo by setting shades by sun ray
+// diffusion effect ? based on distance to light (altitude - sun ray height)
+// style with SquareColorWebGLStyle, improved version !
+
+/**
+ * @module style
+ * @author Julien Gaffuri
+ */
+class ShadingRayStyle extends Style {
+    /** @param {object} opts */
+    constructor(opts) {
+        super(opts)
+        opts = opts || {}
+
+        this.elevation = opts.elevation //(c) => elevation
+
+        this.sunAzimuth = opts.sunAzimuth || (() => 2.356) //(r,z,vs)=>
+        this.sunAltitude = opts.sunAltitude || (() => 0.2) //(r,z,vs)=>
+
+        //this.alpha = opts.alpha || (() => 0.33) //(z,vs)
+        this.color = opts.color || (() => 'black') //(r,z,vs) => {}
+
+        this.undefinedValue = opts.undefinedValue || 0
+
+        //this.version = opts.version || 1
+        // used only for v2
+        //this.shadowProperty = opts.shadowProperty || "shadow"
+    }
+
+    /**
+     *
+     * @param {Array.<import("../core/Dataset.js").Cell>} cells
+     * @param {import("../core/GeoCanvas.js").GeoCanvas} geoCanvas
+     * @param {number} resolution
+     */
+    draw(cells, geoCanvas, resolution) {
+        //filter
+        if (this.filter) cells = cells.filter(this.filter)
+        if (cells.length == 0) return;
+
+        //
+        const z = geoCanvas.view.z
+
+        //get view scale
+        const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
+
+        //if (this.version == "1") {
+        //index cells by y and x
+        let m = cellsToMatrix(cells, resolution, c => this.elevation(c))
+        const x0 = m.x0, y0 = m.y0
+
+        // compute ray casting shadow
+        m = referenceShadow(
+            m,
+            resolution,
+            this.sunAzimuth(resolution, z, viewScale),
+            this.sunAltitude(resolution, z, viewScale),
+            this.undefinedValue);
+
+        // make cells
+        cells = []
+        for (let i = 0; i < m.length; i++) {
+            const row = m[i]
+            const y = y0 - i * resolution
+            for (let j = 0; j < row.length; j++) {
+                const sh = row[j]
+                if (!sh) continue
+                const c = { x: x0 + j * resolution, y: y }
+                //c[this.shadowProperty] = sh
+                cells.push(c)
+            }
+        }
+        //} else {
+        //clean previsouly computed shadows
+        /*for (let c of cells) delete c[this.shadowProperty]
+
+        //compute shading
+        referenceShadowV2(
+            cells,
+            resolution,
+            (c) => this.elevation(c),
+            this.shadowProperty,
+            this.sunAzimuth(resolution, z, viewScale),
+            this.sunAltitude(resolution, z, viewScale));
+
+        //keep only those with shadow
+        cells = cells.filter(c => c.shadow)*/
+        //}
+
+        //set style alpha and blend mode
+        //TODO: multiply by layer alpha ?
+        //geoCanvas.ctx.globalAlpha = s.alpha ? s.alpha(z) : 1.0
+        //if (s.blendOperation) geoCanvas.ctx.globalCompositeOperation = s.blendOperation(z)
+
+        //set affin transform to draw with geographical coordinates
+        //geoCanvas.setCanvasTransform()
+
+        //draw shadowed cells with webgl style
+        new SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle({
+            code: () => "a",
+            color: { 'a': this.color(resolution, z, viewScale) },
+            //alpha: () => this.alpha(resolution, z, viewScale),
+        }).draw(cells, geoCanvas, resolution)
+
+        /*new SquareColorWebGLStyle({
+            filter: (c => c.shadow),
+            tFun: (c, r) => c.shadow, //1-Math.min(1, c.shadow / 10000),//c.shadow, //,
+            color: (t => "rgba(0,0,0," + t + ")"),
+            alpha: () => this.alpha(resolution, z, viewScale),
+        }).draw(cells, geoCanvas, resolution)*/
+
+        //draw style filter
+        //if (s.filterColor) s.drawFilter(geoCanvas)
+
+        //update legends
+        this.updateLegends({ style: this, resolution: resolution, z: z, viewScale: viewScale })
+    }
+}
+
+
+
+
+/**
+ * Ground-truth terrain shadow algorithm (ray-based)
+ * Trig-free with undefined handling
+ *
+ * @param {number[][]} elevation - DEM [row][col], may contain undefined
+ * @param {number} resolution
+ * @param {number} sunAzimuth - radians, clockwise from north (+Y)
+ * @param {number} sunAltitude - radians - solar elevation angle above the local horizontal plane
+ * @param {number|undefined} undefinedValue - The value to set for cells with no elevation value
+ * @returns {(number|undefined)[][]} shade. Height above ground where ray light can be reached.
+ */
+function referenceShadow(
+    elevation,
+    resolution = 1000,
+    sunAzimuth = 2.356, // 2PI/3
+    sunAltitude = 0.15,
+    undefinedValue = undefined,
+) {
+    const rows = elevation.length;
+    const cols = elevation[0].length;
+
+    // Sun direction TOWARD the sun
+    const ux = Math.sin(sunAzimuth);
+    const uy = -Math.cos(sunAzimuth);
+    const tanAlt = Math.tan(sunAltitude);
+
+    //const diffAngle = 40 * Math.PI / 180 // 0.5 deg
+    //const tanTop = Math.tan(sunAltitude + diffAngle)
+    //const tanBottom = Math.tan(Math.max(sunAltitude - diffAngle, 0))
+    //const tanBottom = Math.tan(sunAltitude - diffAngle)
+
+    const shade = Array.from({ length: rows }, () => new Array(cols).fill(undefined));
+
+    for (let y0 = 0; y0 < rows; y0++) {
+        for (let x0 = 0; x0 < cols; x0++) {
+
+            const z0raw = elevation[y0][x0] || undefinedValue;
+            if (z0raw === undefined) continue;
+
+            // cast ray
+            let t = resolution;
+            while (true) {
+                const x = x0 - ux * t / resolution;
+                const y = y0 - uy * t / resolution;
+
+                const ix = Math.round(x);
+                const iy = Math.round(y);
+
+                if (ix < 0 || iy < 0 || ix >= cols || iy >= rows) break;
+
+                const zqraw = elevation[iy][ix] || undefinedValue;
+                if (zqraw === undefined) break; // transparent gap
+
+                //const deltaBottom = zqraw - z0raw - tanBottom * t;
+                //if (deltaBottom > 0) {
+                const delta = zqraw - z0raw - tanAlt * t;
+                if (delta > 0) {
+                    shade[y0][x0] = 1 //Math.min(3000 / t, 1)
+                    break;
+                    /*}
+                    //const deltaTop = zqraw - z0raw - tanTop * t;
+                    //if (deltaTop > 0) {
+                    //    shade[y0][x0] = 0
+                    //    break;
+                    //} else {
+                        let r = 1 + delta / deltaBottom
+                        if (r < 0) r = 0
+                        if (r < 0 || r > 1) console.log(r)
+                        shade[y0][x0] = shade[y0][x0] ? Math.max(shade[y0][x0], r) : r
+                    //}*/
+                }
+                t += resolution;
+            }
+        }
+    }
+    return shade;
+}
+
+
+
+
+/**
+ * Ground-truth terrain shadow algorithm (ray-based)
+ * Trig-free with undefined handling
+ *
+ * @param {Array.<Cell>} cells - DEM [row][col], may contain undefined
+ * @param {number} resolution
+ * @param {Function} elevationFun
+ * @param {string} shadowProperty
+ * @param {number} sunAzimuth - radians, clockwise from north (+Y)
+ * @param {number} sunAltitude - radians - solar elevation angle above the local horizontal plane
+ */
+function referenceShadowV2(
+    cells,
+    resolution = 1000,
+    elevationFun,
+    shadowProperty = "shadow",
+    sunAzimuth = 2.356, // 2PI/3
+    sunAltitude = 0.15
+) {
+
+    //get geo extent
+    const [minx, maxx] = extent(cells, c => c.x)
+    const [miny, maxy] = extent(cells, c => c.y)
+
+    //index cells by y and x
+    const ind = cellsToGrid(cells)
+
+    // Sun direction TOWARD the sun
+    const ux = Math.sin(sunAzimuth);
+    const uy = Math.cos(sunAzimuth);
+    const tanAlt = Math.tan(sunAltitude);
+
+    for (let y0 = miny; y0 <= maxy; y0 += resolution) {
+        const row = ind[y0]
+        if (!row) continue
+        for (let x0 = minx; x0 <= maxx; x0 += resolution) {
+            const cell0 = row[x0]
+            if (!cell0) continue
+            const z0raw = elevationFun(cell0);
+            if (z0raw === undefined) continue;
+
+            // ray
+            let t = resolution;
+            while (true) {
+                const y = y0 - Math.round(uy * t / resolution) * resolution;
+                if (!ind[y]) break; // transparent gap
+
+                const x = x0 + Math.round(ux * t / resolution) * resolution;
+                const cellq = ind[y][x];
+                if (!cellq) break; // transparent gap
+
+                const zqraw = elevationFun(cellq);
+                if (zqraw === undefined) break; // transparent gap
+
+                // the height above the ground where light ray can be reached
+                const delta = zqraw - z0raw - tanAlt * t;
+                if (delta > 0) {
+                    cell0[shadowProperty] = delta
+                    break;
+                }
+                t += resolution;
+            }
+        }
+    }
+}
+
 
 ;// ./node_modules/d3-array/src/max.js
 function max_max(values, valueof) {
@@ -18666,81 +19543,6 @@ class SideCategoryStyle extends SideStyle {
 
   return randomNormal;
 })(defaultSource));
-
-;// ./node_modules/gridviz/src/utils/webGLUtils.js
-//@ts-check
-
-
-/**
- * @param {string} width
- * @param {string} height
- * @param {object} opts
- * @returns {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}
- */
-function makeWebGLCanvas(width, height, opts = {}) {
-    const canvas = document.createElement('canvas')
-    canvas.setAttribute('width', width)
-    canvas.setAttribute('height', height)
-    const version2 = (opts && +opts.version==2)? "2" : ""
-    /** @type {WebGLRenderingContext} */
-    const gl = canvas.getContext('webgl' + version2, opts)
-    if (!gl) {
-        throw new Error('Unable to initialize WebGL'+version2+'. Your browser or machine may not support it.')
-    }
-    return { canvas: canvas, gl: gl, width: width, height: height }
-}
-
-/**
- * Initialize a shader program, so WebGL knows how to draw our data
- *
- * @param {WebGLRenderingContext} gl
- * @param  {...WebGLShader} shaders
- * @returns {WebGLProgram}
- */
-function initShaderProgram(gl, ...shaders) {
-    /** @type {WebGLProgram|null} */
-    const program = gl.createProgram()
-    if (program == null) throw new Error('Cannot create webGL program')
-    for (const shader of shaders) gl.attachShader(program, shader)
-    gl.linkProgram(program)
-    if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program
-    throw new Error(gl.getProgramInfoLog(program) || 'Cannot create webGL program (2)')
-}
-
-/**
- * Creates a shader of the given type, uploads the source and compiles it.
- *
- * @param {WebGLRenderingContext} gl
- * @param {number} type
- * @param  {...string} sources
- * @returns {WebGLShader}
- */
-function createShader(gl, type, ...sources) {
-    /** @type {WebGLShader|null} */
-    const shader = gl.createShader(type)
-    if (shader == null) throw new Error('Cannot create webGL shader')
-    gl.shaderSource(shader, sources.join('\n'))
-    gl.compileShader(shader)
-    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader
-    throw new Error(gl.getShaderInfoLog(shader) || 'Cannot create webGL shader (2)')
-}
-
-/**
- * Check if webGL is supported
- *
- * @returns {boolean}
- */
-function checkWebGLSupport() {
-    try {
-        const canvas = document.createElement('canvas')
-        return !!(
-            !!window.WebGLRenderingContext &&
-            (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
-        )
-    } catch (err) {
-        return false
-    }
-}
 
 ;// ./node_modules/gridviz/src/utils/WebGLSquareColoring.js
 //@ts-check
@@ -19010,6 +19812,8 @@ class DotDensityStyle extends Style {
  * @typedef {function(Array.<Side>,number, number):*} SideViewScale */
 
 /**
+ * @see https://manifold.net/doc/mfd9/example__tanaka_contours.htm
+ * 
  * @module style
  * @author Julien Gaffuri
  */
@@ -19025,7 +19829,7 @@ class SideTanakaStyle_SideTanakaStyle extends Style {
 
         /** A function returning the width of a cell side, in geo unit
          * @type {function(Side, number, number, number, object):number} */
-        this.width = opts.width || ((side, sideValue, resolution, z, sidesScale) => Math.abs(sideValue) * Math.min(2 * z, resolution / 3))
+        this.width = opts.width || ((side, sideValue, resolution, z, sidesScale) => Math.abs(sideValue) * z) //Math.min(2 * z, resolution / 3))
 
         /** A function returning the length of a cell side, in geo unit
          * @type {function(Side, number, number, object):number} */
@@ -19151,302 +19955,6 @@ class SideTanakaStyle_SideTanakaStyle extends Style {
 
 }
 
-;// ./node_modules/gridviz/src/style/SquareColorCategoryWebGLStyle.js
-//@ts-check
-
-
-;
-
-
-
-/**
- * Style based on webGL
- * To show cells as colored squares, from categories.
- * All cells are drawn as squares, with the same size
- *
- * @module style
- * @author Julien Gaffuri
- */
-class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style {
-    /** @param {object} opts */
-    constructor(opts) {
-        super(opts)
-        opts = opts || {}
-
-        /**
-         * A function returning the category code of the cell, for coloring.
-         * @type {function(import('../core/Dataset.js').Cell, number, number, viewScale):string} */
-        this.code = opts.code  // (c, resolution, z, viewScale) => "code1"
-
-        /**
-         * The dictionary (code -> color) which gives the color of each category code.
-         * @type {object} */
-        opts.color = opts.color || undefined
-
-        /** @type { Array.<string> } */
-        const codes = Object.keys(opts.color)
-
-        /** @type { object } @private */
-        this.catToI = {}
-        for (let i = 0; i < codes.length; i++) this.catToI[codes[i]] = i + ''
-
-        /** @type { Array.<string> } @private */
-        this.colors = []
-        for (const code of codes) this.colors.push(opts.color['' + code])
-
-        /**
-         * A function returning the size of the cells, in geographical unit. All cells have the same size.
-         * @type {function(number,number):number} */
-        this.size = opts.size // (resolution, z) => ...
-
-        /**  * @type {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}*/
-        this.cvWGL = undefined
-        this.programm = undefined
-
-        this.x = undefined
-        this.y = undefined
-        this.z = undefined
-        this.cellsNb = undefined
-    }
-
-    init(w, h) {
-        this.cvWGL = makeWebGLCanvas(w + '', h + '')
-        if (!this.cvWGL) { console.error('No webGL'); return }
-
-        const gl = this.cvWGL.gl
-
-        //draw
-        const vectorShader = `
-        attribute vec2 pos;
-        uniform float sizePix;
-        uniform mat3 mat;
-        attribute float i;
-        varying float vi;
-        void main() {
-          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
-          gl_PointSize = sizePix;
-          vi = i;
-        }`
-        /** @type {WebGLShader} */
-        const vShader = createShader(gl, gl.VERTEX_SHADER, vectorShader)
-
-        const fragmentShader = `
-        precision highp float;
-        varying float vi;
-        uniform sampler2D colorLUT;
-        uniform float lutSize;
-        void main(void) {
-            float idx = floor(vi + 0.5);
-            float u = (idx + 0.5) / lutSize;
-            gl_FragColor = texture2D(colorLUT, vec2(u, 0.5));
-        }`
-        /** @type {WebGLShader} */
-        const fShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShader)
-
-        /** @type {WebGLProgram} */
-        this.program = initShaderProgram(gl, vShader, fShader)
-        gl.useProgram(this.program)
-    }
-
-    bindColors() {
-        const gl = this.cvWGL.gl
-        const lutSize = this.colors.length;
-        const lutData = new Uint8Array(lutSize * 4); // RGBA for each entry
-
-        // Fill lutData with your color values (e.g., rainbow, grayscale, etc.)
-        for (let i = 0; i < lutSize; i++) {
-            const c = color(this.colors[i])
-            lutData[i * 4] = +c.r;     // R
-            lutData[i * 4 + 1] = c.g; // G
-            lutData[i * 4 + 2] = c.b; // B
-            lutData[i * 4 + 3] = c?.opacity * 255; // A
-        }
-
-        // Create and bind texture
-        const lutTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, lutSize, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        // Get uniform locations
-        const uColorLUT = gl.getUniformLocation(this.program, 'colorLUT');
-        const uLutSize = gl.getUniformLocation(this.program, 'lutSize');
-
-        // Set uniform values
-        gl.uniform1i(uColorLUT, 0); // Texture unit 0
-        gl.uniform1f(uLutSize, lutSize);
-
-        // Bind the texture to texture unit 0
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
-    }
-
-    bindVertices(cells, resolution, z, viewScale) {
-        const gl = this.cvWGL.gl
-        //add vertice and fragment data
-        const r2 = resolution / 2
-        let c, nb = cells.length
-        const verticesBuffer = []
-        const iBuffer = []
-        for (let i = 0; i < nb; i++) {
-            c = cells[i]
-            const cat = this.code(c, resolution, z, viewScale)
-            if (cat == undefined) {
-                console.log('Unexpected category: ' + cat)
-                continue
-            }
-            const i_ = this.catToI[cat]
-            if (isNaN(+i_)) {
-                console.log('Unexpected category index: ' + cat + ' ' + i_)
-                continue
-            }
-            verticesBuffer.push(c.x + r2, c.y + r2)
-            iBuffer.push(+i_)
-        }
-
-        //bind vertice data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.STATIC_DRAW)
-        const position = gl.getAttribLocation(this.program, 'pos')
-        gl.vertexAttribPointer(
-            position,
-            2, //numComponents
-            gl.FLOAT, //type
-            false, //normalise
-            0, //stride
-            0 //offset
-        )
-        gl.enableVertexAttribArray(position)
-
-        //i data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iBuffer), gl.STATIC_DRAW)
-        const i = gl.getAttribLocation(this.program, 'i')
-        gl.vertexAttribPointer(i, 1, gl.FLOAT, false, 0, 0)
-        gl.enableVertexAttribArray(i)
-    }
-
-
-
-    // check if the vertices have to be bound again
-    mapContentChanged(v, cellsNb) {
-        if (v.x == this.x && v.y == this.y && v.z == this.z && this.cellsNb == cellsNb) return false
-        this.x = v.x
-        this.y = v.y
-        this.z = v.z
-        this.cellsNb = cellsNb
-        return true
-    }
-
-
-    /**
-     * @param {Array.<import("../core/Dataset.js").Cell>} cells
-     * @param {import("../core/GeoCanvas.js").GeoCanvas} geoCanvas
-     * @param {number} resolution
-     */
-    draw(cells, geoCanvas, resolution) {
-        //filter
-        if (this.filter) cells = cells.filter(this.filter)
-
-        //
-        const z = geoCanvas.view.z
-
-        //get view scale
-        const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
-
-        //create canvas and webgl renderer
-        if (!this.cvWGL || geoCanvas.w != this.cvWGL.width || geoCanvas.h != this.cvWGL.height) {
-            this.init(geoCanvas.w, geoCanvas.h)
-            this.bindColors()
-        }
-        const gl = this.cvWGL.gl
-        const canvas = this.cvWGL.canvas
-
-        //bind sizePix
-        const sizePix = this.size ? this.size(resolution, z) / z : resolution / z + 0.2
-        gl.uniform1f(gl.getUniformLocation(this.program, 'sizePix'), 1.0 * sizePix)
-
-        //
-        if (this.mapContentChanged(geoCanvas.view, cells.length))
-            //bind vertices
-            this.bindVertices(cells, resolution, z, viewScale)
-            //transformation
-            gl.uniformMatrix3fv(gl.getUniformLocation(this.program, 'mat'), false, new Float32Array(geoCanvas.getWebGLTransform()))
-
-        // Enable the depth test
-        //gl.enable(gl.DEPTH_TEST);
-        // Clear the color buffer bit
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        // Set the view port
-        //gl.viewport(0, 0, cg.w, cg.h);
-
-        gl.drawArrays(gl.POINTS, 0, cells.length)
-
-        //draw in canvas geo
-        geoCanvas.initCanvasTransform()
-        geoCanvas.offscreenCtx.drawImage(canvas, 0, 0)
-
-        //update legends
-        this.updateLegends({ style: this, resolution: resolution, z: z })
-    }
-}
-
-
-
-// early tests for webgl2 migration
-
-/*
-function getVectorShader2() {
-    return `
-        #version 300 es
-        precision highp float;
-
-        in vec2 pos;
-        in int i;
-
-        uniform float sizePix;
-        uniform mat3 mat;
-
-        flat out int vi;
-
-        void main() {
-            gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
-            gl_PointSize = sizePix;
-            vi = i;
-        }
-        `
-}
-
-
-function getFragmentShader2(colors) {
-
-    //prepare fragment shader code
-    //declare the uniform and other variables
-    const out = []
-    out.push('#version 300 es\nprecision highp float;\nflat in int vi;\n')
-
-    //add color uniforms
-    //uniform vec4 colors[12];
-    out.push('uniform vec4 colors[')
-    out.push(colors.length)
-    out.push('];\n')
-
-    out.push('out vec4 fragColor;\n')
-
-    //start the main function
-    //void main() { fragColor = colors[clamp(vi, 0, 11)]; }
-    out.push('void main() { fragColor = colors[vi]; }\n')
-
-    /** Fragment shader program
-    const fshString = out.join('')
-    console.log(fshString)
-    return fshString
-}
-
-*/
 ;// ./node_modules/gridviz/src/style/LegoStyle.js
 //@ts-check
 
@@ -20688,6 +21196,266 @@ class ImageStyle extends Style {
     }
 }
 
+;// ./node_modules/gridviz/src/style/Interpolator.js
+//@ts-check
+
+
+;
+
+
+/**
+ * @module style
+ * @author Julien Gaffuri
+ */
+class Interpolator extends Style {
+    /** @param {object} opts */
+    constructor(opts) {
+        super(opts)
+        opts = opts || {}
+
+        /** The cell value to interpolate
+         * @type { function } } */
+        this.value = opts.value //(c) => elevation
+
+        /** The target resolution. As a function (resolution, z) => targetResolution
+         * NB: Try to make sure that resolution/targetResolution is an integer.
+         * @type { function } } */
+        this.targetResolution = opts.targetResolution || ((r, z) => r / 5)
+
+        /** the property name to store the interpolated value in the cell
+         * @type { string } } */
+        this.interpolatedProperty = opts.interpolatedProperty || 'value'
+
+        // the interpolation method: currently only 'bilinear' is supported
+        //this.method = opts.method || 'bilinear' // 'nearest', 'bilinear'
+
+        /** when a neighbor cell has no value, take zero value or average of surrounding cells
+         * @type { string } } */
+        this.nodataHandling = opts.nodataHandling || "zero" // 'zero', 'average'
+
+        /** The styles to represent the interpolated grid.
+         * @type {Array.<Style>} */
+        this.styles = opts.styles || []
+    }
+
+
+    /**
+     *
+     * @param {Array.<import("../core/Dataset.js").Cell>} cells
+     * @param {import("../core/GeoCanvas.js").GeoCanvas} geoCanvas
+     * @param {number} resolution
+     */
+    draw(cells, geoCanvas, resolution) {
+
+        //filter cells
+        if (this.filter) cells = cells.filter(this.filter)
+        if (cells.length == 0) return;
+
+        //
+        const z = geoCanvas.view.z
+
+        //get view scale
+        //const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
+
+        //index cells by y and x
+        let m = cellsToMatrix(cells, resolution, c => this.value(c))
+        const x0 = m.x0, y0 = m.y0
+
+        //get target resolution and scale factor
+        let targetResolution = this.targetResolution(resolution, z)
+        const scaleFactor = Math.round(resolution / targetResolution)
+        targetResolution = resolution / scaleFactor
+
+        // compute ray casting shadow
+        m = bilinearInterpolator(m, scaleFactor, this.nodataHandling);
+
+        // make cells
+        cells = []
+        const ra = (resolution - targetResolution) / 2
+        for (let i = 0; i < m.length; i++) {
+            const row = m[i]
+            const y = y0 - i * targetResolution + ra
+            for (let j = 0; j < row.length; j++) {
+                const v = row[j]
+                if (!v) continue
+                const c = { x: x0 + j * targetResolution + ra, y: y }
+                c[this.interpolatedProperty] = v
+                cells.push(c)
+            }
+        }
+
+        //draw smoothed cells from styles
+        const ctx = geoCanvas.offscreenCtx
+        for (let s of this.styles) {
+
+            //check if style is visible
+            if (s.visible && !s.visible(z)) continue
+
+            //set style alpha and blend mode
+            //TODO: multiply by layer alpha ?
+            if (s.alpha || s.blendOperation) {
+                ctx.save()
+                if (s.alpha) ctx.globalAlpha = s.alpha(z)
+                if (s.blendOperation) ctx.globalCompositeOperation = s.blendOperation(z)
+            }
+
+            //set affin transform to draw with geographical coordinates
+            geoCanvas.setCanvasTransform()
+
+            //draw with style
+            s.draw(cells, geoCanvas, targetResolution)
+
+            //draw style filter
+            if (s.filterColor) s.drawFilter(geoCanvas)
+
+            //restore ctx
+            if (s.alpha || s.blendOperation) ctx.restore()
+        }
+
+    }
+}
+
+
+const interp = (topLeft, topRight, bottomLeft, bottomRight, xRatio, yRatio) => {
+    const top = topLeft + (topRight - topLeft) * xRatio;
+    const bottom = bottomLeft + (bottomRight - bottomLeft) * xRatio;
+    return top + (bottom - top) * yRatio;
+}
+
+
+function bilinearInterpolator(grid, scaleFactor = 5, nodataHandling = "zero") {
+
+    if (scaleFactor === 1) return grid;
+
+    // input grid dimensions
+    const rows = grid.length;
+    if (rows === 0) return [];
+    const cols = grid[0].length;
+
+    // output grid dimensions
+    const fineRows = rows * scaleFactor;
+    const fineCols = cols * scaleFactor;
+    const fineGrid = Array(fineRows).fill().map(() => Array(fineCols).fill(undefined));
+
+    // check if scale factor is even
+    const sfIsEven = scaleFactor % 2 === 0
+
+    //compute output grid values
+    for (let i = 0; i < fineRows; i++) {
+
+        const coarseI = Math.min(Math.floor(i / scaleFactor), rows - 2);
+        const yRatio = (i % scaleFactor) / scaleFactor;
+        const i_ = coarseI * scaleFactor + (scaleFactor / 2)
+
+        for (let j = 0; j < fineCols; j++) {
+            const coarseJ = Math.min(Math.floor(j / scaleFactor), cols - 2);
+            const xRatio = (j % scaleFactor) / scaleFactor;
+            const j_ = coarseJ * scaleFactor + (scaleFactor / 2)
+
+            // get four corner values
+            const topLeft = grid[coarseI][coarseJ];
+            const topRight = grid[coarseI][coarseJ + 1];
+            const bottomLeft = grid[coarseI + 1][coarseJ];
+            const bottomRight = grid[coarseI + 1][coarseJ + 1];
+
+
+            if (sfIsEven) {
+                if (topLeft === undefined && i <= i_ && j <= j_) continue
+                if (topRight === undefined && i <= i_ && j >= j_) continue
+                if (bottomLeft === undefined && i >= i_ && j <= j_) continue
+                if (bottomRight === undefined && i >= i_ && j >= j_) continue
+            } else {
+                if (topLeft === undefined && i < i_ && j < j_) continue
+                if (topRight === undefined && i < i_ && j > j_) continue
+                if (bottomLeft === undefined && i > i_ && j < j_) continue
+                if (bottomRight === undefined && i > i_ && j > j_) continue
+            }
+
+            if(nodataHandling === "zero") {
+                // replace undefined values by zero
+                fineGrid[i][j] = interp(topLeft || 0, topRight || 0, bottomLeft || 0, bottomRight || 0, xRatio, yRatio)
+                continue
+            }
+
+            // general case: bilinear interpolation
+            // If all four are defined, interpolate normally
+            if (topLeft !== undefined && topRight !== undefined && bottomLeft !== undefined && bottomRight !== undefined) {
+                fineGrid[i][j] = interp(topLeft, topRight, bottomLeft, bottomRight, xRatio, yRatio)
+                continue
+            }
+
+            // If only one is not defined, use average value of 2 adjacents and interpolate
+            if (topLeft === undefined && topRight !== undefined && bottomLeft !== undefined && bottomRight !== undefined) {
+                const v = topRight + bottomLeft
+                fineGrid[i][j] = interp(v / 2, topRight, bottomLeft, bottomRight, xRatio, yRatio)
+                continue
+            }
+            if (topLeft !== undefined && topRight === undefined && bottomLeft !== undefined && bottomRight !== undefined) {
+                const v = topLeft + bottomRight
+                fineGrid[i][j] = interp(topLeft, v / 2, bottomLeft, bottomRight, xRatio, yRatio)
+                continue
+            }
+            if (topLeft !== undefined && topRight !== undefined && bottomLeft === undefined && bottomRight !== undefined) {
+                const v = topLeft + bottomRight
+                fineGrid[i][j] = interp(topLeft, topRight, v / 2, bottomRight, xRatio, yRatio)
+                continue
+            }
+            if (topLeft !== undefined && topRight !== undefined && bottomLeft !== undefined && bottomRight === undefined) {
+                const v = topRight + bottomLeft
+                fineGrid[i][j] = interp(topLeft, topRight, bottomLeft, v / 2, xRatio, yRatio)
+                continue
+            }
+
+            // If only two diagonally opposite points are defined, interpolate along diagonal
+            if (topLeft !== undefined && bottomRight !== undefined) {
+                const t = (xRatio + yRatio) * Math.SQRT1_2
+                fineGrid[i][j] = topLeft * (1 - t) + bottomRight * t;
+                continue
+            }
+            if (topRight !== undefined && bottomLeft !== undefined) {
+                const t = (1 - xRatio + yRatio) * Math.SQRT1_2
+                fineGrid[i][j] = topRight * (1 - t) + bottomLeft * t;
+                continue
+            }
+
+            // If only two adjacent points are defined, interpolate between them
+            if (topLeft !== undefined && bottomLeft !== undefined) {
+                fineGrid[i][j] = bottomLeft * yRatio + topLeft * (1 - yRatio);
+                continue
+            }
+            if (topRight !== undefined && bottomRight !== undefined) {
+                fineGrid[i][j] = bottomRight * yRatio + topRight * (1 - yRatio);
+                continue
+            }
+            if (topLeft !== undefined && topRight !== undefined) {
+                fineGrid[i][j] = topRight * xRatio + topLeft * (1 - xRatio);
+            }
+            if (bottomLeft !== undefined && bottomRight !== undefined) {
+                fineGrid[i][j] = bottomRight * xRatio + bottomLeft * (1 - xRatio);
+                continue
+            }
+
+            // If only one point is defined, use that value
+            if (topLeft !== undefined) {
+                fineGrid[i][j] = topLeft;
+                continue
+            }
+            if (topRight !== undefined) {
+                fineGrid[i][j] = topRight;
+                continue
+            }
+            if (bottomLeft !== undefined) {
+                fineGrid[i][j] = bottomLeft;
+                continue
+            }
+            if (bottomRight !== undefined) {
+                fineGrid[i][j] = bottomRight;
+            }
+        }
+    }
+    return fineGrid;
+}
+
 ;// ./node_modules/gridviz/src/core/Layer.js
 //@ts-check
 
@@ -20776,15 +21544,26 @@ class GridLayer extends Layer {
         //update dataset view cache
         dsc.updateViewCache(geoCanvas.extGeo)
 
+
+        //set layer alpha and blend mode
+        if (this.alpha || this.blendOperation) {
+            ctx.save()
+            if (this.alpha) ctx.globalAlpha = this.alpha(z)
+            if (this.blendOperation) ctx.globalCompositeOperation = this.blendOperation(z)
+        }
+
         //draw cells, style by style
         for (const s of this.styles) {
             //check if style is visible
             if (s.visible && !s.visible(z)) continue
 
-            //set style alpha and blend mode
-            //TODO: multiply by layer alpha ?
-            ctx.globalAlpha = s.alpha ? s.alpha(z) : 1.0
-            if (s.blendOperation) ctx.globalCompositeOperation = s.blendOperation(z)
+            // set style alpha and blend mode
+            //TODO: multiply style alpha by layer alpha ?
+            if (s.alpha || s.blendOperation) {
+                ctx.save()
+                if (s.alpha) ctx.globalAlpha = s.alpha(z)
+                if (s.blendOperation) ctx.globalCompositeOperation = s.blendOperation(z)
+            }
 
             //set affin transform to draw with geographical coordinates
             geoCanvas.setCanvasTransform()
@@ -20794,7 +21573,13 @@ class GridLayer extends Layer {
 
             //draw style filter
             if (s.filterColor) s.drawFilter(geoCanvas)
+
+            //restore default alpha and blend operation - before style change
+            if (s.alpha || s.blendOperation) ctx.restore()
         }
+
+        //restore default alpha and blend operation - before layer change
+        if (this.alpha || this.blendOperation) ctx.restore()
 
         //add legend element
         if (legend) {
@@ -22429,7 +23214,7 @@ class TernaryLegend extends Legend {
         this.classifier = opts.classifier
 
         this.width = opts.width || 150
-        this.selectionColor = this.selectionColor || 'red'
+        this.selectionColor = opts.selectionColor || 'red'
         this.tooltip = opts.tooltip
         this.texts = opts.texts
 
@@ -23219,6 +24004,8 @@ function defaultLocale(definition) {
 
 
 
+
+
 // export additional layers
 
 
@@ -23264,134 +24051,132 @@ var L_GridvizCanvasLayer = __webpack_require__(718);
 
 // define our projection (only if not already defined)
 if (!lib.defs('EPSG:3035')) {
-    lib.defs(
-        'EPSG:3035',
-        '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs'
-    );
+    lib.defs('EPSG:3035', '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs')
 }
 
 function registerGridvizLayer(Lin = L) {
-    if (!Lin) throw new Error('Leaflet L is required');
-    if (!lib) throw new Error('proj4 is required');
-    if (!Map_Map) throw new Error('gridviz.Map is required');
+    if (!Lin) throw new Error('Leaflet L is required')
+    if (!lib) throw new Error('proj4 is required')
+    if (!Map_Map) throw new Error('gridviz.Map is required')
     if (!Lin.GridvizCanvasLayer) {
-        throw new Error('L.GridvizCanvasLayer not found. Load ./L.GridvizCanvasLayer.js first.');
+        throw new Error('L.GridvizCanvasLayer not found. Load ./L.GridvizCanvasLayer.js first.')
     }
 
     // ---- Your original class (scoped to Lin) ----
     Lin.GridvizLayer = function (opts) {
-        opts = opts || {};
-        this.proj = opts.proj || 'EPSG:3035'; // make sure proj4.defs() has this first
-        this.gridvizMap = null; // gridviz map. See https://eurostat.github.io/gridviz/docs/reference
-        this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null;
-        this.legendContainer = opts.legendContainer || null;
+        opts = opts || {}
+        this.proj = opts.proj || 'EPSG:3035' // make sure proj4.defs() has this first
+        this.gridvizMap = null // gridviz map. See https://eurostat.github.io/gridviz/docs/reference
+        this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null
+        this.legendContainer = opts.legendContainer || null
 
         this.onLayerDidMount = function () {
             // build gridviz app
-            this.buildGridvizMap();
+            this.buildGridvizMap()
 
-            if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap);
+            if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap)
 
             //set cursor to pointer
-            this._canvas.style.cursor = 'pointer';
+            this._canvas.style.cursor = 'pointer'
 
             // Resize observer
-            this.addResizeObserver();
-        };
+            this.addResizeObserver()
+        }
 
         this.addResizeObserver = function () {
-            const map = this._map;
-            const mapContainer = map._container;
+            const map = this._map
+            const mapContainer = map._container
 
             const resizeObserver = new ResizeObserver((entries) => {
-                if (!Array.isArray(entries) || !entries.length) return;
+                if (!Array.isArray(entries) || !entries.length) return
 
                 // Let Leaflet settle its size, then sync to the final dimensions.
-                map.invalidateSize({ debounceMoveend: true });
+                map.invalidateSize({ debounceMoveend: true })
                 map.once('resize', (e) => {
-                    const size = (e && e.newSize) ? e.newSize : map.getSize();
-                    const w = size.x | 0;
-                    const h = size.y | 0;
+                    const size = e && e.newSize ? e.newSize : map.getSize()
+                    const w = size.x | 0
+                    const h = size.y | 0
 
-                    if (this.gridvizMap.w === w && this.gridvizMap.h === h) return;
+                    if (this.gridvizMap.w === w && this.gridvizMap.h === h) return
 
-                    this.gridvizMap.w = w;
-                    this.gridvizMap.h = h;
-                    this.gridvizMap.geoCanvas.w = w;
-                    this.gridvizMap.geoCanvas.h = h;
-                    this.gridvizMap.geoCanvas.offscreenCanvas.width = w;
-                    this.gridvizMap.geoCanvas.offscreenCanvas.height = h;
+                    this.gridvizMap.w = w
+                    this.gridvizMap.h = h
+                    this.gridvizMap.geoCanvas.w = w
+                    this.gridvizMap.geoCanvas.h = h
+                    this.gridvizMap.geoCanvas.offscreenCanvas.width = w
+                    this.gridvizMap.geoCanvas.offscreenCanvas.height = h
 
-                    this._canvas.setAttribute('width', '' + w);
-                    this._canvas.setAttribute('height', '' + h);
+                    this._canvas.setAttribute('width', '' + w)
+                    this._canvas.setAttribute('height', '' + h)
 
-                    this._updatePosition();
-                    L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1);
-                    this._initCanvasLevel();
+                    this._updatePosition()
+                    L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
+                    this._initCanvasLevel()
 
-                    this.gridvizMap.redraw();
-                    this.needRedraw();
-                });
-            });
+                    this.gridvizMap.redraw()
+                    this.needRedraw()
+                })
+            })
 
-            resizeObserver.observe(mapContainer);
-        };
-
+            resizeObserver.observe(mapContainer)
+        }
 
         this.onLayerWillUnmount = function () {
-            this.gridvizMap.destroy();
-        };
+            this.gridvizMap.destroy()
+        }
 
         this.setData = function (_data) {
-            this.needRedraw();
-        };
+            this.needRedraw()
+        }
 
         this.onDrawLayer = function (_info) {
-            if (this._zooming) return; // defer to zoomend
+            if (this._zooming) return // defer to zoomend
 
             // Sync view to Leaflet
-            const geoCenter = this.leafletToGeoCenter(this._map.getCenter());
-            const zoomFactor = this.leafletZoomToGridvizZoom();
-            this.gridvizMap.setView(geoCenter[0], geoCenter[1], zoomFactor);
+            if (this._map && this.gridvizMap) {
+                const geoCenter = this.leafletToGeoCenter(this._map.getCenter())
+                const zoomFactor = this.leafletZoomToGridvizZoom()
+                this.gridvizMap.setView(geoCenter[0], geoCenter[1], zoomFactor)
 
-            // Redraw gridviz canvas
-            this.gridvizMap.redraw();
-        };
+                // Redraw gridviz canvas
+                this.gridvizMap.redraw()
+            }
+        }
 
         // Converts leaflet center to gridviz projection's geoCenter
         this.leafletToGeoCenter = function (latLon) {
-            return lib(this.proj, [latLon.lng, latLon.lat]);
-        };
+            return lib(this.proj, [latLon.lng, latLon.lat])
+        }
 
         // Converts leaflet zoom level to gridviz zoom factor (pixel size, in ground m)
         this.leafletZoomToGridvizZoom = function () {
-            return this.getMetresPerPixel();
-        };
+            return this.getMetresPerPixel()
+        }
 
         // Calculates meters per pixel at the current leaflet zoom level
         this.getMetresPerPixel = function () {
-            const centerLatLng = this._map.getCenter();
+            const centerLatLng = this._map.getCenter()
 
             // convert to containerpoint (pixels)
-            const pointC = this._map.latLngToContainerPoint(centerLatLng);
-            const pointX = [pointC.x + 1, pointC.y]; // add one pixel to x
+            const pointC = this._map.latLngToContainerPoint(centerLatLng)
+            const pointX = [pointC.x + 1, pointC.y] // add one pixel to x
 
             // convert containerpoints to latlng's
-            const latLngC = this._map.containerPointToLatLng(pointC);
-            const latLngX = this._map.containerPointToLatLng(pointX);
+            const latLngC = this._map.containerPointToLatLng(pointC)
+            const latLngX = this._map.containerPointToLatLng(pointX)
 
             // convert to our projection
-            const projCenter = this.leafletToGeoCenter(latLngC);
-            const projX = this.leafletToGeoCenter(latLngX);
-            const difference = projX[0] - projCenter[0];
+            const projCenter = this.leafletToGeoCenter(latLngC)
+            const projX = this.leafletToGeoCenter(latLngX)
+            const difference = projX[0] - projCenter[0]
 
-            return difference;
-        };
+            return difference
+        }
 
         // build a gridviz app and add a layer to it
         this.buildGridvizMap = function () {
-            const geoCenter = this.leafletToGeoCenter(this._map.getCenter());
-            opts.container = opts.container || this._canvas.parentElement;
+            const geoCenter = this.leafletToGeoCenter(this._map.getCenter())
+            opts.container = opts.container || this._canvas.parentElement
             this.gridvizMap = new Map_Map(opts.container, {
                 canvas: this._canvas,
                 w: window.innerWidth,
@@ -23404,18 +24189,18 @@ function registerGridvizLayer(Lin = L) {
                 selectionRectangleColor: opts.selectionRectangleColor,
                 selectionRectangleWidthPix: opts.selectionRectangleWidthPix,
                 legendContainer: opts.legendContainer,
-                tooltip: { parentElement: document.body }
-            });
-        };
-    };
+                tooltip: { parentElement: document.body },
+            })
+        }
+    }
 
-    Lin.GridvizLayer.prototype = new Lin.GridvizCanvasLayer(); // inherit
-    return Lin.GridvizLayer;
+    Lin.GridvizLayer.prototype = new Lin.GridvizCanvasLayer() // inherit
+    return Lin.GridvizLayer
 }
 
 // auto-register in browsers if L is on window
 if (typeof window !== 'undefined' && window.L && !window.L.GridvizLayer) {
-    registerGridvizLayer(window.L);
+    registerGridvizLayer(window.L)
 }
 
 /* harmony default export */ const main = ((/* unused pure expression or super */ null && (registerGridvizLayer)));

@@ -60,7 +60,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         this._map = map
         this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
         this._canvas.style.transformOrigin = '0 0'
+
+        //add classes
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated')
+        L.DomUtil.addClass(this._canvas, 'gridviz-canvas-layer')
 
         var size = map.getSize()
         this._canvas.width = size.x
@@ -70,8 +73,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'))
 
         // Create a dedicated pane for the canvas (useful for ordering)
-        var pane = map.createPane('gridviz')
-        pane.style.zIndex = 399
+        // var pane = map.createPane('gridviz')
+        // pane.style.zIndex = 399
+        // pane.appendChild(this._canvas)
+        var pane = map.getPane('overlayPane')
         pane.appendChild(this._canvas)
 
         map.on(this.getEvents(), this)
