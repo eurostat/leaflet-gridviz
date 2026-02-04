@@ -99,16 +99,7 @@
 
                 // create leaflet map
                 function isMobileDevice() {
-                    // Pointer & touch capability
-                    const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window
-
-                    // Small viewport heuristic
-                    const smallScreen = window.matchMedia('(max-width: 768px)').matches
-
-                    // Coarse pointer (finger, not mouse)
-                    const coarsePointer = window.matchMedia('(pointer: coarse)').matches
-
-                    return hasTouch && (smallScreen || coarsePointer)
+                    return window.innerWidth <= 768
                 }
                 const isMobile = isMobileDevice()
                 let leafletMap = new L.Map('map', {
@@ -131,8 +122,8 @@
                     zoom: 5,
                     zoomAnimation: false,
                     //TODO: fix pinch zoom on mobile when using this:
-                    zoomSnap: isMobile ? undefined : 0,
-                    wheelPxPerZoomLevel: isMobile ? undefined : 100,
+                    // zoomSnap: isMobile ? undefined : 0,
+                    // wheelPxPerZoomLevel: isMobile ? undefined : 100,
                 })
 
                 // add basemap(s)
