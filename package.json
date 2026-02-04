@@ -17,6 +17,7 @@
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "files": [
+        "dist/leaflet-gridviz.js",
         "dist/leaflet-gridviz.min.js"
     ],
     "jsdelivr": "dist/leaflet-gridviz.min.js",
