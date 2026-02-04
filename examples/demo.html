@@ -102,7 +102,7 @@
                     return window.innerWidth <= 768
                 }
                 const isMobile = isMobileDevice()
-                let leafletMap = new L.Map('map', {
+                const mapOptions = {
                     crs: ROADSCRS,
                     center: ['50.00754', '19.98211'],
                     maxBounds: {
@@ -121,10 +121,15 @@
                     touchZoom: true,
                     zoom: 5,
                     zoomAnimation: false,
-                    //TODO: fix pinch zoom on mobile when using this:
-                    // zoomSnap: isMobile ? undefined : 0,
-                    // wheelPxPerZoomLevel: isMobile ? undefined : 100,
-                })
+                }
+
+                //TODO: fix pinch zoom on mobile when using this:
+                if (!isMobile) {
+                    mapOptions.zoomSnap = 0
+                    mapOptions.wheelPxPerZoomLevel = 100
+                }
+
+                let leafletMap = new L.Map('map', mapOptions)
 
                 // add basemap(s)
                 const roads = L.tileLayer('https://ec.europa.eu/eurostat/cache/GISCO/mbkg/road/{z}/{x}/{y}.png', {
