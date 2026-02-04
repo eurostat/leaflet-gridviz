@@ -74,9 +74,13 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         var animated = map.options.zoomAnimation && L.Browser.any3d
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'))
 
-        // Use overlayPane like other overlay layers
-        var pane = map.getPane('overlayPane')
+        // Create a dedicated pane for the canvas (useful for ordering)
+        var pane = map.createPane('gridviz')
+        pane.style.zIndex = 399
         pane.appendChild(this._canvas)
+        // Use gridviz pane like other overlay layers
+        // var pane = map.getPane('overlayPane')
+        // pane.appendChild(this._canvas)
 
         map.on(this.getEvents(), this)
 
@@ -96,7 +100,7 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
         if (this._frame) L.Util.cancelAnimFrame(this._frame)
 
-        var pane = map.getPane('overlayPane')
+        var pane = map.getPane('gridviz')
         if (this._canvas && this._canvas.parentElement === pane) {
             pane.removeChild(this._canvas)
         }
