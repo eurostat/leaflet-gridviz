@@ -24079,10 +24079,10 @@ function registerGridvizLayer(Lin = L) {
             this._canvas.style.cursor = 'pointer'
 
             // Resize observer
-            this.addResizeObserver()
+            this.addResizeObserver(this._canvas)
         }
 
-        this.addResizeObserver = function () {
+        this.addResizeObserver = function (canvas) {
             const map = this._map
             const mapContainer = map._container
 
@@ -24105,12 +24105,13 @@ function registerGridvizLayer(Lin = L) {
                     this.gridvizMap.geoCanvas.offscreenCanvas.width = w
                     this.gridvizMap.geoCanvas.offscreenCanvas.height = h
 
-                    this._canvas.setAttribute('width', '' + w)
-                    this._canvas.setAttribute('height', '' + h)
-
-                    this._updatePosition()
-                    L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
-                    this._initCanvasLevel()
+                    if (canvas) {
+                        canvas.setAttribute('width', '' + w)
+                        canvas.setAttribute('height', '' + h)
+                        L.DomUtil.setTransform(canvas, L.point(0, 0), 1)
+                        this._updatePosition()
+                        this._initCanvasLevel()
+                    }
 
                     this.gridvizMap.redraw()
                     this.needRedraw()

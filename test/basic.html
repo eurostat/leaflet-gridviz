@@ -151,10 +151,10 @@
                         const style = new gridviz.ShapeColorSizeStyle({ color: colorFunction })
 
                         //add layer to map
-                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 5 })]
+                        gridvizMap.layers = [new gridviz.GridLayer(dataset, [style], { minPixelsPerCell: 2 })]
 
                         //custom opacity
-                        gridvizLayer._canvas.style.opacity = 0.7
+                        gridvizLayer._canvas.style.opacity = 1
                     },
                 })
 
