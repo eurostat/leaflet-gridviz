@@ -43,12 +43,26 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         return this
     },
 
+    // Jumps the canvas straight to its one correct "resting" transform: positioned
+    // to cancel out the pane's own pan offset (pinning it to the viewport, since its
+    // pixel content is redrawn fresh against the current view rather than
+    // pre-rendered at world coordinates like tiles), with scale reset to 1 now that
+    // fresh content is about to be drawn for the current zoom level. Combining both
+    // into a single setTransform call - instead of a separate "reset to identity"
+    // call elsewhere followed by this one only ever touching position - matters
+    // because Leaflet's CSS gives this canvas (leaflet-zoom-animated) a smooth
+    // transition during .leaflet-zoom-anim (see onAdd's comment on why that
+    // transition should stay enabled). Landing on a *wrong* intermediate transform
+    // as a separate step, with that transition active, is exactly what used to
+    // animate into view as the layer "flying/sliding in from off-map" - the browser
+    // would smoothly glide from whatever the mid-zoom transform was, through that
+    // wrong stop, before correcting again on the next frame.
     _updatePosition: function () {
         requestAnimationFrame(() => {
             if (this._map == null) return
             if (this._map.containerPointToLayerPoint == null) return
             var topLeft = this._map.containerPointToLayerPoint([0, 0])
-            L.DomUtil.setPosition(this._canvas, topLeft)
+            L.DomUtil.setTransform(this._canvas, topLeft, 1)
         })
     },
 
@@ -57,23 +71,23 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         this._map = map
         this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
         this._canvas.style.transformOrigin = '0 0'
-        // Leaflet's own CSS (.leaflet-zoom-anim .leaflet-zoom-animated) puts a
-        // "transition: transform 0.25s" on every element carrying the
-        // leaflet-zoom-animated class while an animated zoom is in progress - and
-        // explicitly opts its own tiles back OUT of that (.leaflet-zoom-anim
-        // .leaflet-tile { transition: none }), since it positions tiles itself via
-        // JS every frame and doesn't want the browser fighting that. This canvas is
-        // the same story - _onZoom/_onAnimZoom already update its transform every
-        // frame during an active zoom, and _onZoomEnd/_updatePosition do deliberate
-        // *instant* jumps afterwards (reset to identity, then to the position that
-        // counters the pane's own pan offset). Without this, those instant jumps
-        // inherit the CSS transition too, so the browser smoothly glides the canvas
-        // across that (often large) distance instead of snapping - that's what read
-        // as the layer "flying/sliding in from off-map" after a zoom interrupted an
-        // in-flight pan. An inline style beats the class-based rule regardless of
-        // which zoom-related classes end up on the map container.
-        this._canvas.style.transition = 'none'
-
+        // Deliberately NOT excluded from Leaflet's own CSS transition (the
+        // .leaflet-zoom-anim .leaflet-zoom-animated rule, ~0.25s on transform) the
+        // way individual tiles are (.leaflet-zoom-anim .leaflet-tile { transition:
+        // none }) - tiles opt out at the *tile* level because GridLayer scales its
+        // tile *pane* itself via JS every zoomanim frame and doesn't want the
+        // browser fighting that per-tile, but the pane-level scaling animation
+        // tiles visually ride along with still runs through this same transition
+        // mechanism. This canvas has no separate pane-vs-element split to lean on,
+        // so it needs the transition itself: _onZoom/_onAnimZoom set one instant
+        // target transform per zoomanim tick, and it's this CSS transition that
+        // smoothly carries the canvas between those targets in step with the
+        // basemap - without it, the canvas would jump straight to each target and
+        // sit rigid while the tiles are still visibly easing towards theirs, which
+        // reads as the two layers being disconnected during a zoom. See
+        // _updatePosition's comment for the *other* half of this - the actual
+        // "flying in from off-map" bug wasn't the transition itself, it was a wrong
+        // intermediate transform this transition used to animate through.
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated')
         L.DomUtil.addClass(this._canvas, 'gridviz-canvas-layer')
 
@@ -97,9 +111,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         var del = this._delegate || this
         if (del.onLayerDidMount) del.onLayerDidMount()
 
-        this._updatePosition()
         this._initCanvasLevel()
-        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
+        this._updatePosition()
         this.needRedraw()
     },
 
@@ -172,9 +185,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     },
 
     _onViewReset: function (e) {
-        this._updatePosition()
         this._initCanvasLevel()
-        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
+        this._updatePosition()
         this.needRedraw()
     },
 
@@ -197,14 +209,11 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     _onZoomEnd: function () {
         this._zooming = false
 
-        // Reset transform to identity
-        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
-
-        // Re-align canvas position
-        this._updatePosition()
-
         // Re-initialize level for next zoom
         this._initCanvasLevel()
+
+        // Jump straight to the correct resting transform (see _updatePosition)
+        this._updatePosition()
 
         // Force redraw at new zoom level
         this.needRedraw()
@@ -219,9 +228,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     _onLayerDidResize: function (e) {
         this._canvas.width = e.newSize.x
         this._canvas.height = e.newSize.y
-        this._updatePosition()
-        L.DomUtil.setTransform(this._canvas, L.point(0, 0), 1)
         this._initCanvasLevel()
+        this._updatePosition()
         this.drawLayer()
     },
 
