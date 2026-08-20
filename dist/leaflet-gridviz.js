@@ -63,6 +63,22 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         this._map = map
         this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
         this._canvas.style.transformOrigin = '0 0'
+        // Leaflet's own CSS (.leaflet-zoom-anim .leaflet-zoom-animated) puts a
+        // "transition: transform 0.25s" on every element carrying the
+        // leaflet-zoom-animated class while an animated zoom is in progress - and
+        // explicitly opts its own tiles back OUT of that (.leaflet-zoom-anim
+        // .leaflet-tile { transition: none }), since it positions tiles itself via
+        // JS every frame and doesn't want the browser fighting that. This canvas is
+        // the same story - _onZoom/_onAnimZoom already update its transform every
+        // frame during an active zoom, and _onZoomEnd/_updatePosition do deliberate
+        // *instant* jumps afterwards (reset to identity, then to the position that
+        // counters the pane's own pan offset). Without this, those instant jumps
+        // inherit the CSS transition too, so the browser smoothly glides the canvas
+        // across that (often large) distance instead of snapping - that's what read
+        // as the layer "flying/sliding in from off-map" after a zoom interrupted an
+        // in-flight pan. An inline style beats the class-based rule regardless of
+        // which zoom-related classes end up on the map container.
+        this._canvas.style.transition = 'none'
 
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated')
         L.DomUtil.addClass(this._canvas, 'gridviz-canvas-layer')
