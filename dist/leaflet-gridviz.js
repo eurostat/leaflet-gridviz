@@ -222,8 +222,27 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     },
 
     // ---------------------------------------------------------------------------
+    // needRedraw() only schedules a new animation frame when this._frame is falsy,
+    // so it doubles as a debounce guard. Bailing out here for an in-progress zoom
+    // used to return *before* clearing that guard - once that happened, this._frame
+    // was left permanently non-null (the frame that would have cleared it already
+    // fired and returned early), so every future needRedraw() silently no-op'd
+    // forever. In particular, if a 'viewreset' (see _onViewReset) lands while a zoom
+    // that interrupted an in-flight pan-inertia animation is still finishing up, its
+    // needRedraw() call gets jammed by this - and even _onZoomEnd's own explicit
+    // needRedraw() call right after can't recover it, since the guard is already
+    // stuck. The visible symptom: the canvas's CSS transform still gets reset/
+    // repositioned correctly (that's handled separately in _onZoomEnd), but
+    // onDrawLayer() - which is what re-syncs the actual drawn content to Leaflet's
+    // new center/zoom - never runs again, so the layer keeps showing whatever it
+    // last drew before the interrupted pan, "flying in" once its (now-correct)
+    // position no longer matches its (stale) content. Always releasing the guard,
+    // whether or not the draw actually ran, keeps needRedraw() usable afterwards.
     drawLayer: function () {
-        if (this._zooming) return
+        if (this._zooming) {
+            this._frame = null
+            return
+        }
         if (this.onDrawLayer) this.onDrawLayer()
         this._frame = null
     },
