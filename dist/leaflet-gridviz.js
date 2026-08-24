@@ -34,6 +34,7 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         this._frame = null
         this._delegate = null
         this._zooming = false
+        this._panning = false
         L.setOptions(this, options)
     },
 
@@ -63,10 +64,25 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     // animate into view as the layer "flying/sliding in from off-map" - the browser
     // would smoothly glide from whatever the mid-zoom transform was, through that
     // wrong stop, before correcting again on the next frame.
+    // This defers via requestAnimationFrame, so whatever was true about zoom state
+    // at the *call* site (e.g. _onMoveEnd's own `if (this._zooming) return` guard)
+    // can go stale by the time this callback actually runs - a moveend that fires
+    // right as a zoom interrupts it can schedule this, then a zoom starts, then THIS
+    // still fires on the next frame and unconditionally resets the canvas to
+    // {position: topLeft, scale: 1}, stomping whatever _setZoomTransform had just
+    // set for the in-progress zoom animation. Confirmed live via direct
+    // instrumentation: _setZoomTransform correctly computed and applied a real scale
+    // (e.g. 1.676) for the zoom target, then the canvas transform was observed stuck
+    // at scale 1 for seconds afterward - frozen while the basemap tiles kept
+    // scaling normally, exactly the "flying/disconnected" symptom, because nothing
+    // here checked whether a zoom had started in between. Re-checking _zooming
+    // inside the deferred callback itself (not just at the call site) closes that
+    // window.
     _updatePosition: function () {
         requestAnimationFrame(() => {
             if (this._map == null) return
             if (this._map.containerPointToLayerPoint == null) return
+            if (this._zooming) return
             var topLeft = this._map.containerPointToLayerPoint([0, 0])
             L.DomUtil.setTransform(this._canvas, topLeft, 1)
         })
@@ -169,6 +185,7 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     getEvents: function () {
         var events = {
             resize: this._onLayerDidResize,
+            movestart: this._onMoveStart,
             moveend: this._onMoveEnd,
             viewreset: this._onViewReset,
             zoom: this._onZoom, // Fires continuously during pinch!
@@ -184,7 +201,34 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         return events
     },
 
+    // NOTE: deliberately NOT listening to plain 'move' here (tried it, reverted it).
+    // During a pan, the canvas's on-screen position is driven entirely by Leaflet's
+    // own pane CSS transform (see _updatePosition/onAdd) while its drawn *content*
+    // stays fixed until moveend - the pan motion you see is 100% the CSS transform
+    // sliding an already-rendered canvas, same as any static image. Redrawing content
+    // for a new centre on every intermediate 'move' tick (via needRedraw()) *also*
+    // shifts the drawn pixels by however far the pan has moved so far, while the pane
+    // transform is *simultaneously* shifting the whole canvas by that same distance -
+    // doubling the effective displacement and breaking ordinary panning (confirmed
+    // live: content visibly outran the cursor / desynced from the basemap on a plain
+    // drag, not just on a zoom-interrupt). The zoomstart-time refresh below is safe
+    // specifically because it happens once, exactly at the handoff between "CSS-pan
+    // mode" and "zoom-transform mode" - not layered on top of an active CSS pan.
+
+    // Leaflet fires 'movestart' once at the beginning of a drag and 'moveend' once
+    // the whole sequence - drag *and* any inertia glide that follows it - has fully
+    // settled (the glide is a single ongoing "move" as far as Leaflet's own eventing
+    // is concerned, not a separate thing tacked on after 'moveend'). Tracking this
+    // pairing is exactly "is a pan/glide currently in flight", which _onZoomStart
+    // needs to tell an ordinary stationary zoom (fine as-is, no hide needed) apart
+    // from a zoom that's interrupting one (the only scenario the hide-and-reveal
+    // dance below is actually for).
+    _onMoveStart: function () {
+        this._panning = true
+    },
+
     _onMoveEnd: function (e) {
+        this._panning = false
         if (this._zooming) return
         this._updatePosition()
         this.drawLayer()
@@ -199,7 +243,43 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     // ---------------------------------------------------------------------------
     // Zoom handling
 
+    // Three rounds of trying to keep the canvas's content+transform perfectly
+    // synced with the basemap throughout a zoom that interrupts an in-flight pan
+    // still left it visibly "flying in from its previous position" in real usage
+    // (mismatched content, then a stale transform, then a race in _updatePosition -
+    // each one a real bug, each one fixed and verified in isolation, and the
+    // symptom kept recurring anyway - either a still-unfound fourth staleness
+    // source, or a real-hardware zoom/pinch timing this headless-Chromium test
+    // harness can't reproduce closely enough to catch). Rather than keep chasing
+    // that, switched strategy entirely: hide the canvas for the duration of the
+    // zoom and only reveal it again once a confirmed-fresh redraw has landed for
+    // the new view (see drawLayer). A brief gap where the basemap is visible alone
+    // is a strictly better failure mode than ever risking this layer visibly
+    // disconnected from it - this was one of the two explicitly acceptable fixes
+    // requested ("only draw the gridviz layer when it is in its correct geographic
+    // position"), chosen over "continuously update like the basemap" because that
+    // approach (redrawing content on every plain 'move' tick too, not just at the
+    // zoom handoff) was tried and reverted: it double-counted the pan distance
+    // against the pane's own CSS transform and broke ordinary panning.
+    //
+    // Only do any of this when `_panning` is true, i.e. a pan/inertia glide was
+    // actually still in flight (movestart fired, moveend hasn't) at the moment
+    // this zoom began - that's the only scenario any staleness was ever possible
+    // in. An ordinary zoom from a stationary map has nothing stale to hide: content
+    // and transform are already correct going in, and _onZoom/_onAnimZoom's own
+    // per-frame updates keep them correct throughout, same as before any of this
+    // existed. Skipping the hide there removes a blank-flash regression the
+    // unconditional version introduced on every zoom, not just interrupted ones.
     _onZoomStart: function () {
+        if (this._panning) {
+            this._canvas.style.visibility = 'hidden'
+
+            if (this._map && this._map.containerPointToLayerPoint) {
+                var topLeft = this._map.containerPointToLayerPoint([0, 0])
+                L.DomUtil.setTransform(this._canvas, topLeft, 1)
+            }
+            if (this.onDrawLayer) this.onDrawLayer()
+        }
         this._zooming = true
         this._initCanvasLevel()
     },
@@ -268,6 +348,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
             return
         }
         if (this.onDrawLayer) this.onDrawLayer()
+        // Reveal again now that content has been (re)drawn for the current,
+        // settled view - pairs with _onZoomStart hiding it. Harmless no-op on
+        // every ordinary (non-zoom) redraw where it was already visible.
+        this._canvas.style.visibility = 'visible'
         this._frame = null
     },
 })
