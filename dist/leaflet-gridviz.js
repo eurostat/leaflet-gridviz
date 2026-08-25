@@ -223,12 +223,60 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
     // needs to tell an ordinary stationary zoom (fine as-is, no hide needed) apart
     // from a zoom that's interrupting one (the only scenario the hide-and-reveal
     // dance below is actually for).
+    //
+    // Why _onMoveEnd defers clearing _panning instead of doing it inline: when a
+    // zoom interrupts an in-flight inertia glide, Leaflet's Map.setView() calls
+    // this._stop() BEFORE it does anything zoom-related - and _stop() calls
+    // this._panAnim.stop(), which (only when the glide's PosAnimation is actually
+    // still _inProgress - never on a stationary zoom, which is why that case was
+    // never affected) synchronously fires 'moveend' right there. So 'moveend' -
+    // and this handler - fires and completes *before* 'zoomstart' does, later in
+    // that same setView() call (confirmed by tracing Leaflet's own source:
+    // setView -> _stop -> PosAnimation.stop -> _complete -> fires 'end' ->
+    // Map._onPanTransitionEnd -> fires 'moveend'). Clearing _panning immediately
+    // here means _onZoomStart would read it as already false.
+    //
+    // A single deferred tick (microtask, or one requestAnimationFrame) isn't
+    // enough to fix that, and this was confirmed live with instrumented event
+    // logging, not just reasoned about: for the normal, animated zoom path (the
+    // default - zoomAnimation: true), 'zoomstart' itself doesn't fire
+    // synchronously either. Map._tryAnimatedZoom() only *schedules* the
+    // `_moveStart(true, ...)` call (which is what fires 'zoomstart') via its own
+    // requestAnimationFrame, registered in that same synchronous setView() call
+    // right after _stop() already ran. So both "my deferred clear" and "Leaflet's
+    // own zoomstart trigger" end up queued as rAF callbacks from the *same tick*
+    // - which the spec guarantees land in the *same upcoming frame* - and browsers
+    // run same-frame rAF callbacks in registration order. Mine got registered
+    // first (moveend fires before _tryAnimatedZoom is even called), so a single
+    // rAF still clears _panning to false one callback before Leaflet's own
+    // zoomstart-triggering callback reads it in that same frame - logged and
+    // confirmed: zoomstart-enter still showed panning:false with a one-rAF defer.
+    // Nesting a second requestAnimationFrame inside the first pushes the actual
+    // clear to the *following* frame instead, strictly after the frame Leaflet's
+    // zoomstart callback runs in - so _onZoomStart always sees the still-true
+    // value first. For the non-animated/instant zoom path (large zoom deltas,
+    // zoomAnimation off, etc.) none of this deferral matters anyway: that path
+    // fires 'zoomstart' synchronously in the very same tick as _stop(), well
+    // before either rAF callback gets a chance to run.
+    //
+    // The generation counter guards a rapid movestart/moveend/movestart sequence:
+    // only the clear that matches the movestart still current when it finally
+    // runs is allowed to apply, so a brand-new glide starting before a previous
+    // glide's deferred clear lands doesn't get its _panning=true wiped out from
+    // under it.
     _onMoveStart: function () {
         this._panning = true
+        this._moveId = (this._moveId || 0) + 1
     },
 
     _onMoveEnd: function (e) {
-        this._panning = false
+        var self = this
+        var id = this._moveId
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (self._moveId === id) self._panning = false
+            })
+        })
         if (this._zooming) return
         this._updatePosition()
         this.drawLayer()
