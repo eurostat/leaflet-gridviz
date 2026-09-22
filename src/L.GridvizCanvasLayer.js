@@ -271,7 +271,38 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
                 if (self._moveId === id) self._panning = false
             })
         })
-        if (this._zooming) return
+        if (this._zooming) {
+            // The reverse of the zoom-interrupts-pan case handled at length below:
+            // here a pan/drag settled while a zoom animation was still in flight.
+            // Content for the new pan position isn't drawn now - drawing under a
+            // still-animating CSS transform is exactly what the zoom-interrupt
+            // handling above exists to avoid - so this normally waits for
+            // _onZoomEnd's own needRedraw() to pick up the (already-current, per
+            // Leaflet's _move()) position once the zoom settles. That has held up
+            // in extensive local testing, but nothing here previously guaranteed
+            // it if 'zoomend' were ever skipped upstream (a plain pan/drag has no
+            // hide-and-reveal dance to fall back on if that happens, unlike the
+            // zoom-interrupt path). Self-heal instead, the same way the tile-fetch
+            // layer already does for a failed fetch: if we're still marked as
+            // zooming well past Leaflet's own 250ms zoom-transition ceiling,
+            // force the catch-up redraw ourselves rather than leaving the layer
+            // permanently stale. The generation counter lets _onZoomEnd (the
+            // normal path) cancel this before it ever fires, and stops a stale
+            // fallback from a first interrupted pan firing after a second,
+            // still-genuinely-in-flight zoom has already started.
+            this._pendingRedrawAfterZoom = true
+            var zoomGen = this._zoomGen = (this._zoomGen || 0) + 1
+            setTimeout(() => {
+                if (this._zoomGen !== zoomGen) return
+                if (!this._pendingRedrawAfterZoom) return
+                this._pendingRedrawAfterZoom = false
+                this._zooming = false
+                this._initCanvasLevel()
+                this._updatePosition()
+                this.needRedraw()
+            }, 400)
+            return
+        }
         this._updatePosition()
         this.drawLayer()
     },
@@ -323,6 +354,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
             if (this.onDrawLayer) this.onDrawLayer()
         }
         this._zooming = true
+        // Invalidate any pan-interrupted-a-zoom fallback timer from a previous
+        // cycle (see _onMoveEnd) - a new zoom has genuinely started, so that
+        // timer's "nothing else picked this up" premise no longer holds.
+        this._zoomGen = (this._zoomGen || 0) + 1
         this._initCanvasLevel()
     },
 
@@ -336,6 +371,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
     _onZoomEnd: function () {
         this._zooming = false
+        // The normal path caught up with the current view via needRedraw()
+        // below - cancel the _onMoveEnd fallback timer, if one is pending, so
+        // it doesn't fire a redundant second redraw.
+        this._pendingRedrawAfterZoom = false
 
         // Re-initialize level for next zoom
         this._initCanvasLevel()
