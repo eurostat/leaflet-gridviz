@@ -395,6 +395,15 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
             this._frame = null
             return
         }
+        // this._frame is set via requestAnimFrame in needRedraw(); onRemove() (e.g.
+        // the map container being torn down by a resize-triggered re-render) can
+        // null out this._canvas before that already-scheduled frame fires, so this
+        // callback can run after the layer is gone. Bail out rather than throw on
+        // a null canvas - there is nothing left to draw or reveal.
+        if (!this._canvas) {
+            this._frame = null
+            return
+        }
         if (this.onDrawLayer) this.onDrawLayer()
         // Reveal again now that content has been (re)drawn for the current,
         // settled view - pairs with _onZoomStart hiding it. Harmless no-op on
