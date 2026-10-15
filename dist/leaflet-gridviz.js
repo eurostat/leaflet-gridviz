@@ -17409,7 +17409,8 @@ class Dataset {
      * @protected
      */
     cellIndex(cells, r) {
-        if (this._index && this._indexCells === cells && this._indexLength === cells.length && this._indexR === r) return this._index
+        if (this._index && this._indexCells === cells && this._indexLength === cells.length && this._indexR === r)
+            return this._index
         let index = null
         if (cells.length && r > 0) {
             const ox = +cells[0].x
@@ -19847,7 +19848,11 @@ function getProgram(gl, vertexSource, fragmentSource) {
     const key = vertexSource + '\u0000' + fragmentSource
     let program = programs.get(key)
     if (!program) {
-        program = initShaderProgram(gl, createShader(gl, gl.VERTEX_SHADER, vertexSource), createShader(gl, gl.FRAGMENT_SHADER, fragmentSource))
+        program = initShaderProgram(
+            gl,
+            createShader(gl, gl.VERTEX_SHADER, vertexSource),
+            createShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
+        )
         programs.set(key, program)
     }
     return program
@@ -20170,11 +20175,16 @@ class SquareColorCategoryWebGLStyle extends Style {
         // hold another style's data (bufferOwner), or the context is new to this style
         // (e.g. replaced after being lost).
         const contentChanged = this.mapContentChanged(geoCanvas.view, cells.length)
-        if (contentChanged || contextChanged || bufferOwner(gl, POSITION_BUFFER) !== this) this.pointsNb = this.bindVertices(cells, resolution, z, viewScale)
+        if (contentChanged || contextChanged || bufferOwner(gl, POSITION_BUFFER) !== this)
+            this.pointsNb = this.bindVertices(cells, resolution, z, viewScale)
         this.bindAttributes()
 
         //transformation
-        gl.uniformMatrix3fv(gl.getUniformLocation(this.program, 'mat'), false, new Float32Array(geoCanvas.getWebGLTransform()))
+        gl.uniformMatrix3fv(
+            gl.getUniformLocation(this.program, 'mat'),
+            false,
+            new Float32Array(geoCanvas.getWebGLTransform())
+        )
 
         // Clear the color buffer bit
         gl.clearColor(0, 0, 0, 0)
@@ -20780,10 +20790,6 @@ class SideCategoryStyle extends SideStyle {
 ;
 
 
-/**
- * Everything to easily draw colored squares with webGL.
- * All the same size, but different fill color.
- */
 const WebGLSquareColoring_VERTEX_SHADER = `
             attribute vec2 pos;
             uniform float sizePix;
@@ -20806,6 +20812,10 @@ const WebGLSquareColoring_FRAGMENT_SHADER = `
                 gl_FragColor = vColor_;
             }`
 
+/**
+ * Everything to easily draw colored squares with webGL.
+ * All the same size, but different fill color.
+ */
 class WebGLSquareColoring {
     /**
      *
@@ -21325,11 +21335,6 @@ class LegoTopStyle extends Style {
 ;
 
 
-/**
- * Everything to easily draw colored squares with webGL.
- * All the same size, but different fill color.
- * The color interpolation is computed in the fragment shader program, by the GPU, thus it is less flexible but faster.
- */
 const WebGLSquareColoringAdvanced_VERTEX_SHADER = `
         attribute vec2 pos;
         uniform float sizePix;
@@ -21345,6 +21350,11 @@ const WebGLSquareColoringAdvanced_VERTEX_SHADER = `
         }
       `
 
+/**
+ * Everything to easily draw colored squares with webGL.
+ * All the same size, but different fill color.
+ * The color interpolation is computed in the fragment shader program, by the GPU, thus it is less flexible but faster.
+ */
 class WebGLSquareColoringAdvanced {
     //see:
     //https://webglfundamentals.org/webgl/lessons/fr/webgl-shaders-and-glsl.html#les-uniforms-dans-les-shaders-de-vertex
@@ -21366,8 +21376,6 @@ class WebGLSquareColoringAdvanced {
         //gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
         //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-        const vShader = WebGLSquareColoringAdvanced_VERTEX_SHADER
 
         //prepare fragment shader code
         //declare the uniform and other variables
@@ -21477,7 +21485,7 @@ class WebGLSquareColoringAdvanced {
 
         // compiled once per context and fragment source (colours, stretching), then reused
         /** @type {WebGLProgram} */
-        this.program = getProgram(gl, vShader, fshString)
+        this.program = getProgram(gl, WebGLSquareColoringAdvanced_VERTEX_SHADER, fshString)
         gl.useProgram(this.program)
 
         //set uniforms
@@ -21630,7 +21638,11 @@ class SquareColorWebGLStyle extends Style {
 
         //the shared webgl canvas (one context for all styles, instead of a new one per draw)
         //for opacity control, see: https://webglfundamentals.org/webgl/lessons/webgl-and-alpha.html
-        const cvWGL = getSharedWebGLCanvas(geoCanvas.w, geoCanvas.h, this.opacity != undefined ? { premultipliedAlpha: false } : undefined)
+        const cvWGL = getSharedWebGLCanvas(
+            geoCanvas.w,
+            geoCanvas.h,
+            this.opacity != undefined ? { premultipliedAlpha: false } : undefined
+        )
         if (!cvWGL) {
             console.error('No webGL')
             return
