@@ -74,6 +74,19 @@ gridvizLayer.addTo(map)
 
 ```
 
+### Options
+
+| Option                      | Default     | Description                                                                                                                                                         |
+| --------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **proj**                    | 'EPSG:3035' | The projection of the grid (define it with proj4 first).                                                                                                            |
+| **onLayerDidMountCallback** | null        | Called with the gridviz map each time the layer is added to a Leaflet map. Define the gridviz layers here.                                                          |
+| **legendContainer**         | null        | An element for the gridviz legends.                                                                                                                                 |
+| **padding**                 | 0           | Extra canvas around the view, as a share of its size on each side (e.g. 0.15), so a pan doesn't uncover empty edges before the redraw at its end.                    |
+
+### Removing and adding the layer again
+
+Removing the layer keeps its gridviz map: adding it back to the same Leaflet map reuses it, with the tiles it has already loaded. _onLayerDidMountCallback_ is still called on every add, with that same gridviz map. To dispose of the layer for good, call `gridvizLayer.destroy()`.
+
 Note: this has only been tested with EPSG:3035 grids
 
 Feel free to contribute or open an issue!

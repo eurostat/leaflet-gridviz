@@ -1,8 +1,8 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 718:
-/***/ (() => {
+/***/ 718
+() {
 
 /*
   Generic Canvas Layer for Leaflet 0.7–1.9
@@ -28,6 +28,13 @@ L.DomUtil.setTransform =
 // -----------------------------------------------------------------------------
 // Canvas Layer definition
 L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
+    options: {
+        // Extra canvas around the view, as a fraction of the map size on each side (e.g.
+        // 0.15). Content is only redrawn when a pan ends, so without it the newly uncovered
+        // strip stays empty while dragging. 0 (the default) keeps the canvas the map's size.
+        padding: 0,
+    },
+
     initialize: function (options) {
         this._map = null
         this._canvas = null
@@ -83,15 +90,31 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
             if (this._map == null) return
             if (this._map.containerPointToLayerPoint == null) return
             if (this._zooming) return
-            var topLeft = this._map.containerPointToLayerPoint([0, 0])
+            var topLeft = this._map.containerPointToLayerPoint(this._getPad().multiplyBy(-1))
             L.DomUtil.setTransform(this._canvas, topLeft, 1)
         })
+    },
+
+    // The padding (see options.padding) in pixels, on each side
+    _getPad: function () {
+        var p = this.options.padding || 0
+        if (!this._map || !(p > 0)) return L.point(0, 0)
+        return this._map.getSize().multiplyBy(p).round()
+    },
+
+    // Canvas size: the map's size plus the padding on both sides
+    _getCanvasSize: function (size) {
+        return (size || this._map.getSize()).add(this._getPad().multiplyBy(2))
     },
 
     // ---------------------------------------------------------------------------
     onAdd: function (map) {
         this._map = map
-        this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
+        // One canvas per Leaflet map: a gridviz map bound to it (event listeners, context)
+        // is reused when the layer is added to the same map again, instead of being rebuilt
+        var reused = !!this._canvas && this._canvasMap === map
+        if (!reused) this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
+        this._canvasMap = map
         this._canvas.style.transformOrigin = '0 0'
         // Deliberately NOT excluded from Leaflet's own CSS transition (the
         // .leaflet-zoom-anim .leaflet-zoom-animated rule, ~0.25s on transform) the
@@ -113,15 +136,15 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated')
         L.DomUtil.addClass(this._canvas, 'gridviz-canvas-layer')
 
-        var size = map.getSize()
+        var size = this._getCanvasSize()
         this._canvas.width = size.x
         this._canvas.height = size.y
 
         var animated = map.options.zoomAnimation && L.Browser.any3d
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'))
 
-        // Create a dedicated pane for the canvas (useful for ordering)
-        var pane = map.createPane('gridviz')
+        // Create a dedicated pane for the canvas (useful for ordering), once per map
+        var pane = map.getPane('gridviz') || map.createPane('gridviz')
         pane.style.zIndex = 399
         pane.appendChild(this._canvas)
         // Use gridviz pane like other overlay layers
@@ -145,12 +168,14 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
         if (this._frame) L.Util.cancelAnimFrame(this._frame)
 
+        this._frame = null
+
         var pane = map.getPane('gridviz')
         if (this._canvas && this._canvas.parentElement === pane) {
             pane.removeChild(this._canvas)
         }
         map.off(this.getEvents(), this)
-        this._canvas = null
+        // the canvas is kept (detached) for when the layer is added again
     },
 
     // ---------------------------------------------------------------------------
@@ -159,7 +184,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         if (this._map) {
             var z = this._map.getZoom()
             var c = this._map.getCenter()
-            var topLeft = this._map._getTopLeftPoint(c, z).round()
+            // the canvas's own top-left, padding included
+            var topLeft = this._map._getTopLeftPoint(c, z).round().subtract(this._getPad())
             this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas }
         }
     },
@@ -279,7 +305,9 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         })
         if (this._zooming) return
         this._updatePosition()
-        this.drawLayer()
+        // through the once-per-frame guard: a zoom ends with 'zoomend' (which schedules a
+        // redraw) immediately followed by 'moveend', and must draw once, not twice
+        this.needRedraw()
     },
 
     _onViewReset: function (e) {
@@ -360,8 +388,9 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
     // ---------------------------------------------------------------------------
     _onLayerDidResize: function (e) {
-        this._canvas.width = e.newSize.x
-        this._canvas.height = e.newSize.y
+        var size = this._getCanvasSize(e.newSize)
+        this._canvas.width = size.x
+        this._canvas.height = size.y
         this._initCanvasLevel()
         this._updatePosition()
         this.drawLayer()
@@ -397,10 +426,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         }
         // this._frame is set via requestAnimFrame in needRedraw(); onRemove() (e.g.
         // the map container being torn down by a resize-triggered re-render) can
-        // null out this._canvas before that already-scheduled frame fires, so this
-        // callback can run after the layer is gone. Bail out rather than throw on
-        // a null canvas - there is nothing left to draw or reveal.
-        if (!this._canvas) {
+        // remove the layer before that already-scheduled frame fires, so this
+        // callback can run after the layer is gone. Bail out - there is nothing
+        // left to draw or reveal.
+        if (!this._canvas || !this._map) {
             this._frame = null
             return
         }
@@ -419,22 +448,22 @@ L.gridvizCanvasLayer = function () {
 }
 
 
-/***/ })
+/***/ }
 
 /******/ 	});
 /************************************************************************/
 /******/ 	// The module cache
-/******/ 	var __webpack_module_cache__ = {};
+/******/ 	const __webpack_module_cache__ = {};
 /******/ 	
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		const cachedModule = __webpack_module_cache__[moduleId];
 /******/ 		if (cachedModule !== undefined) {
 /******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = __webpack_module_cache__[moduleId] = {
+/******/ 		const module = __webpack_module_cache__[moduleId] = {
 /******/ 			// no module.id needed
 /******/ 			// no module.loaded needed
 /******/ 			exports: {}
@@ -448,6 +477,16 @@ L.gridvizCanvasLayer = function () {
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/set anonymous default export name */
+/******/ 	// set .name for anonymous default exports per ES spec
+/******/ 	// skipped when the property is non-configurable (pre-ES2015 engines),
+/******/ 	// where Object.defineProperty would throw
+/******/ 	__webpack_require__.dn = (x) => {
+/******/ 		var descriptor = Object.getOwnPropertyDescriptor(x, "name");
+/******/ 		if (!descriptor || (!descriptor.writable && descriptor.configurable)) Object.defineProperty(x, "name", { value: "default", configurable: true });
+/******/ 	};
+/******/ 	
+/************************************************************************/
 // This entry needs to be wrapped in an IIFE because it needs to be in strict mode.
 (() => {
 "use strict";
@@ -455,6 +494,7 @@ L.gridvizCanvasLayer = function () {
 // UNUSED EXPORTS: default, registerGridvizLayer
 
 ;// ./node_modules/proj4/lib/global.js
+__webpack_require__.dn(global);
 /* harmony default export */ function global(defs) {
   defs('EPSG:4326', '+title=WGS 84 (long/lat) +proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees');
   defs('EPSG:4269', '+title=NAD83 (long/lat) +proj=longlat +a=6378137.0 +b=6356752.31414036 +ellps=GRS80 +datum=NAD83 +units=degrees');
@@ -464,6 +504,8 @@ L.gridvizCanvasLayer = function () {
     defs('EPSG:' + (32600 + i), '+proj=utm +zone=' + i + ' +datum=WGS84 +units=m');
     defs('EPSG:' + (32700 + i), '+proj=utm +zone=' + i + ' +south +datum=WGS84 +units=m');
   }
+  defs('EPSG:5041', '+title=WGS 84 / UPS North (E,N) +proj=stere +lat_0=90 +lon_0=0 +k=0.994 +x_0=2000000 +y_0=2000000 +datum=WGS84 +units=m');
+  defs('EPSG:5042', '+title=WGS 84 / UPS South (E,N) +proj=stere +lat_0=-90 +lon_0=0 +k=0.994 +x_0=2000000 +y_0=2000000 +datum=WGS84 +units=m');
 
   defs.WGS84 = defs['EPSG:4326'];
   defs['EPSG:3785'] = defs['EPSG:3857']; // maintain backward compat, official code is 3857
@@ -566,6 +608,7 @@ function match(obj, key) {
 }
 
 ;// ./node_modules/proj4/lib/projString.js
+__webpack_require__.dn(projString);
 
 
 
@@ -591,7 +634,10 @@ function match(obj, key) {
   }, {});
   var paramName, paramVal, paramOutname;
   var params = {
-    proj: 'projName',
+    proj: function (v) {
+      // 'lonlat', 'latlon' and 'latlong' are aliases of 'longlat'
+      self.projName = ['lonlat', 'latlon', 'latlong'].includes(v) ? 'longlat' : v;
+    },
     datum: 'datumCode',
     rf: function (v) {
       self.rf = parseFloat(v);
@@ -610,6 +656,9 @@ function match(obj, key) {
     },
     lon_0: function (v) {
       self.long0 = v * D2R;
+    },
+    lon_wrap: function (v) {
+      self.long_wrap = parseFloat(v) * D2R;
     },
     lon_1: function (v) {
       self.long1 = v * D2R;
@@ -693,6 +742,9 @@ function match(obj, key) {
     },
     approx: function () {
       self.approx = true;
+    },
+    over: function () {
+      self.over = true;
     }
   };
   for (paramName in paramObj) {
@@ -711,10 +763,11 @@ function match(obj, key) {
   if (typeof self.datumCode === 'string' && self.datumCode !== 'WGS84') {
     self.datumCode = self.datumCode.toLowerCase();
   }
+  self['projStr'] = defData;
   return self;
 }
 
-;// ./node_modules/wkt-parser/PROJJSONBuilderBase.js
+;// ./node_modules/wkt-parser/PROJJSONBuilder.js
 class PROJJSONBuilderBase {
   static getId(node) {
     const idNode = node.find((child) => Array.isArray(child) && child[0] === 'ID');
@@ -763,10 +816,11 @@ class PROJJSONBuilderBase {
       if (abbreviation === 'E') direction = 'east';
       else if (abbreviation === 'N') direction = 'north';
       else if (abbreviation === 'U') direction = 'up';
+      else if (node[2]) direction = node[2];
       else throw new Error(`Unknown axis abbreviation: ${abbreviation}`);
     } else {
       // Use the explicit direction provided in the AXIS node
-      direction = node[2] ? node[2].toLowerCase() : 'unknown';
+      direction = node[2] || 'unknown';
     }
 
     const orderNode = node.find((child) => Array.isArray(child) && child[0] === 'ORDER');
@@ -810,7 +864,7 @@ class PROJJSONBuilderBase {
         const csNode = node.find((child) => Array.isArray(child) && child[0] === 'CS');
         if (csNode) {
           result.coordinate_system = {
-            type: csNode[1],
+            subtype: csNode[1],
             axis: this.extractAxes(node),
           };
         }
@@ -826,7 +880,8 @@ class PROJJSONBuilderBase {
 
       case 'BASEGEOGCRS':
       case 'GEOGCRS':
-        result.type = 'GeographicCRS';
+      case 'GEODCRS':
+        result.type = node[0] === 'GEODCRS' ? 'GeodeticCRS' : 'GeographicCRS';
         result.name = node[1];
       
         // Handle DATUM or ENSEMBLE
@@ -849,8 +904,9 @@ class PROJJSONBuilderBase {
           }
         }
       
+        const geogCsNode = node.find((child) => Array.isArray(child) && child[0] === 'CS');
         result.coordinate_system = {
-          type: 'ellipsoidal',
+          subtype: geogCsNode ? geogCsNode[1] : 'ellipsoidal',
           axis: this.extractAxes(node),
         };
       
@@ -1031,93 +1087,9 @@ class PROJJSONBuilderBase {
   }
 }
 
-/* harmony default export */ const wkt_parser_PROJJSONBuilderBase = (PROJJSONBuilderBase);
-;// ./node_modules/wkt-parser/PROJJSONBuilder2015.js
-
-
-class PROJJSONBuilder2015 extends wkt_parser_PROJJSONBuilderBase {
-  static convert(node, result = {}) {
-    super.convert(node, result);
-
-    // Skip `CS` and `USAGE` nodes for WKT2-2015
-    if (result.coordinate_system && result.coordinate_system.subtype === 'Cartesian') {
-      delete result.coordinate_system;
-    }
-    if (result.usage) {
-      delete result.usage;
-    }
-
-    return result;
-  }
-}
-
-/* harmony default export */ const wkt_parser_PROJJSONBuilder2015 = (PROJJSONBuilder2015);
-;// ./node_modules/wkt-parser/PROJJSONBuilder2019.js
-
-
-class PROJJSONBuilder2019 extends wkt_parser_PROJJSONBuilderBase {
-  static convert(node, result = {}) {
-    super.convert(node, result);
-
-    // Handle `CS` node for WKT2-2019
-    const csNode = node.find((child) => Array.isArray(child) && child[0] === 'CS');
-    if (csNode) {
-      result.coordinate_system = {
-        subtype: csNode[1],
-        axis: this.extractAxes(node),
-      };
-    }
-
-    // Handle `USAGE` node for WKT2-2019
-    const usageNode = node.find((child) => Array.isArray(child) && child[0] === 'USAGE');
-    if (usageNode) {
-      const scope = usageNode.find((child) => Array.isArray(child) && child[0] === 'SCOPE');
-      const area = usageNode.find((child) => Array.isArray(child) && child[0] === 'AREA');
-      const bbox = usageNode.find((child) => Array.isArray(child) && child[0] === 'BBOX');
-      result.usage = {};
-      if (scope) {
-        result.usage.scope = scope[1];
-      }
-      if (area) {
-        result.usage.area = area[1];
-      }
-      if (bbox) {
-        result.usage.bbox = bbox.slice(1);
-      }
-    }
-
-    return result;
-  }
-}
-
-/* harmony default export */ const wkt_parser_PROJJSONBuilder2019 = (PROJJSONBuilder2019);
+/* harmony default export */ const PROJJSONBuilder = (PROJJSONBuilderBase);
 ;// ./node_modules/wkt-parser/buildPROJJSON.js
 
-
-
-/**
- * Detects the WKT2 version based on the structure of the WKT.
- * @param {Array} root The root WKT array node.
- * @returns {string} The detected version ("2015" or "2019").
- */
-function detectWKT2Version(root) {
-  // Check for WKT2-2019-specific nodes
-  if (root.find((child) => Array.isArray(child) && child[0] === 'USAGE')) {
-    return '2019'; // `USAGE` is specific to WKT2-2019
-  }
-
-  // Check for WKT2-2015-specific nodes
-  if (root.find((child) => Array.isArray(child) && child[0] === 'CS')) {
-    return '2015'; // `CS` is valid in both, but default to 2015 unless `USAGE` is present
-  }
-
-  if (root[0] === 'BOUNDCRS' || root[0] === 'PROJCRS' || root[0] === 'GEOGCRS') {
-    return '2015'; // These are valid in both, but default to 2015
-  }
-
-  // Default to WKT2-2015 if no specific indicators are found
-  return '2015';
-}
 
 /**
  * Builds a PROJJSON object from a WKT array structure.
@@ -1125,9 +1097,7 @@ function detectWKT2Version(root) {
  * @returns {Object} The PROJJSON object.
  */
 function buildPROJJSON(root) {
-  const version = detectWKT2Version(root);
-  const builder = version === '2019' ? wkt_parser_PROJJSONBuilder2019 : wkt_parser_PROJJSONBuilder2015;
-  return builder.convert(root);
+  return PROJJSONBuilder.convert(root);
 }
 
 ;// ./node_modules/wkt-parser/detectWKTVersion.js
@@ -1470,8 +1440,8 @@ function applyProjectionDefaults(wkt) {
   // Normalize projName for WKT2 compatibility
   const normalizedProjName = (wkt.projName || '').toLowerCase().replace(/_/g, ' ');
 
-  if (!wkt.long0 && wkt.longc && (normalizedProjName === 'albers conic equal area' || normalizedProjName === 'lambert azimuthal equal area')) {
-    wkt.long0 = wkt.longc;
+  if (wkt.long0 === undefined && wkt.longc !== undefined) {
+    wkt.long0 = wkt.longc; // keep in the projection's native prime meridian frame
   }
   if (!wkt.lat_ts && wkt.lat1 && (normalizedProjName === 'stereographic south pole' || normalizedProjName === 'polar stereographic (variant b)')) {
     wkt.lat0 = d2r(wkt.lat1 > 0 ? 90 : -90);
@@ -1569,6 +1539,12 @@ function transformPROJJSON(projjson, result = {}) {
       case 'type':
         if (value === 'GeographicCRS') {
           result.projName = 'longlat';
+        } else if (value === 'GeodeticCRS') {
+          if (projjson.coordinate_system && projjson.coordinate_system.subtype === 'Cartesian') {
+            result.projName = 'geocent';
+          } else {
+            result.projName = 'longlat';
+          }
         } else if (value === 'ProjectedCRS' && projjson.conversion && projjson.conversion.method) {
           result.projName = projjson.conversion.method.name; // Retain original capitalization
         }
@@ -1597,16 +1573,24 @@ function transformPROJJSON(projjson, result = {}) {
 
       case 'coordinate_system':
         if (value.axis) {
-          result.axis = value.axis
-            .map((axis) => {
-              const direction = axis.direction;
-              if (direction === 'east') return 'e';
-              if (direction === 'north') return 'n';
-              if (direction === 'west') return 'w';
-              if (direction === 'south') return 's';
-              throw new Error(`Unknown axis direction: ${direction}`);
-            })
-            .join('') + 'u'; // Combine into a single string (e.g., "enu")
+          const directionMap = {
+            'east': 'e',
+            'north': 'n',
+            'west': 'w',
+            'south': 's',
+            'up': 'u',
+            'down': 'd',
+            'geocentricx': 'e',
+            'geocentricy': 'n',
+            'geocentricz': 'u',
+          };
+          const mapped = value.axis.map((axis) => directionMap[axis.direction.toLowerCase()]);
+          if (mapped.every(Boolean)) {
+            result.axis = mapped.join('');
+            if (result.axis.length === 2) {
+              result.axis += 'u';
+            }
+          }
 
           if (value.unit) {
             const { units, to_meter } = processUnit(value.unit);
@@ -1667,6 +1651,11 @@ function transformPROJJSON(projjson, result = {}) {
         break;
     }
   });
+
+  // Geographic and geodetic CRSs have no base_crs, so use their own id as datumCode
+  if (!result.datumCode && (projjson.type === 'GeographicCRS' || projjson.type === 'GeodeticCRS') && projjson.id) {
+    result.datumCode = projjson.id.authority + '_' + projjson.id.code;
+  }
 
   // Additional calculated properties
   if (result.latitude_of_false_origin !== undefined) {
@@ -1749,6 +1738,7 @@ function transformPROJJSON(projjson, result = {}) {
   return result;
 }
 ;// ./node_modules/wkt-parser/index.js
+__webpack_require__.dn(wkt_parser);
 
 
 
@@ -1845,9 +1835,9 @@ function setPropertiesFromWkt(wkt) {
     geogcs = wkt;
   }
   if (geogcs) {
-    //if(wkt.GEOGCS.PRIMEM&&wkt.GEOGCS.PRIMEM.convert){
-    //  wkt.from_greenwich=wkt.GEOGCS.PRIMEM.convert*D2R;
-    //}
+    if (geogcs.PRIMEM && geogcs.PRIMEM.convert) {
+      wkt.from_greenwich = d2r(geogcs.PRIMEM.convert);
+    }
     if (geogcs.DATUM) {
       wkt.datumCode = geogcs.DATUM.name.toLowerCase();
     } else {
@@ -1875,7 +1865,7 @@ function setPropertiesFromWkt(wkt) {
       }
 
       wkt.a = geogcs.DATUM.SPHEROID.a;
-      wkt.rf = parseFloat(geogcs.DATUM.SPHEROID.rf, 10);
+      wkt.rf = parseFloat(geogcs.DATUM.SPHEROID.rf);
     }
 
     if (geogcs.DATUM && geogcs.DATUM.TOWGS84) {
@@ -1989,6 +1979,7 @@ function setPropertiesFromWkt(wkt) {
  * @property {number} [long0]
  * @property {number} [long1]
  * @property {number} [long2]
+ * @property {number} [long_wrap]
  * @property {number} [alpha]
  * @property {number} [longc]
  * @property {number} [x0]
@@ -2009,6 +2000,8 @@ function setPropertiesFromWkt(wkt) {
  * @property {boolean} [sphere]
  * @property {number} [rectified_grid_angle]
  * @property {boolean} [approx]
+ * @property {boolean} [over]
+ * @property {string} [projStr]
  * @property {<T extends import('./core').TemplateCoordinates>(coordinates: T, enforceAxis?: boolean) => T} inverse
  * @property {<T extends import('./core').TemplateCoordinates>(coordinates: T, enforceAxis?: boolean) => T} forward
  */
@@ -2045,8 +2038,14 @@ function defs(name) {
       } else {
         defs[/** @type {string} */ (name)] = wkt_parser(arguments[1]);
       }
+    } else if (def && typeof def === 'object' && !('projName' in def)) {
+      // PROJJSON
+      defs[/** @type {string} */ (name)] = wkt_parser(arguments[1]);
     } else {
       defs[/** @type {string} */ (name)] = def;
+      if (!def) {
+        delete defs[/** @type {string} */ (name)];
+      }
     }
   } else if (arguments.length === 1) {
     if (Array.isArray(name)) {
@@ -2092,6 +2091,9 @@ function testWKT(code) {
 }
 var codes = ['3857', '900913', '3785', '102113'];
 function checkMercator(item) {
+  if (item.title) {
+    return item.title.toLowerCase().indexOf('epsg:') === 0 && codes.indexOf(item.title.substr(5)) > -1;
+  }
   var auth = match(item, 'authority');
   if (!auth) {
     return;
@@ -2114,36 +2116,33 @@ function testProj(code) {
  * @returns {import('./defs').ProjectionDefinition}
  */
 function parse(code) {
+  let out;
   if (testObj(code)) {
     // check to see if this is a WKT string
     if (testDef(code)) {
-      return lib_defs[code];
-    }
-    if (testWKT(code)) {
-      var out = wkt_parser(code);
-      // test of spetial case, due to this being a very common and often malformed
-      if (checkMercator(out)) {
-        return lib_defs['EPSG:3857'];
-      }
+      out = lib_defs[code];
+    } else if (testWKT(code)) {
+      out = wkt_parser(code);
       var maybeProjStr = checkProjStr(out);
       if (maybeProjStr) {
-        return projString(maybeProjStr);
+        out = projString(maybeProjStr);
       }
-      return out;
-    }
-    if (testProj(code)) {
-      return projString(code);
+    } else if (testProj(code)) {
+      out = projString(code);
     }
   } else if (!('projName' in code)) {
-    return wkt_parser(code);
+    out = wkt_parser(code);
   } else {
-    return code;
+    out = code;
   }
+  // test for special Web Mercator case, due to this being a very common and often malformed
+  return out && checkMercator(out) ? lib_defs['EPSG:3857'] : out;
 }
 
 /* harmony default export */ const parseCode = (parse);
 
 ;// ./node_modules/proj4/lib/extend.js
+__webpack_require__.dn(extend);
 /* harmony default export */ function extend(destination, source) {
   destination = destination || {};
   var value, property;
@@ -2160,25 +2159,32 @@ function parse(code) {
 }
 
 ;// ./node_modules/proj4/lib/common/msfnz.js
+__webpack_require__.dn(msfnz);
 /* harmony default export */ function msfnz(eccent, sinphi, cosphi) {
   var con = eccent * sinphi;
   return cosphi / (Math.sqrt(1 - con * con));
 }
 
 ;// ./node_modules/proj4/lib/common/sign.js
+__webpack_require__.dn(sign);
 /* harmony default export */ function sign(x) {
   return x < 0 ? -1 : 1;
 }
 
 ;// ./node_modules/proj4/lib/common/adjust_lon.js
+__webpack_require__.dn(adjust_lon);
 
 
 
-/* harmony default export */ function adjust_lon(x) {
+/* harmony default export */ function adjust_lon(x, skipAdjust) {
+  if (skipAdjust) {
+    return x;
+  }
   return (Math.abs(x) <= SPI) ? x : (x - (sign(x) * TWO_PI));
 }
 
 ;// ./node_modules/proj4/lib/common/tsfnz.js
+__webpack_require__.dn(tsfnz);
 
 
 /* harmony default export */ function tsfnz(eccent, phi, sinphi) {
@@ -2189,6 +2195,7 @@ function parse(code) {
 }
 
 ;// ./node_modules/proj4/lib/common/phi2z.js
+__webpack_require__.dn(phi2z);
 
 
 /* harmony default export */ function phi2z(eccent, ts) {
@@ -2232,6 +2239,7 @@ function init() {
   if (!('y0' in this)) {
     this.y0 = 0;
   }
+  this.long0 = this.long0 || 0;
   this.e = Math.sqrt(this.es);
   if (this.lat_ts) {
     if (this.sphere) {
@@ -2266,12 +2274,12 @@ function forward(p) {
     return null;
   } else {
     if (this.sphere) {
-      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0);
+      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0, this.over);
       y = this.y0 + this.a * this.k0 * Math.log(Math.tan(FORTPI + 0.5 * lat));
     } else {
       var sinphi = Math.sin(lat);
       var ts = tsfnz(this.e, lat, sinphi);
-      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0);
+      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0, this.over);
       y = this.y0 - this.a * this.k0 * Math.log(ts);
     }
     p.x = x;
@@ -2296,7 +2304,7 @@ function inverse(p) {
       return null;
     }
   }
-  lon = adjust_lon(this.long0 + x / (this.a * this.k0));
+  lon = adjust_lon(this.long0 + x / (this.a * this.k0), this.over);
 
   p.x = lon;
   p.y = lat;
@@ -2321,7 +2329,7 @@ function identity(pt) {
 }
 
 
-var longlat_names = ['longlat', 'identity'];
+var longlat_names = ['longlat', 'identity', 'lonlat', 'latlon', 'latlong'];
 /* harmony default export */ const longlat = ({
   init: longlat_init,
   forward: identity,
@@ -2566,7 +2574,7 @@ var ellipsoids = {
   },
   plessis: {
     a: 6376523,
-    rf: 6355863,
+    b: 6355863,
     ellipseName: 'Plessis 1817 (France)'
   },
   krass: {
@@ -2699,7 +2707,7 @@ var datums = {
   },
   carthage: {
     towgs84: '-263.0,6.0,431.0',
-    ellipse: 'clark80',
+    ellipse: 'clrk80ign',
     datumName: 'Carthage 1934 Tunisia'
   },
   hermannskogel: {
@@ -2797,7 +2805,7 @@ var datums = {
     towgs84: '-178.3,-316.7,-131.5,5.278,6.077,10.979,19.166'
   },
   EPSG_4231: {
-    towgs84: '-83.11,-97.38,-117.22,0.0276,-0.2167,0.2147,0.1218'
+    towgs84: '-83.11,-97.38,-117.22,0.005693,-0.044698,0.044285,0.1218'
   },
   EPSG_4274: {
     towgs84: '-230.994,102.591,25.199,0.633,-0.239,0.9,1.95'
@@ -2827,7 +2835,7 @@ var datums = {
     towgs84: '8.846,-4.394,-1.122,-0.00237,-0.146528,0.130428,0.783926'
   },
   EPSG_4289: {
-    towgs84: '565.7381,50.4018,465.2904,-1.91514,1.60363,-9.09546,4.07244'
+    towgs84: '565.7381,50.4018,465.2904,-0.395026,0.330772,-1.876073,4.07244'
   },
   EPSG_4230: {
     towgs84: '-68.863,-134.888,-111.49,-0.53,-0.14,0.57,-3.4'
@@ -2857,7 +2865,7 @@ var datums = {
     towgs84: '-45,417,-3.5'
   },
   EPSG_4611: {
-    towgs84: '-162.619,-276.959,-161.764,0.067753,-2.243649,-1.158827,-1.094246'
+    towgs84: '-162.619,-276.959,-161.764,0.067753,-2.243648,-1.158828,-1.094246'
   },
   EPSG_4633: {
     towgs84: '137.092,131.66,91.475,-1.9436,-11.5993,-4.3321,-7.4824'
@@ -2875,7 +2883,7 @@ var datums = {
     towgs84: '482.5,-130.6,564.6,-1.042,-0.214,-0.631,8.15'
   },
   EPSG_4660: {
-    towgs84: '982.6087,552.753,-540.873,32.39344,-153.25684,-96.2266,16.805'
+    towgs84: '982.6087,552.753,-540.873,6.681627,-31.611492,-19.848161,16.805'
   },
   EPSG_4662: {
     towgs84: '97.295,-263.247,310.882,-1.5999,0.8386,3.1409,13.3259'
@@ -2905,7 +2913,7 @@ var datums = {
     towgs84: '217.109,86.452,23.711,0.0183,-0.0003,0.007,-0.0093'
   },
   EPSG_9333: {
-    towgs84: '0,0,0,-8.393,0.749,-10.276,0'
+    towgs84: '0,0,0,-0.008393,0.000749,-0.010276,0'
   },
   EPSG_9059: {
     towgs84: '0,0,0'
@@ -3061,7 +3069,7 @@ var datums = {
     towgs84: '674.374,15.056,405.346'
   },
   EPSG_4617: {
-    towgs84: '-0.991,1.9072,0.5129,1.25033e-7,4.6785e-8,5.6529e-8,0'
+    towgs84: '-0.991,1.9072,0.5129,0.02579,0.00965,0.01166,0'
   },
   EPSG_4663: {
     towgs84: '-210.502,-66.902,-48.476,2.094,-15.067,-5.817,0.485'
@@ -3124,10 +3132,10 @@ var datums = {
     towgs84: '275.57,676.78,229.6'
   },
   EPSG_4283: {
-    towgs84: '61.55,-10.87,-40.19,39.4924,32.7221,32.8979,-9.994'
+    towgs84: '0.06155,-0.01087,-0.04019,0.039492,0.032722,0.032898,-0.009994'
   },
   EPSG_4317: {
-    towgs84: '2.3287,-147.0425,-92.0802,-0.3092483,0.32482185,0.49729934,5.68906266'
+    towgs84: '2.3287,-147.0425,-92.0802,-0.309248,0.324822,0.497299,5.689063'
   },
   EPSG_4272: {
     towgs84: '59.47,-5.04,187.44,0.47,-0.1,1.024,-4.5993'
@@ -3250,7 +3258,7 @@ var datums = {
     towgs84: '-208.4058,-109.8777,-2.5764'
   },
   ESRI_104101: {
-    towgs84: '374,150,588'
+    towgs84: '372.87,149.23,585.29'
   },
   EPSG_4693: {
     towgs84: '0,-0.15,0.68'
@@ -3935,6 +3943,87 @@ var datums = {
   },
   EPSG_4818: {
     towgs84: '589,76,480'
+  },
+  EPSG_10328: {
+    towgs84: '0,0,0'
+  },
+  EPSG_9782: {
+    towgs84: '0,0,0'
+  },
+  EPSG_9777: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10690: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10639: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10739: {
+    towgs84: '0,0,0'
+  },
+  EPSG_7686: {
+    towgs84: '0,0,0'
+  },
+  EPSG_8900: {
+    towgs84: '0,0,0'
+  },
+  EPSG_5886: {
+    towgs84: '0,0,0'
+  },
+  EPSG_7683: {
+    towgs84: '0,0,0'
+  },
+  EPSG_6668: {
+    towgs84: '0,0,0'
+  },
+  EPSG_20046: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10299: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10310: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10475: {
+    towgs84: '0,0,0'
+  },
+  EPSG_4742: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10671: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10762: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10725: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10791: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10800: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10305: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10941: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10968: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10875: {
+    towgs84: '0,0,0'
+  },
+  EPSG_6318: {
+    towgs84: '0,0,0'
+  },
+  EPSG_10910: {
+    towgs84: '0,0,0'
   }
 };
 
@@ -3953,14 +4042,10 @@ for (var key in datums) {
 
 function datum_datum(datumCode, datum_params, a, b, es, ep2, nadgrids) {
   var out = {};
-
-  if (datumCode === undefined || datumCode === 'none') {
-    out.datum_type = PJD_NODATUM;
-  } else {
-    out.datum_type = PJD_WGS84;
-  }
+  out.datum_type = PJD_NODATUM;
 
   if (datum_params) {
+    out.datum_type = PJD_WGS84;
     out.datum_params = datum_params.map(parseFloat);
     if (out.datum_params[0] !== 0 || out.datum_params[1] !== 0 || out.datum_params[2] !== 0) {
       out.datum_type = PJD_3PARAM;
@@ -4032,22 +4117,6 @@ function datum_datum(datumCode, datum_params, a, b, es, ep2, nadgrids) {
 
 /** @typedef {{header: NadgridHeader, subgrids: Array<Subgrid>}} NADGrid */
 
-/**
- * @typedef {Object} GeoTIFF
- * @property {() => Promise<number>} getImageCount - Returns the number of images in the GeoTIFF.
- * @property {(index: number) => Promise<GeoTIFFImage>} getImage - Returns a GeoTIFFImage for the given index.
- */
-
-/**
- * @typedef {Object} GeoTIFFImage
- * @property {() => number} getWidth - Returns the width of the image.
- * @property {() => number} getHeight - Returns the height of the image.
- * @property {() => number[]} getBoundingBox - Returns the bounding box as [minX, minY, maxX, maxY] in degrees.
- * @property {() => Promise<ArrayLike<ArrayLike<number>>>} readRasters - Returns the raster data as an array of bands.
- * @property {Object} fileDirectory - The file directory object containing metadata.
- * @property {Object} fileDirectory.ModelPixelScale - The pixel scale array [scaleX, scaleY, scaleZ] in degrees.
- */
-
 var loadedNadgrids = {};
 
 /**
@@ -4060,14 +4129,14 @@ var loadedNadgrids = {};
 /**
  * @overload
  * @param {string} key - The key to associate with the loaded grid.
- * @param {GeoTIFF} data - The GeoTIFF instance to read the grid from.
+ * @param {import('geotiff').GeoTIFF} data - The GeoTIFF instance to read the grid from.
  * @returns {{ready: Promise<NADGrid>}} - A promise that resolves to the loaded grid information.
  */
 /**
  * Load either a NTv2 file (.gsb) or a Geotiff (.tif) to a key that can be used in a proj string like +nadgrids=<key>. Pass the NTv2 file
  * as an ArrayBuffer. Pass Geotiff as a GeoTIFF instance from the geotiff.js library.
  * @param {string} key - The key to associate with the loaded grid.
- * @param {ArrayBuffer|GeoTIFF} data The data to load, either an ArrayBuffer for NTv2 or a GeoTIFF instance.
+ * @param {ArrayBuffer|import('geotiff').GeoTIFF} data The data to load, either an ArrayBuffer for NTv2 or a GeoTIFF instance.
  * @param {NTV2GridOptions} [options] Optional parameters.
  * @returns {{ready: Promise<NADGrid>}|NADGrid} - A promise that resolves to the loaded grid information.
  */
@@ -4100,7 +4169,7 @@ function readNTV2Grid(key, data, options) {
 
 /**
  * @param {string} key The key to associate with the loaded grid.
- * @param {GeoTIFF} tiff The GeoTIFF instance to read the grid from.
+ * @param {import('geotiff').GeoTIFF} tiff The GeoTIFF instance to read the grid from.
  * @returns {Promise<NADGrid>} A promise that resolves to the loaded NAD grid information.
  */
 async function readGeotiffGrid(key, tiff) {
@@ -4114,7 +4183,12 @@ async function readGeotiffGrid(key, tiff) {
     var data = rasters;
     var lim = [image.getWidth(), image.getHeight()];
     var imageBBoxRadians = image.getBoundingBox().map(degreesToRadians);
-    var del = [image.fileDirectory.ModelPixelScale[0], image.fileDirectory.ModelPixelScale[1]].map(degreesToRadians);
+    var modelPixelScale = typeof image.fileDirectory.getValue === 'function'
+      // geotiff v3
+      ? image.fileDirectory.getValue('ModelPixelScale')
+      // geotiff v2
+      : /** @type {any} */ (image.fileDirectory).ModelPixelScale;
+    var del = [modelPixelScale[0], modelPixelScale[1]].map(degreesToRadians);
 
     var maxX = imageBBoxRadians[0] + (lim[0] - 1) * del[0];
     var minY = imageBBoxRadians[3] - (lim[1] - 1) * del[1];
@@ -4334,6 +4408,8 @@ function Projection(srsCode, callback) {
   this.init = null;
   /** @type {string} */
   this.name;
+  /** @type {string} */
+  this.axis;
   /** @type {Array<string>} */
   this.names = null;
   /** @type {string} */
@@ -4361,7 +4437,6 @@ function Projection(srsCode, callback) {
       json.datumName = datumDef.datumName ? datumDef.datumName : json.datumCode;
     }
   }
-  json.k0 = json.k0 || 1.0;
   json.axis = json.axis || 'enu';
   json.ellps = json.ellps || 'wgs84';
   json.lat1 = json.lat1 || json.lat0; // Lambert_Conformal_Conic_1SP, for example, needs this
@@ -4393,6 +4468,11 @@ function Projection(srsCode, callback) {
   // init the projection
   if ('init' in this && typeof this.init === 'function') {
     this.init();
+  }
+
+  // only default the scale factor once the projection had a chance to set its own
+  if (!this.k0) {
+    this.k0 = 1.0;
   }
 
   // legecy callback from back in the day when it went to spatialreference.org
@@ -4645,6 +4725,7 @@ function geocentricFromWgs84(p, datum_type, datum_params) {
 }
 
 ;// ./node_modules/proj4/lib/datum_transform.js
+__webpack_require__.dn(datum_transform);
 
 
 
@@ -4835,60 +4916,82 @@ function nadInterpolate(pin, ct) {
 }
 
 ;// ./node_modules/proj4/lib/adjust_axis.js
-/* harmony default export */ function adjust_axis(crs, denorm, point) {
-  var xin = point.x,
-    yin = point.y,
-    zin = point.z || 0.0;
-  var v, t, i;
+var order = ['x', 'y', 'z'];
+
+/**
+ * Convert a point in a given CRS axis order to ENU (east/north/up) order
+ * @param {import('./defs').ProjectionDefinition} crs
+ * @param {import('./core').InterfaceCoordinates} point
+ * @returns {import('./core').InterfaceCoordinates | null}
+ */
+function adjustAxisToEnu(crs, point) {
   /** @type {import("./core").InterfaceCoordinates} */
-  var out = {};
-  for (i = 0; i < 3; i++) {
-    if (denorm && i === 2 && point.z === undefined) {
+  const out = {};
+  for (let i = 0, ii = crs.axis.length; i < ii; i++) {
+    if (i === 2 && point.z === undefined) {
       continue;
     }
-    if (i === 0) {
-      v = xin;
-      if ('ew'.indexOf(crs.axis[i]) !== -1) {
-        t = 'x';
-      } else {
-        t = 'y';
-      }
-    } else if (i === 1) {
-      v = yin;
-      if ('ns'.indexOf(crs.axis[i]) !== -1) {
-        t = 'y';
-      } else {
-        t = 'x';
-      }
-    } else {
-      v = zin;
-      t = 'z';
+    let v = point[order[i]];
+    switch (crs.axis[i]) {
+      case 'e':
+        out.x = v;
+        break;
+      case 'w':
+        out.x = -v;
+        break;
+      case 'n':
+        out.y = v;
+        break;
+      case 's':
+        out.y = -v;
+        break;
+      case 'u':
+        out.z = v;
+        break;
+      case 'd':
+        out.z = -v;
+        break;
+      default:
+        // console.log("ERROR: unknown axis ("+crs.axis[i]+") - check definition of "+crs.projName);
+        return null;
+    }
+  }
+  return out;
+}
+
+/**
+ * Convert a point in ENU (east/north/up) order to the given CRS axis order.
+ * @param {import('./defs').ProjectionDefinition} crs
+ * @param {import('./core').InterfaceCoordinates} point
+ * @returns {import('./core').InterfaceCoordinates | null}
+ */
+function adjustAxisFromEnu(crs, point) {
+  const out = /** @type {import("./core").InterfaceCoordinates} */ ({});
+  for (let i = 0, ii = crs.axis.length; i < ii; i++) {
+    if (i === 2 && point.z === undefined) {
+      continue;
     }
     switch (crs.axis[i]) {
       case 'e':
-        out[t] = v;
+        out[order[i]] = point.x;
         break;
       case 'w':
-        out[t] = -v;
+        out[order[i]] = -point.x;
         break;
       case 'n':
-        out[t] = v;
+        out[order[i]] = point.y;
         break;
       case 's':
-        out[t] = -v;
+        out[order[i]] = -point.y;
         break;
       case 'u':
-        if (point[t] !== undefined) {
-          out.z = v;
-        }
+        out[order[i]] = point.z;
         break;
       case 'd':
-        if (point[t] !== undefined) {
-          out.z = -v;
-        }
+        out[order[i]] = -point.z;
         break;
       default:
-      // console.log("ERROR: unknow axis ("+crs.axis[i]+") - check definition of "+crs.projName);
+        // console.log("ERROR: unknown axis ("+crs.axis[i]+") - check definition of "+crs.projName);
         return null;
     }
   }
@@ -4896,6 +4999,7 @@ function nadInterpolate(pin, ct) {
 }
 
 ;// ./node_modules/proj4/lib/common/toPoint.js
+__webpack_require__.dn(toPoint);
 /**
  * @param {Array<number>} array
  * @returns {import("../core").InterfaceCoordinates}
@@ -4915,6 +5019,7 @@ function nadInterpolate(pin, ct) {
 }
 
 ;// ./node_modules/proj4/lib/checkSanity.js
+__webpack_require__.dn(checkSanity);
 /* harmony default export */ function checkSanity(point) {
   checkCoord(point.x);
   checkCoord(point.y);
@@ -4939,6 +5044,7 @@ function checkCoord(num) {
 
 
 
+
 function checkNotWGS(source, dest) {
   return (
     (source.datum.datum_type === PJD_3PARAM || source.datum.datum_type === PJD_7PARAM || source.datum.datum_type === PJD_GRIDSHIFT) && dest.datumCode !== 'WGS84')
@@ -4946,36 +5052,26 @@ function checkNotWGS(source, dest) {
 }
 
 /**
+ * Internal transform: accepts an already-cloned point object, returns transformed point object.
  * @param {import('./defs').ProjectionDefinition} source
  * @param {import('./defs').ProjectionDefinition} dest
- * @param {import('./core').TemplateCoordinates} point
- * @param {boolean} enforceAxis
+ * @param {import('./core').InterfaceCoordinates} point
+ * @param {boolean} [enforceAxis]
  * @returns {import('./core').InterfaceCoordinates | undefined}
  */
-function transform(source, dest, point, enforceAxis) {
+function transformInternal(source, dest, point, enforceAxis) {
   var wgs84;
-  if (Array.isArray(point)) {
-    point = toPoint(point);
-  } else {
-    // Clone the point object so inputs don't get modified
-    point = {
-      x: point.x,
-      y: point.y,
-      z: point.z,
-      m: point.m
-    };
-  }
   var hasZ = point.z !== undefined;
   checkSanity(point);
   // Workaround for datum shifts towgs84, if either source or destination projection is not wgs84
   if (source.datum && dest.datum && checkNotWGS(source, dest)) {
     wgs84 = new Proj('WGS84');
-    point = transform(source, wgs84, point, enforceAxis);
+    point = transformInternal(source, wgs84, point, enforceAxis);
     source = wgs84;
   }
   // DGR, 2010/11/12
   if (enforceAxis && source.axis !== 'enu') {
-    point = adjust_axis(source, false, point);
+    point = adjustAxisToEnu(source, point);
   }
   // Transform source points to long/lat, if they aren't already.
   if (source.projName === 'longlat') {
@@ -5020,6 +5116,10 @@ function transform(source, dest, point, enforceAxis) {
   }
 
   if (dest.projName === 'longlat') {
+    // wrap longitude into the range centered on dest.long_wrap, if requested (+lon_wrap)
+    if (dest.long_wrap !== undefined) {
+      point.x = dest.long_wrap + adjust_lon(point.x - dest.long_wrap);
+    }
     // convert radians to decimal degrees
     point = {
       x: point.x * R2D,
@@ -5039,16 +5139,35 @@ function transform(source, dest, point, enforceAxis) {
 
   // DGR, 2010/11/12
   if (enforceAxis && dest.axis !== 'enu') {
-    return adjust_axis(dest, true, point);
+    return adjustAxisFromEnu(dest, point);
   }
 
-  if (point && !hasZ) {
+  if (point && !hasZ && dest.projName !== 'geocent') {
     delete point.z;
   }
   return point;
 }
 
+/**
+ * @param {import('./defs').ProjectionDefinition} source
+ * @param {import('./defs').ProjectionDefinition} dest
+ * @param {import('./core').TemplateCoordinates} point
+ * @param {boolean} [enforceAxis]
+ * @returns {import('./core').InterfaceCoordinates | undefined}
+ */
+function transform(source, dest, point, enforceAxis) {
+  var pt;
+  if (Array.isArray(point)) {
+    pt = toPoint(point);
+  } else {
+    // Clone the point object so inputs don't get modified
+    pt = { x: point.x, y: point.y, z: point.z, m: point.m };
+  }
+  return transformInternal(source, dest, pt, enforceAxis);
+}
+
 ;// ./node_modules/proj4/lib/core.js
+
 
 
 var wgs84 = Proj('WGS84');
@@ -5133,37 +5252,36 @@ var wgs84 = Proj('WGS84');
  * @returns {T}
  */
 function transformer(from, to, coords, enforceAxis) {
-  var transformedArray, out, keys;
+  var out, geocent, keys;
   if (Array.isArray(coords)) {
-    transformedArray = transform(from, to, coords, enforceAxis) || { x: NaN, y: NaN };
+    out = transformInternal(from, to, toPoint(coords), enforceAxis) || { x: NaN, y: NaN };
     if (coords.length > 2) {
-      if ((typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent')) {
-        if (typeof transformedArray.z === 'number') {
-          return /** @type {T} */ ([transformedArray.x, transformedArray.y, transformedArray.z].concat(coords.slice(3)));
-        } else {
-          return /** @type {T} */ ([transformedArray.x, transformedArray.y, coords[2]].concat(coords.slice(3)));
+      geocent = (typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent');
+      if (geocent) {
+        if (typeof out.z === 'number') {
+          return /** @type {T} */ ([out.x, out.y, out.z].concat(coords.slice(3)));
         }
-      } else {
-        return /** @type {T} */ ([transformedArray.x, transformedArray.y].concat(coords.slice(2)));
+        return /** @type {T} */ ([out.x, out.y, coords[2]].concat(coords.slice(3)));
       }
-    } else {
-      return /** @type {T} */ ([transformedArray.x, transformedArray.y]);
+      if (enforceAxis && typeof out.z === 'number') {
+        return /** @type {T} */ ([out.x, out.y, out.z].concat(coords.slice(3)));
+      }
+      return /** @type {T} */ ([out.x, out.y].concat(coords.slice(2)));
     }
+    return /** @type {T} */ ([out.x, out.y]);
   } else {
-    out = transform(from, to, coords, enforceAxis);
+    out = transformInternal(from, to, { x: coords.x, y: coords.y, z: coords.z, m: coords.m }, enforceAxis) || { x: NaN, y: NaN };
     keys = Object.keys(coords);
     if (keys.length === 2) {
       return /** @type {T} */ (out);
     }
+    geocent = (typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent');
     keys.forEach(function (key) {
-      if ((typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent')) {
-        if (key === 'x' || key === 'y' || key === 'z') {
-          return;
-        }
-      } else {
-        if (key === 'x' || key === 'y') {
-          return;
-        }
+      if (key === 'x' || key === 'y') {
+        return;
+      }
+      if (key === 'z' && (geocent || enforceAxis)) {
+        return;
       }
       out[key] = coords[key];
     });
@@ -6065,6 +6183,7 @@ Point.prototype.toMGRS = function (accuracy) {
 /* harmony default export */ const lib_Point = (Point);
 
 ;// ./node_modules/proj4/lib/common/pj_enfn.js
+__webpack_require__.dn(pj_enfn);
 var C00 = 1;
 var C02 = 0.25;
 var C04 = 0.046875;
@@ -6091,6 +6210,7 @@ var C88 = 0.3076171875;
 }
 
 ;// ./node_modules/proj4/lib/common/pj_mlfn.js
+__webpack_require__.dn(pj_mlfn);
 /* harmony default export */ function pj_mlfn(phi, sphi, cphi, en) {
   cphi *= sphi;
   sphi *= sphi;
@@ -6098,6 +6218,7 @@ var C88 = 0.3076171875;
 }
 
 ;// ./node_modules/proj4/lib/common/pj_inv_mlfn.js
+__webpack_require__.dn(pj_inv_mlfn);
 
 
 
@@ -6161,7 +6282,7 @@ function tmerc_forward(p) {
   var lon = p.x;
   var lat = p.y;
 
-  var delta_lon = adjust_lon(lon - this.long0);
+  var delta_lon = adjust_lon(lon - this.long0, this.over);
   var con;
   var x, y;
   var sin_phi = Math.sin(lat);
@@ -6249,7 +6370,7 @@ function tmerc_inverse(p) {
     if ((g === 0) && (h === 0)) {
       lon = 0;
     } else {
-      lon = adjust_lon(Math.atan2(g, h) + this.long0);
+      lon = adjust_lon(Math.atan2(g, h) + this.long0, this.over);
     }
   } else { // ellipsoidal form
     con = this.ml0 + y / this.k0;
@@ -6276,7 +6397,7 @@ function tmerc_inverse(p) {
       lon = adjust_lon(this.long0 + (d * (1
         - ds / 6 * (1 + 2 * t + c
           - ds / 20 * (5 + 28 * t + 24 * ts + 8 * c * t + 6 * c
-            - ds / 42 * (61 + 662 * t + 1320 * ts + 720 * ts * t)))) / cos_phi));
+            - ds / 42 * (61 + 662 * t + 1320 * ts + 720 * ts * t)))) / cos_phi), this.over);
     } else {
       lat = HALF_PI * sign(y);
       lon = 0;
@@ -6298,6 +6419,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 });
 
 ;// ./node_modules/proj4/lib/common/sinh.js
+__webpack_require__.dn(sinh);
 /* harmony default export */ function sinh(x) {
   var r = Math.exp(x);
   r = (r - 1 / r) / 2;
@@ -6305,6 +6427,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/hypot.js
+__webpack_require__.dn(hypot);
 /* harmony default export */ function hypot(x, y) {
   x = Math.abs(x);
   y = Math.abs(y);
@@ -6315,6 +6438,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/log1py.js
+__webpack_require__.dn(log1py);
 /* harmony default export */ function log1py(x) {
   var y = 1 + x;
   var z = y - 1;
@@ -6323,6 +6447,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/asinhy.js
+__webpack_require__.dn(asinhy);
 
 
 
@@ -6334,6 +6459,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/gatg.js
+__webpack_require__.dn(gatg);
 /* harmony default export */ function gatg(pp, B) {
   var cos_2B = 2 * Math.cos(2 * B);
   var i = pp.length - 1;
@@ -6351,6 +6477,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/clens.js
+__webpack_require__.dn(clens);
 /* harmony default export */ function clens(pp, arg_r) {
   var r = 2 * Math.cos(arg_r);
   var i = pp.length - 1;
@@ -6368,6 +6495,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/cosh.js
+__webpack_require__.dn(cosh);
 /* harmony default export */ function cosh(x) {
   var r = Math.exp(x);
   r = (r + 1 / r) / 2;
@@ -6375,6 +6503,7 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 }
 
 ;// ./node_modules/proj4/lib/common/clens_cmplx.js
+__webpack_require__.dn(clens_cmplx);
 
 
 
@@ -6448,6 +6577,7 @@ function etmerc_init() {
   this.y0 = this.y0 !== undefined ? this.y0 : 0;
   this.long0 = this.long0 !== undefined ? this.long0 : 0;
   this.lat0 = this.lat0 !== undefined ? this.lat0 : 0;
+  this.k0 = this.k0 !== undefined ? this.k0 : 1;
 
   this.cgb = [];
   this.cbg = [];
@@ -6511,7 +6641,7 @@ function etmerc_init() {
 }
 
 function etmerc_forward(p) {
-  var Ce = adjust_lon(p.x - this.long0);
+  var Ce = adjust_lon(p.x - this.long0, this.over);
   var Cn = p.y;
 
   Cn = gatg(this.cbg, Cn);
@@ -6571,7 +6701,7 @@ function etmerc_inverse(p) {
     Cn = Math.atan2(sin_Cn * cos_Ce, hypot(sin_Ce, cos_Ce * cos_Cn));
     Ce = Math.atan2(sin_Ce, cos_Ce * cos_Cn);
 
-    lon = adjust_lon(Ce + this.long0);
+    lon = adjust_lon(Ce + this.long0, this.over);
     lat = gatg(this.cgb, Cn);
   } else {
     lon = Infinity;
@@ -6593,6 +6723,7 @@ var etmerc_names = ['Extended_Transverse_Mercator', 'Extended Transverse Mercato
 });
 
 ;// ./node_modules/proj4/lib/common/adjust_zone.js
+__webpack_require__.dn(adjust_zone);
 
 
 /* harmony default export */ function adjust_zone(zone, lon) {
@@ -6639,6 +6770,7 @@ var utm_names = ['Universal Transverse Mercator System', 'utm'];
 });
 
 ;// ./node_modules/proj4/lib/common/srat.js
+__webpack_require__.dn(srat);
 /* harmony default export */ function srat(esinp, exp) {
   return (Math.pow((1 - esinp) / (1 + esinp), exp));
 }
@@ -6739,7 +6871,7 @@ function sterea_init() {
 
 function sterea_forward(p) {
   var sinc, cosc, cosl, k;
-  p.x = adjust_lon(p.x - this.long0);
+  p.x = adjust_lon(p.x - this.long0, this.over);
   gauss.forward.apply(this, [p]);
   sinc = Math.sin(p.y);
   cosc = Math.cos(p.y);
@@ -6773,7 +6905,7 @@ function sterea_inverse(p) {
   p.x = lon;
   p.y = lat;
   gauss.inverse.apply(this, [p]);
-  p.x = adjust_lon(p.x + this.long0);
+  p.x = adjust_lon(p.x + this.long0, this.over);
   return p;
 }
 
@@ -6823,7 +6955,7 @@ function stere_init() {
   this.coslat0 = Math.cos(this.lat0);
   this.sinlat0 = Math.sin(this.lat0);
   if (this.sphere) {
-    if (this.k0 === 1 && !isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN) {
+    if (!isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN) {
       this.k0 = 0.5 * (1 + sign(this.lat0) * Math.sin(this.lat_ts));
     }
   } else {
@@ -6839,9 +6971,9 @@ function stere_init() {
       }
     }
     this.cons = Math.sqrt(Math.pow(1 + this.e, 1 + this.e) * Math.pow(1 - this.e, 1 - this.e));
-    if (this.k0 === 1 && !isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN && Math.abs(Math.cos(this.lat_ts)) > EPSLN) {
-      // When k0 is 1 (default value) and lat_ts is a vaild number and lat0 is at a pole and lat_ts is not at a pole
-      // Recalculate k0 using formula 21-35 from p161 of Snyder, 1987
+    if (!isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN && Math.abs(Math.cos(this.lat_ts)) > EPSLN) {
+      // Polar Stereographic variant B: k0 is derived from lat_ts (EPSG guidance note 7-2, method 9829)
+      // https://epsg.org/coord-operation-method_9829/Polar-Stereographic-variant-B.html
       this.k0 = 0.5 * this.cons * msfnz(this.e, Math.sin(this.lat_ts), Math.cos(this.lat_ts)) / tsfnz(this.e, this.con * this.lat_ts, this.con * Math.sin(this.lat_ts));
     }
     this.ms1 = msfnz(this.e, this.sinlat0, this.coslat0);
@@ -6858,7 +6990,7 @@ function stere_forward(p) {
   var sinlat = Math.sin(lat);
   var coslat = Math.cos(lat);
   var A, X, sinX, cosX, ts, rh;
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
 
   if (Math.abs(Math.abs(lon - this.long0) - Math.PI) <= EPSLN && Math.abs(lat + this.lat0) <= EPSLN) {
     // case of the origine point
@@ -6919,12 +7051,12 @@ function stere_inverse(p) {
     lat = Math.asin(Math.cos(c) * this.sinlat0 + p.y * Math.sin(c) * this.coslat0 / rh);
     if (Math.abs(this.coslat0) < EPSLN) {
       if (this.lat0 > 0) {
-        lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y));
+        lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y), this.over);
       } else {
-        lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y));
+        lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y), this.over);
       }
     } else {
-      lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(c), rh * this.coslat0 * Math.cos(c) - p.y * this.sinlat0 * Math.sin(c)));
+      lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(c), rh * this.coslat0 * Math.cos(c) - p.y * this.sinlat0 * Math.sin(c)), this.over);
     }
     p.x = lon;
     p.y = lat;
@@ -6943,7 +7075,7 @@ function stere_inverse(p) {
       p.y *= this.con;
       ts = rh * this.cons / (2 * this.a * this.k0);
       lat = this.con * phi2z(this.e, ts);
-      lon = this.con * adjust_lon(this.con * this.long0 + Math.atan2(p.x, -1 * p.y));
+      lon = this.con * adjust_lon(this.con * this.long0 + Math.atan2(p.x, -1 * p.y), this.over);
     } else {
       ce = 2 * Math.atan(rh * this.cosX0 / (2 * this.a * this.k0 * this.ms1));
       lon = this.long0;
@@ -6951,7 +7083,7 @@ function stere_inverse(p) {
         Chi = this.X0;
       } else {
         Chi = Math.asin(Math.cos(ce) * this.sinX0 + p.y * Math.sin(ce) * this.cosX0 / rh);
-        lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(ce), rh * this.cosX0 * Math.cos(ce) - p.y * this.sinX0 * Math.sin(ce)));
+        lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(ce), rh * this.cosX0 * Math.cos(ce) - p.y * this.sinX0 * Math.sin(ce)), this.over);
       }
       lat = -1 * phi2z(this.e, Math.tan(0.5 * (HALF_PI + Chi)));
     }
@@ -6992,6 +7124,9 @@ var stere_names = ['stere', 'Stereographic_South_Pole', 'Polar_Stereographic_var
 
 /** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function somerc_init() {
+  if (!this.k0) {
+    this.k0 = 1;
+  }
   var phy0 = this.lat0;
   this.lambda0 = this.long0;
   var sinPhy0 = Math.sin(phy0);
@@ -7117,6 +7252,10 @@ function omerc_init() {
   var con, com, cosph0, D, F, H, L, sinph0, p, J, gamma = 0,
     gamma0, lamc = 0, lam1 = 0, lam2 = 0, phi1 = 0, phi2 = 0, alpha_c = 0;
 
+  if (!this.k0) {
+    this.k0 = 1;
+  }
+
   // only Type A uses the no_off or no_uoff property
   // https://github.com/OSGeo/proj.4/issues/104
   this.no_off = isTypeA(this);
@@ -7138,6 +7277,10 @@ function omerc_init() {
 
   if (gam) {
     gamma = this.rectified_grid_angle;
+    if (!alp) {
+      alpha_c = 0;
+      alp = true;
+    }
   }
 
   if (alp || gam) {
@@ -7211,8 +7354,8 @@ function omerc_init() {
       lam2 += TWO_PI;
     }
 
-    this.lam0 = adjust_lon(0.5 * (lam1 + lam2) - Math.atan(J * Math.tan(0.5 * this.B * (lam1 - lam2)) / p) / this.B);
-    gamma0 = Math.atan(2 * Math.sin(this.B * adjust_lon(lam1 - this.lam0)) / (F - 1 / F));
+    this.lam0 = adjust_lon(0.5 * (lam1 + lam2) - Math.atan(J * Math.tan(0.5 * this.B * (lam1 - lam2)) / p) / this.B, this.over);
+    gamma0 = Math.atan(2 * Math.sin(this.B * adjust_lon(lam1 - this.lam0, this.over)) / (F - 1 / F));
     gamma = alpha_c = Math.asin(D * Math.sin(gamma0));
   }
 
@@ -7285,6 +7428,12 @@ function omerc_forward(p) {
   coords.x = (this.a * coords.x + this.x0);
   coords.y = (this.a * coords.y + this.y0);
 
+  if (p.z !== undefined) {
+    coords.z = p.z;
+  }
+  if (p.m !== undefined) {
+    coords.m = p.m;
+  }
   return coords;
 }
 
@@ -7325,6 +7474,12 @@ function omerc_inverse(p) {
 
   coords.x += this.lam0;
 
+  if (p.z !== undefined) {
+    coords.z = p.z;
+  }
+  if (p.m !== undefined) {
+    coords.m = p.m;
+  }
   return coords;
 }
 
@@ -7374,6 +7529,7 @@ function lcc_init() {
   }
   this.x0 = this.x0 || 0;
   this.y0 = this.y0 || 0;
+  this.long0 = this.long0 || 0;
   // Standard Parallels cannot be equal and on opposite sides of the equator
   if (Math.abs(this.lat1 + this.lat2) < EPSLN) {
     return;
@@ -7391,10 +7547,7 @@ function lcc_init() {
   var cos2 = Math.cos(this.lat2);
   var ms2 = msfnz(this.e, sin2, cos2);
   var ts2 = tsfnz(this.e, this.lat2, sin2);
-
-  var ts0 = Math.abs(Math.abs(this.lat0) - HALF_PI) < EPSLN
-    ? 0 // Handle poles by setting ts0 to 0
-    : tsfnz(this.e, this.lat0, Math.sin(this.lat0));
+  var ts0 = tsfnz(this.e, this.lat0, Math.sin(this.lat0));
 
   if (Math.abs(this.lat1 - this.lat2) > EPSLN) {
     this.ns = Math.log(ms1 / ms2) / Math.log(ts1 / ts2);
@@ -7405,7 +7558,9 @@ function lcc_init() {
     this.ns = sin1;
   }
   this.f0 = ms1 / (this.ns * Math.pow(ts1, this.ns));
-  this.rh = this.a * this.f0 * Math.pow(ts0, this.ns);
+  this.rh = Math.abs(Math.abs(this.lat0) - HALF_PI) < EPSLN
+    ? 0 // Handle poles by setting rh to 0
+    : this.a * this.f0 * Math.pow(ts0, this.ns);
   if (!this.title) {
     this.title = 'Lambert Conformal Conic';
   }
@@ -7434,7 +7589,7 @@ function lcc_forward(p) {
     }
     rh1 = 0;
   }
-  var theta = this.ns * adjust_lon(lon - this.long0);
+  var theta = this.ns * adjust_lon(lon - this.long0, this.over);
   p.x = this.k0 * (rh1 * Math.sin(theta)) + this.x0;
   p.y = this.k0 * (this.rh - rh1 * Math.cos(theta)) + this.y0;
 
@@ -7469,7 +7624,7 @@ function lcc_inverse(p) {
   } else {
     lat = -HALF_PI;
   }
-  lon = adjust_lon(theta / this.ns + this.long0);
+  lon = adjust_lon(theta / this.ns + this.long0, this.over);
 
   p.x = lon;
   p.y = lat;
@@ -7504,7 +7659,7 @@ function krovak_init() {
     this.lat0 = 0.863937979737193;
   }
   if (!this.long0) {
-    this.long0 = 0.7417649320975901 - 0.308341501185665;
+    this.long0 = 0.7417649320975901 - 0.308341501185665; // 42.5° from Ferro = 24.833° from Greenwich
   }
   /* if scale not set default to 0.9999 */
   if (!this.k0) {
@@ -7535,7 +7690,7 @@ function krovak_forward(p) {
   var gfi, u, deltav, s, d, eps, ro;
   var lon = p.x;
   var lat = p.y;
-  var delta_lon = adjust_lon(lon - this.long0);
+  var delta_lon = adjust_lon(lon - this.long0, this.over);
   /* Transformation */
   gfi = Math.pow(((1 + this.e * Math.sin(lat)) / (1 - this.e * Math.sin(lat))), (this.alfa * this.e / 2));
   u = 2 * (Math.atan(this.k * Math.pow(Math.tan(lat / 2 + this.s45), this.alfa) / gfi) - this.s45);
@@ -7593,7 +7748,7 @@ function krovak_inverse(p) {
   return (p);
 }
 
-var krovak_names = ['Krovak', 'krovak'];
+var krovak_names = ['Krovak', 'Krovak Modified', 'Krovak (North Orientated)', 'Krovak Modified (North Orientated)', 'krovak'];
 /* harmony default export */ const krovak = ({
   init: krovak_init,
   forward: krovak_forward,
@@ -7602,37 +7757,44 @@ var krovak_names = ['Krovak', 'krovak'];
 });
 
 ;// ./node_modules/proj4/lib/common/mlfn.js
+__webpack_require__.dn(mlfn);
 /* harmony default export */ function mlfn(e0, e1, e2, e3, phi) {
   return (e0 * phi - e1 * Math.sin(2 * phi) + e2 * Math.sin(4 * phi) - e3 * Math.sin(6 * phi));
 }
 
 ;// ./node_modules/proj4/lib/common/e0fn.js
+__webpack_require__.dn(e0fn);
 /* harmony default export */ function e0fn(x) {
   return (1 - 0.25 * x * (1 + x / 16 * (3 + 1.25 * x)));
 }
 
 ;// ./node_modules/proj4/lib/common/e1fn.js
+__webpack_require__.dn(e1fn);
 /* harmony default export */ function e1fn(x) {
   return (0.375 * x * (1 + 0.25 * x * (1 + 0.46875 * x)));
 }
 
 ;// ./node_modules/proj4/lib/common/e2fn.js
+__webpack_require__.dn(e2fn);
 /* harmony default export */ function e2fn(x) {
   return (0.05859375 * x * x * (1 + 0.75 * x));
 }
 
 ;// ./node_modules/proj4/lib/common/e3fn.js
+__webpack_require__.dn(e3fn);
 /* harmony default export */ function e3fn(x) {
   return (x * x * x * (35 / 3072));
 }
 
 ;// ./node_modules/proj4/lib/common/gN.js
+__webpack_require__.dn(gN);
 /* harmony default export */ function gN(a, e, sinphi) {
   var temp = e * sinphi;
   return a / Math.sqrt(1 - temp * temp);
 }
 
 ;// ./node_modules/proj4/lib/common/adjust_lat.js
+__webpack_require__.dn(adjust_lat);
 
 
 
@@ -7641,6 +7803,7 @@ var krovak_names = ['Krovak', 'krovak'];
 }
 
 ;// ./node_modules/proj4/lib/common/imlfn.js
+__webpack_require__.dn(imlfn);
 /* harmony default export */ function imlfn(ml, e0, e1, e2, e3) {
   var phi;
   var dphi;
@@ -7699,7 +7862,7 @@ function cass_forward(p) {
   var x, y;
   var lam = p.x;
   var phi = p.y;
-  lam = adjust_lon(lam - this.long0);
+  lam = adjust_lon(lam - this.long0, this.over);
 
   if (this.sphere) {
     x = this.a * Math.asin(Math.cos(phi) * Math.sin(lam));
@@ -7759,7 +7922,7 @@ function cass_inverse(p) {
     lam = dl * (1 - dsq * (tl1 / 3 + (1 + 3 * tl1) * tl1 * dsq / 15)) / Math.cos(phi1);
   }
 
-  p.x = adjust_lon(lam + this.long0);
+  p.x = adjust_lon(lam + this.long0, this.over);
   p.y = adjust_lat(phi);
   return p;
 }
@@ -7773,6 +7936,7 @@ var cass_names = ['Cassini', 'Cassini_Soldner', 'cass'];
 });
 
 ;// ./node_modules/proj4/lib/common/qsfnz.js
+__webpack_require__.dn(qsfnz);
 /* harmony default export */ function qsfnz(eccent, sinphi) {
   var con;
   if (eccent > 1.0e-7) {
@@ -7783,7 +7947,37 @@ var cass_names = ['Cassini', 'Cassini_Soldner', 'cass'];
   }
 }
 
+;// ./node_modules/proj4/lib/common/authset.js
+var P00 = 0.33333333333333333333;
+var P01 = 0.17222222222222222222;
+var P02 = 0.10257936507936507936;
+var P10 = 0.06388888888888888888;
+var P11 = 0.06640211640211640211;
+var P20 = 0.01641501294219154443;
+
+function authset(es) {
+  var t;
+  var APA = [];
+  APA[0] = es * P00;
+  t = es * es;
+  APA[0] += t * P01;
+  APA[1] = t * P10;
+  t *= es;
+  APA[0] += t * P02;
+  APA[1] += t * P11;
+  APA[2] = t * P20;
+  return APA;
+}
+
+;// ./node_modules/proj4/lib/common/authlat.js
+function authlat(beta, APA) {
+  var t = beta + beta;
+  return (beta + APA[0] * Math.sin(t) + APA[1] * Math.sin(t + t) + APA[2] * Math.sin(t + t + t));
+}
+
 ;// ./node_modules/proj4/lib/projections/laea.js
+
+
 
 
 
@@ -7877,7 +8071,7 @@ function laea_forward(p) {
   var lam = p.x;
   var phi = p.y;
 
-  lam = adjust_lon(lam - this.long0);
+  lam = adjust_lon(lam - this.long0, this.over);
   if (this.sphere) {
     sinphi = Math.sin(phi);
     cosphi = Math.cos(phi);
@@ -8045,37 +8239,9 @@ function laea_inverse(p) {
     phi = authlat(Math.asin(ab), this.apa);
   }
 
-  p.x = adjust_lon(this.long0 + lam);
+  p.x = adjust_lon(this.long0 + lam, this.over);
   p.y = phi;
   return p;
-}
-
-/* determine latitude from authalic latitude */
-var P00 = 0.33333333333333333333;
-
-var P01 = 0.17222222222222222222;
-var P02 = 0.10257936507936507936;
-var P10 = 0.06388888888888888888;
-var P11 = 0.06640211640211640211;
-var P20 = 0.01641501294219154443;
-
-function authset(es) {
-  var t;
-  var APA = [];
-  APA[0] = es * P00;
-  t = es * es;
-  APA[0] += t * P01;
-  APA[1] = t * P10;
-  t *= es;
-  APA[0] += t * P02;
-  APA[1] += t * P11;
-  APA[2] = t * P20;
-  return APA;
-}
-
-function authlat(beta, APA) {
-  var t = beta + beta;
-  return (beta + APA[0] * Math.sin(t) + APA[1] * Math.sin(t + t) + APA[2] * Math.sin(t + t + t));
 }
 
 var laea_names = ['Lambert Azimuthal Equal Area', 'Lambert_Azimuthal_Equal_Area', 'laea'];
@@ -8091,6 +8257,7 @@ var laea_names = ['Lambert Azimuthal Equal Area', 'Lambert_Azimuthal_Equal_Area'
 });
 
 ;// ./node_modules/proj4/lib/common/asinz.js
+__webpack_require__.dn(asinz);
 /* harmony default export */ function asinz(x) {
   if (Math.abs(x) > 1) {
     x = (x > 1) ? 1 : -1;
@@ -8176,7 +8343,7 @@ function aea_forward(p) {
 
   var qs = qsfnz(this.e3, this.sin_phi);
   var rh1 = this.a * Math.sqrt(this.c - this.ns0 * qs) / this.ns0;
-  var theta = this.ns0 * adjust_lon(lon - this.long0);
+  var theta = this.ns0 * adjust_lon(lon - this.long0, this.over);
   var x = rh1 * Math.sin(theta) + this.x0;
   var y = this.rh - rh1 * Math.cos(theta) + this.y0;
 
@@ -8209,7 +8376,7 @@ function aea_inverse(p) {
     lat = this.phi1z(this.e3, qs);
   }
 
-  lon = adjust_lon(theta / this.ns0 + this.long0);
+  lon = adjust_lon(theta / this.ns0 + this.long0, this.over);
   p.x = lon;
   p.y = lat;
   return p;
@@ -8292,7 +8459,7 @@ function gnom_forward(p) {
   var lat = p.y;
   /* Forward equations
       ----------------- */
-  dlon = adjust_lon(lon - this.long0);
+  dlon = adjust_lon(lon - this.long0, this.over);
 
   sinphi = Math.sin(lat);
   cosphi = Math.cos(lat);
@@ -8340,7 +8507,7 @@ function gnom_inverse(p) {
 
     lat = asinz(cosc * this.sin_p14 + (p.y * sinc * this.cos_p14) / rh);
     lon = Math.atan2(p.x * sinc, rh * this.cos_p14 * cosc - p.y * this.sin_p14 * sinc);
-    lon = adjust_lon(this.long0 + lon);
+    lon = adjust_lon(this.long0 + lon, this.over);
   } else {
     lat = this.phic0;
     lon = 0;
@@ -8360,6 +8527,7 @@ var gnom_names = ['gnom'];
 });
 
 ;// ./node_modules/proj4/lib/common/iqsfnz.js
+__webpack_require__.dn(iqsfnz);
 
 
 /* harmony default export */ function iqsfnz(eccent, q) {
@@ -8425,7 +8593,7 @@ function cea_forward(p) {
   var x, y;
   /* Forward equations
       ----------------- */
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
   if (this.sphere) {
     x = this.x0 + this.a * dlon * Math.cos(this.lat_ts);
     y = this.y0 + this.a * Math.sin(lat) / Math.cos(this.lat_ts);
@@ -8448,11 +8616,11 @@ function cea_inverse(p) {
   var lon, lat;
 
   if (this.sphere) {
-    lon = adjust_lon(this.long0 + (p.x / this.a) / Math.cos(this.lat_ts));
+    lon = adjust_lon(this.long0 + (p.x / this.a) / Math.cos(this.lat_ts), this.over);
     lat = Math.asin((p.y / this.a) * Math.cos(this.lat_ts));
   } else {
     lat = iqsfnz(this.e, 2 * p.y * this.k0 / this.a);
-    lon = adjust_lon(this.long0 + p.x / (this.a * this.k0));
+    lon = adjust_lon(this.long0 + p.x / (this.a * this.k0), this.over);
   }
 
   p.x = lon;
@@ -8489,7 +8657,7 @@ function eqc_forward(p) {
   var lon = p.x;
   var lat = p.y;
 
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
   var dlat = adjust_lat(lat - this.lat0);
   p.x = this.x0 + (this.a * dlon * this.rc);
   p.y = this.y0 + (this.a * dlat);
@@ -8502,7 +8670,7 @@ function eqc_inverse(p) {
   var x = p.x;
   var y = p.y;
 
-  p.x = adjust_lon(this.long0 + ((x - this.x0) / (this.a * this.rc)));
+  p.x = adjust_lon(this.long0 + ((x - this.x0) / (this.a * this.rc)), this.over);
   p.y = adjust_lat(this.lat0 + ((y - this.y0) / (this.a)));
   return p;
 }
@@ -8561,7 +8729,7 @@ function poly_forward(p) {
   var lon = p.x;
   var lat = p.y;
   var x, y, el;
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
   el = dlon * Math.sin(lat);
   if (this.sphere) {
     if (Math.abs(lat) <= EPSLN) {
@@ -8597,7 +8765,7 @@ function poly_inverse(p) {
 
   if (this.sphere) {
     if (Math.abs(y + this.a * this.lat0) <= EPSLN) {
-      lon = adjust_lon(x / this.a + this.long0);
+      lon = adjust_lon(x / this.a + this.long0, this.over);
       lat = 0;
     } else {
       al = this.lat0 + y / this.a;
@@ -8613,12 +8781,12 @@ function poly_inverse(p) {
           break;
         }
       }
-      lon = adjust_lon(this.long0 + (Math.asin(x * Math.tan(phi) / this.a)) / Math.sin(lat));
+      lon = adjust_lon(this.long0 + (Math.asin(x * Math.tan(phi) / this.a)) / Math.sin(lat), this.over);
     }
   } else {
     if (Math.abs(y + this.ml0) <= EPSLN) {
       lat = 0;
-      lon = adjust_lon(this.long0 + x / this.a);
+      lon = adjust_lon(this.long0 + x / this.a, this.over);
     } else {
       al = (this.ml0 + y) / this.a;
       bl = x * x / this.a / this.a + al * al;
@@ -8641,7 +8809,7 @@ function poly_inverse(p) {
 
       // lat=phi4z(this.e,this.e0,this.e1,this.e2,this.e3,al,bl,0,0);
       cl = Math.sqrt(1 - this.es * Math.pow(Math.sin(lat), 2)) * Math.tan(lat);
-      lon = adjust_lon(this.long0 + Math.asin(x * cl / this.a) / Math.sin(lat));
+      lon = adjust_lon(this.long0 + Math.asin(x * cl / this.a) / Math.sin(lat), this.over);
     }
   }
 
@@ -8883,7 +9051,8 @@ var nzmg_names = ['New_Zealand_Map_Grid', 'nzmg'];
   init: nzmg_init,
   forward: nzmg_forward,
   inverse: nzmg_inverse,
-  names: nzmg_names
+  names: nzmg_names,
+  iterations: iterations
 });
 
 ;// ./node_modules/proj4/lib/projections/mill.js
@@ -8908,7 +9077,7 @@ function mill_forward(p) {
   var lat = p.y;
   /* Forward equations
       ----------------- */
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
   var x = this.x0 + this.a * dlon;
   var y = this.y0 + this.a * Math.log(Math.tan((Math.PI / 4) + (lat / 2.5))) * 1.25;
 
@@ -8923,7 +9092,7 @@ function mill_inverse(p) {
   p.x -= this.x0;
   p.y -= this.y0;
 
-  var lon = adjust_lon(this.long0 + p.x / this.a);
+  var lon = adjust_lon(this.long0 + p.x / this.a, this.over);
   var lat = 2.5 * (Math.atan(Math.exp(0.8 * p.y / this.a)) - Math.PI / 4);
 
   p.x = lon;
@@ -8964,6 +9133,7 @@ var sinu_MAX_ITER = 20;
 function sinu_init() {
   /* Place parameters in static storage for common use
     ------------------------------------------------- */
+  this.long0 = this.long0 || 0;
 
   if (!this.sphere) {
     this.en = pj_enfn(this.es);
@@ -8984,7 +9154,7 @@ function sinu_forward(p) {
   var lat = p.y;
   /* Forward equations
     ----------------- */
-  lon = adjust_lon(lon - this.long0);
+  lon = adjust_lon(lon - this.long0, this.over);
 
   if (this.sphere) {
     if (!this.m) {
@@ -9029,7 +9199,7 @@ function sinu_inverse(p) {
     } else if (this.n !== 1) {
       lat = asinz(Math.sin(lat) / this.n);
     }
-    lon = adjust_lon(lon + this.long0);
+    lon = adjust_lon(lon + this.long0, this.over);
     lat = adjust_lat(lat);
   } else {
     lat = pj_inv_mlfn(p.y / this.a, this.es, this.en);
@@ -9038,7 +9208,7 @@ function sinu_inverse(p) {
       s = Math.sin(lat);
       temp = this.long0 + p.x * Math.sqrt(1 - this.es * s * s) / (this.a * Math.cos(lat));
       // temp = this.long0 + p.x / (this.a * Math.cos(lat));
-      lon = adjust_lon(temp);
+      lon = adjust_lon(temp, this.over);
     } else if ((s - EPSLN) < HALF_PI) {
       lon = this.long0;
     }
@@ -9056,9 +9226,56 @@ var sinu_names = ['Sinusoidal', 'sinu'];
   names: sinu_names
 });
 
+;// ./node_modules/proj4/lib/projections/eck6.js
+
+
+/**
+ * Eckert VI projection — spherical sinusoidal variant with m=1, n=1+π/2.
+ * Always forces spherical computation regardless of the ellipsoid.
+ *
+ * @typedef {Object} LocalThis
+ * @property {number} m
+ * @property {number} n
+ * @property {number} C_y
+ * @property {number} C_x
+ * @property {number} es
+ */
+
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
+function eck6_init() {
+  /* Force spherical handling */
+  this.sphere = true;
+  this.b = this.a;
+
+  this.m = 1.0;
+  this.n = 2.570796326794896619231321691; /* 1 + π/2 */
+  this.es = 0;
+
+  this.C_y = Math.sqrt((this.m + 1.0) / this.n);
+  this.C_x = this.C_y / (this.m + 1.0);
+}
+
+var eck6_forward = sinu_forward;
+var eck6_inverse = sinu_inverse;
+
+var eck6_names = ['Eckert_VI', 'eck6'];
+/* harmony default export */ const eck6 = ({
+  init: eck6_init,
+  forward: eck6_forward,
+  inverse: eck6_inverse,
+  names: eck6_names
+});
+
 ;// ./node_modules/proj4/lib/projections/moll.js
 
-function moll_init() {}
+
+
+/** @this {import('../defs.js').ProjectionDefinition} */
+function moll_init() {
+  this.x0 = this.x0 !== undefined ? this.x0 : 0;
+  this.y0 = this.y0 !== undefined ? this.y0 : 0;
+  this.long0 = this.long0 !== undefined ? this.long0 : 0;
+}
 
 /* Mollweide forward equations--mapping lat,long to x,y
     ---------------------------------------------------- */
@@ -9068,7 +9285,7 @@ function moll_forward(p) {
   var lon = p.x;
   var lat = p.y;
 
-  var delta_lon = adjust_lon(lon - this.long0);
+  var delta_lon = adjust_lon(lon - this.long0, this.over);
   var theta = lat;
   var con = Math.PI * Math.sin(lat);
 
@@ -9114,7 +9331,7 @@ function moll_inverse(p) {
     arg = 0.999999999999;
   }
   theta = Math.asin(arg);
-  var lon = adjust_lon(this.long0 + (p.x / (0.900316316158 * this.a * Math.cos(theta))));
+  var lon = adjust_lon(this.long0 + (p.x / (0.900316316158 * this.a * Math.cos(theta))), this.over);
   if (lon < (-Math.PI)) {
     lon = -Math.PI;
   }
@@ -9225,7 +9442,7 @@ function eqdc_forward(p) {
     var ml = mlfn(this.e0, this.e1, this.e2, this.e3, lat);
     rh1 = this.a * (this.g - ml);
   }
-  var theta = this.ns * adjust_lon(lon - this.long0);
+  var theta = this.ns * adjust_lon(lon - this.long0, this.over);
   var x = this.x0 + rh1 * Math.sin(theta);
   var y = this.y0 + this.rh - rh1 * Math.cos(theta);
   p.x = x;
@@ -9252,7 +9469,7 @@ function eqdc_inverse(p) {
   }
 
   if (this.sphere) {
-    lon = adjust_lon(this.long0 + theta / this.ns);
+    lon = adjust_lon(this.long0 + theta / this.ns, this.over);
     lat = adjust_lat(this.g - rh1 / this.a);
     p.x = lon;
     p.y = lat;
@@ -9260,7 +9477,7 @@ function eqdc_inverse(p) {
   } else {
     var ml = this.g - rh1 / this.a;
     lat = imlfn(ml, this.e0, this.e1, this.e2, this.e3);
-    lon = adjust_lon(this.long0 + theta / this.ns);
+    lon = adjust_lon(this.long0 + theta / this.ns, this.over);
     p.x = lon;
     p.y = lat;
     return p;
@@ -9302,12 +9519,15 @@ function vandg_forward(p) {
 
   /* Forward equations
     ----------------- */
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
   var x, y;
 
   if (Math.abs(lat) <= EPSLN) {
     x = this.x0 + this.R * dlon;
     y = this.y0;
+    p.x = x;
+    p.y = y;
+    return p;
   }
   var theta = asinz(2 * Math.abs(lat / Math.PI));
   if ((Math.abs(dlon) <= EPSLN) || (Math.abs(Math.abs(lat) - HALF_PI) <= EPSLN)) {
@@ -9317,7 +9537,9 @@ function vandg_forward(p) {
     } else {
       y = this.y0 + Math.PI * this.R * -Math.tan(0.5 * theta);
     }
-    //  return(OK);
+    p.x = x;
+    p.y = y;
+    return p;
   }
   var al = 0.5 * Math.abs((Math.PI / dlon) - (dlon / Math.PI));
   var asq = al * al;
@@ -9391,7 +9613,7 @@ function vandg_inverse(p) {
   if (Math.abs(xx) < EPSLN) {
     lon = this.long0;
   } else {
-    lon = adjust_lon(this.long0 + Math.PI * (xys - 1 + Math.sqrt(1 + 2 * (xx * xx - yy * yy) + xys * xys)) / 2 / xx);
+    lon = adjust_lon(this.long0 + Math.PI * (xys - 1 + Math.sqrt(1 + 2 * (xx * xx - yy * yy) + xys * xys)) / 2 / xx, this.over);
   }
 
   p.x = lon;
@@ -9557,6 +9779,9 @@ function vincentyDirect(lat1, lon1, azi1, s12, a, f) {
 function aeqd_init() {
   this.sin_p12 = Math.sin(this.lat0);
   this.cos_p12 = Math.cos(this.lat0);
+  this.x0 = this.x0 || 0;
+  this.y0 = this.y0 || 0;
+  this.long0 = this.long0 || 0;
   // flattening for ellipsoid
   this.f = this.es / (1 + Math.sqrt(1 - this.es));
 }
@@ -9566,7 +9791,7 @@ function aeqd_forward(p) {
   var lat = p.y;
   var sinphi = Math.sin(p.y);
   var cosphi = Math.cos(p.y);
-  var dlon = adjust_lon(lon - this.long0);
+  var dlon = adjust_lon(lon - this.long0, this.over);
   var e0, e1, e2, e3, Mlp, Ml, c, kp, cos_c, vars, azi1;
   if (this.sphere) {
     if (Math.abs(this.sin_p12 - 1) <= EPSLN) {
@@ -9610,13 +9835,14 @@ function aeqd_forward(p) {
     } else {
       // Default case
       if (Math.abs(lon) < EPSLN && Math.abs(lat - this.lat0) < EPSLN) {
-        p.x = p.y = 0;
+        p.x = this.x0;
+        p.y = this.y0;
         return p;
       }
       vars = vincentyInverse(this.lat0, this.long0, lat, lon, this.a, this.f);
       azi1 = vars.azi1;
-      p.x = vars.s12 * Math.sin(azi1);
-      p.y = vars.s12 * Math.cos(azi1);
+      p.x = this.x0 + vars.s12 * Math.sin(azi1);
+      p.y = this.y0 + vars.s12 * Math.cos(azi1);
       return p;
     }
   }
@@ -9644,12 +9870,12 @@ function aeqd_inverse(p) {
       con = Math.abs(this.lat0) - HALF_PI;
       if (Math.abs(con) <= EPSLN) {
         if (this.lat0 >= 0) {
-          lon = adjust_lon(this.long0 + Math.atan2(p.x, -p.y));
+          lon = adjust_lon(this.long0 + Math.atan2(p.x, -p.y), this.over);
         } else {
-          lon = adjust_lon(this.long0 - Math.atan2(-p.x, p.y));
+          lon = adjust_lon(this.long0 - Math.atan2(-p.x, p.y), this.over);
         }
       } else {
-        lon = adjust_lon(this.long0 + Math.atan2(p.x * sinz, rh * this.cos_p12 * cosz - p.y * this.sin_p12 * sinz));
+        lon = adjust_lon(this.long0 + Math.atan2(p.x * sinz, rh * this.cos_p12 * cosz - p.y * this.sin_p12 * sinz), this.over);
       }
     }
 
@@ -9667,7 +9893,7 @@ function aeqd_inverse(p) {
       rh = Math.sqrt(p.x * p.x + p.y * p.y);
       M = Mlp - rh;
       lat = imlfn(M / this.a, e0, e1, e2, e3);
-      lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y));
+      lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y), this.over);
       p.x = lon;
       p.y = lat;
       return p;
@@ -9678,7 +9904,7 @@ function aeqd_inverse(p) {
       M = rh - Mlp;
 
       lat = imlfn(M / this.a, e0, e1, e2, e3);
-      lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y));
+      lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y), this.over);
       p.x = lon;
       p.y = lat;
       return p;
@@ -9720,8 +9946,8 @@ function ortho_init() {
 
   /* Place parameters in static storage for common use
       ------------------------------------------------- */
-  this.sin_p14 = Math.sin(this.lat0);
-  this.cos_p14 = Math.cos(this.lat0);
+  this.sin_p14 = Math.sin(this.lat0 || 0);
+  this.cos_p14 = Math.cos(this.lat0 || 0);
 }
 
 /* Orthographic forward equations--mapping lat,long to x,y
@@ -9736,7 +9962,7 @@ function ortho_forward(p) {
   var lat = p.y;
   /* Forward equations
       ----------------- */
-  dlon = adjust_lon(lon - this.long0);
+  dlon = adjust_lon(lon - (this.long0 || 0), this.over);
 
   sinphi = Math.sin(lat);
   cosphi = Math.cos(lat);
@@ -9745,8 +9971,8 @@ function ortho_forward(p) {
   g = this.sin_p14 * sinphi + this.cos_p14 * cosphi * coslon;
   ksp = 1;
   if ((g > 0) || (Math.abs(g) <= EPSLN)) {
-    x = this.a * ksp * cosphi * Math.sin(dlon);
-    y = this.y0 + this.a * ksp * (this.cos_p14 * sinphi - this.sin_p14 * cosphi * coslon);
+    x = (this.x0 || 0) + this.a * ksp * cosphi * Math.sin(dlon);
+    y = (this.y0 || 0) + this.a * ksp * (this.cos_p14 * sinphi - this.sin_p14 * cosphi * coslon);
   }
   p.x = x;
   p.y = y;
@@ -9759,36 +9985,39 @@ function ortho_inverse(p) {
   var sinz, cosz; /* sin of z and cos of z      */
   var con;
   var lon, lat;
+  var long0, lat0;
   /* Inverse equations
       ----------------- */
-  p.x -= this.x0;
-  p.y -= this.y0;
+  p.x -= this.x0 || 0;
+  p.y -= this.y0 || 0;
   rh = Math.sqrt(p.x * p.x + p.y * p.y);
   z = asinz(rh / this.a);
 
   sinz = Math.sin(z);
   cosz = Math.cos(z);
 
-  lon = this.long0;
+  long0 = this.long0 || 0;
+  lat0 = this.lat0 || 0;
+  lon = long0;
   if (Math.abs(rh) <= EPSLN) {
-    lat = this.lat0;
+    lat = lat0;
     p.x = lon;
     p.y = lat;
     return p;
   }
   lat = asinz(cosz * this.sin_p14 + (p.y * sinz * this.cos_p14) / rh);
-  con = Math.abs(this.lat0) - HALF_PI;
+  con = Math.abs(lat0) - HALF_PI;
   if (Math.abs(con) <= EPSLN) {
-    if (this.lat0 >= 0) {
-      lon = adjust_lon(this.long0 + Math.atan2(p.x, -p.y));
+    if (lat0 >= 0) {
+      lon = adjust_lon(long0 + Math.atan2(p.x, -p.y), this.over);
     } else {
-      lon = adjust_lon(this.long0 - Math.atan2(-p.x, p.y));
+      lon = adjust_lon(long0 - Math.atan2(-p.x, p.y), this.over);
     }
     p.x = lon;
     p.y = lat;
     return p;
   }
-  lon = adjust_lon(this.long0 + Math.atan2((p.x * sinz), rh * this.cos_p14 * cosz - p.y * this.sin_p14 * sinz));
+  lon = adjust_lon(long0 + Math.atan2((p.x * sinz), rh * this.cos_p14 * cosz - p.y * this.sin_p14 * sinz), this.over);
   p.x = lon;
   p.y = lat;
   return p;
@@ -10268,7 +10497,7 @@ function robin_init() {
 }
 
 function robin_forward(ll) {
-  var lon = adjust_lon(ll.x - this.long0);
+  var lon = adjust_lon(ll.x - this.long0, this.over);
 
   var dphi = Math.abs(ll.y);
   var i = Math.floor(dphi * C1);
@@ -10288,6 +10517,13 @@ function robin_forward(ll) {
 
   xy.x = xy.x * this.a * FXC + this.x0;
   xy.y = xy.y * this.a * FYC + this.y0;
+
+  if (ll.z !== undefined) {
+    xy.z = ll.z;
+  }
+  if (ll.m !== undefined) {
+    xy.m = ll.m;
+  }
   return xy;
 }
 
@@ -10332,7 +10568,14 @@ function robin_inverse(xy) {
     }
   }
 
-  ll.x = adjust_lon(ll.x + this.long0);
+  ll.x = adjust_lon(ll.x + this.long0, this.over);
+
+  if (xy.z !== undefined) {
+    ll.z = xy.z;
+  }
+  if (xy.m !== undefined) {
+    ll.m = xy.m;
+  }
   return ll;
 }
 
@@ -10768,35 +11011,70 @@ var geos_names = ['Geostationary Satellite View', 'Geostationary_Satellite', 'ge
 
 
 
+
+
+
 var A1 = 1.340264,
   A2 = -0.081106,
   A3 = 0.000893,
   A4 = 0.003796,
   M = Math.sqrt(3) / 2.0;
 
+/**
+ * @typedef {Object} LocalThis
+ * @property {number} es
+ * @property {number} e
+ * @property {Array<number>} apa
+ * @property {number} qp
+ * @property {number} rqda
+ */
+
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function eqearth_init() {
-  this.es = 0;
   this.long0 = this.long0 !== undefined ? this.long0 : 0;
+  this.x0 = this.x0 !== undefined ? this.x0 : 0;
+  this.y0 = this.y0 !== undefined ? this.y0 : 0;
+  if (this.es !== 0) {
+    this.apa = authset(this.es);
+    this.qp = qsfnz(this.e, 1);
+    this.rqda = Math.sqrt(0.5 * this.qp);
+  }
 }
 
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function eqearth_forward(p) {
-  var lam = adjust_lon(p.x - this.long0);
+  var lam = adjust_lon(p.x - this.long0, this.over);
   var phi = p.y;
-  var paramLat = Math.asin(M * Math.sin(phi)),
+  var sinphi = Math.sin(phi);
+  if (this.es !== 0) {
+    sinphi = qsfnz(this.e, sinphi) / this.qp;
+  }
+  var paramLat = Math.asin(M * sinphi),
     paramLatSq = paramLat * paramLat,
     paramLatPow6 = paramLatSq * paramLatSq * paramLatSq;
   p.x = lam * Math.cos(paramLat)
     / (M * (A1 + 3 * A2 * paramLatSq + paramLatPow6 * (7 * A3 + 9 * A4 * paramLatSq)));
   p.y = paramLat * (A1 + A2 * paramLatSq + paramLatPow6 * (A3 + A4 * paramLatSq));
 
+  if (this.es !== 0) {
+    p.x *= this.rqda;
+    p.y *= this.rqda;
+  }
+
   p.x = this.a * p.x + this.x0;
   p.y = this.a * p.y + this.y0;
   return p;
 }
 
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function eqearth_inverse(p) {
   p.x = (p.x - this.x0) / this.a;
   p.y = (p.y - this.y0) / this.a;
+
+  if (this.es !== 0) {
+    p.x /= this.rqda;
+    p.y /= this.rqda;
+  }
 
   var EPS = 1e-9,
     NITER = 12,
@@ -10819,7 +11097,11 @@ function eqearth_inverse(p) {
     / Math.cos(paramLat);
   p.y = Math.asin(Math.sin(paramLat) / M);
 
-  p.x = adjust_lon(p.x + this.long0);
+  if (this.es !== 0) {
+    p.y = authlat(p.y, this.apa);
+  }
+
+  p.x = adjust_lon(p.x + this.long0, this.over);
   return p;
 }
 
@@ -10879,7 +11161,7 @@ function bonne_init() {
 }
 
 function e_fwd(p) {
-  var lam = adjust_lon(p.x - (this.long0 || 0));
+  var lam = adjust_lon(p.x - (this.long0 || 0), this.over);
   var phi = p.y;
   var rh, E, c;
   rh = this.am1 + this.m1 - pj_mlfn(phi, E = Math.sin(phi), c = Math.cos(phi), this.en);
@@ -10907,13 +11189,13 @@ function e_inv(p) {
   } else {
     throw new Error();
   }
-  p.x = adjust_lon(lam + (this.long0 || 0));
+  p.x = adjust_lon(lam + (this.long0 || 0), this.over);
   p.y = adjust_lat(phi);
   return p;
 }
 
 function s_fwd(p) {
-  var lam = adjust_lon(p.x - (this.long0 || 0));
+  var lam = adjust_lon(p.x - (this.long0 || 0), this.over);
   var phi = p.y;
   var E, rh;
   rh = this.cphi1 + this.phi1 - phi;
@@ -10944,7 +11226,7 @@ function s_inv(p) {
   } else {
     lam = rh * Math.atan2(p.x, p.y) / Math.cos(phi);
   }
-  p.x = adjust_lon(lam + (this.long0 || 0));
+  p.x = adjust_lon(lam + (this.long0 || 0), this.over);
   p.y = adjust_lat(phi);
   return p;
 }
@@ -10955,7 +11237,383 @@ var bonne_names = ['bonne', 'Bonne (Werner lat_1=90)'];
   names: bonne_names
 });
 
+;// ./node_modules/proj4/lib/projections/ob_tran.js
+
+
+
+
+
+/**
+    Original projection implementation:
+        https://github.com/OSGeo/PROJ/blob/46c47e9adf6376ae06afabe5d24a0016a05ced82/src/projections/ob_tran.cpp
+
+    Documentation:
+        https://proj.org/operations/projections/ob_tran.html
+
+    References/Formulas:
+        https://pubs.usgs.gov/pp/1395/report.pdf
+
+    Examples:
+        +proj=ob_tran +o_proj=moll +o_lat_p=45 +o_lon_p=-90
+        +proj=ob_tran +o_proj=moll +o_lat_p=45 +o_lon_p=-90 +lon_0=60
+        +proj=ob_tran +o_proj=moll +o_lat_p=45 +o_lon_p=-90 +lon_0=-90
+*/
+
+const projectionType = {
+  OBLIQUE: {
+    forward: forwardOblique,
+    inverse: inverseOblique
+  },
+  TRANSVERSE: {
+    forward: forwardTransverse,
+    inverse: inverseTransverse
+  }
+};
+
+/**
+ * @typedef {Object} LocalThis
+ * @property {number} lamp
+ * @property {number} cphip
+ * @property {number} sphip
+ * @property {Object} projectionType
+ * @property {string | undefined} o_proj
+ * @property {string | undefined} o_lon_p
+ * @property {string | undefined} o_lat_p
+ * @property {string | undefined} o_alpha
+ * @property {string | undefined} o_lon_c
+ * @property {string | undefined} o_lat_c
+ * @property {string | undefined} o_lon_1
+ * @property {string | undefined} o_lat_1
+ * @property {string | undefined} o_lon_2
+ * @property {string | undefined} o_lat_2
+ * @property {number | undefined} oLongP
+ * @property {number | undefined} oLatP
+ * @property {number | undefined} oAlpha
+ * @property {number | undefined} oLongC
+ * @property {number | undefined} oLatC
+ * @property {number | undefined} oLong1
+ * @property {number | undefined} oLat1
+ * @property {number | undefined} oLong2
+ * @property {number | undefined} oLat2
+ * @property {boolean} isIdentity
+ * @property {import('..').Converter} obliqueProjection
+ *
+ */
+
+/**
+ *    Parameters can be from the following sets:
+ *       New pole --> o_lat_p, o_lon_p
+ *       Rotate about point --> o_alpha, o_lon_c, o_lat_c
+ *       New equator points --> lon_1, lat_1, lon_2, lat_2
+ *
+ *    Per the original source code, the parameter sets are
+ *    checked in the order of the object below.
+ */
+const paramSets = {
+  ROTATE: {
+    o_alpha: 'oAlpha',
+    o_lon_c: 'oLongC',
+    o_lat_c: 'oLatC'
+  },
+  NEW_POLE: {
+    o_lat_p: 'oLatP',
+    o_lon_p: 'oLongP'
+  },
+  NEW_EQUATOR: {
+    o_lon_1: 'oLong1',
+    o_lat_1: 'oLat1',
+    o_lon_2: 'oLong2',
+    o_lat_2: 'oLat2'
+  }
+};
+
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
+function ob_tran_init() {
+  this.x0 = this.x0 || 0;
+  this.y0 = this.y0 || 0;
+  this.long0 = this.long0 || 0;
+  this.title = this.title || 'General Oblique Transformation';
+  this.isIdentity = longlat_names.includes(this.o_proj);
+
+  /** Verify required parameters exist */
+  if (!this.o_proj) {
+    throw new Error('Missing parameter: o_proj');
+  }
+
+  if (this.o_proj === `ob_tran`) {
+    throw new Error('Invalid value for o_proj: ' + this.o_proj);
+  }
+
+  const newProjStr = this.projStr.replace('+proj=ob_tran', '').replace('+o_proj=', '+proj=').trim();
+
+  /** @type {import('../defs.js').ProjectionDefinition} */
+  const oProj = Proj(newProjStr);
+  if (!oProj) {
+    throw new Error('Invalid parameter: o_proj. Unknown projection ' + this.o_proj);
+  }
+  oProj.long0 = 0; // we handle long0 before/after forward/inverse
+  this.obliqueProjection = oProj;
+
+  let matchedSet;
+  const paramSetsKeys = Object.keys(paramSets);
+
+  /**
+   * parse strings, convert to radians, throw on NaN
+   * @param {string} name
+   * @returns {number | undefined}
+   */
+  const parseParam = (name) => {
+    if (typeof this[name] === `undefined`) {
+      return undefined;
+    }
+    const val = parseFloat(this[name]) * D2R;
+    if (isNaN(val)) {
+      throw new Error('Invalid value for ' + name + ': ' + this[name]);
+    }
+    return val;
+  };
+
+  for (let i = 0; i < paramSetsKeys.length; i++) {
+    const setKey = paramSetsKeys[i];
+    const set = paramSets[setKey];
+    const params = Object.entries(set);
+    const setHasParams = params.some(
+      ([p]) => typeof this[p] !== 'undefined'
+    );
+    if (!setHasParams) {
+      continue;
+    }
+    matchedSet = set;
+    for (let ii = 0; ii < params.length; ii++) {
+      const [inputParam, param] = params[ii];
+      const val = parseParam(inputParam);
+      if (typeof val === 'undefined') {
+        throw new Error('Missing parameter: ' + inputParam + '.');
+      }
+      this[param] = val;
+    }
+    break;
+  }
+
+  if (!matchedSet) {
+    throw new Error('No valid parameters provided for ob_tran projection.');
+  }
+
+  const { lamp, phip } = createRotation(this, matchedSet);
+  this.lamp = lamp;
+
+  if (Math.abs(phip) > EPSLN) {
+    this.cphip = Math.cos(phip);
+    this.sphip = Math.sin(phip);
+    this.projectionType = projectionType.OBLIQUE;
+  } else {
+    this.projectionType = projectionType.TRANSVERSE;
+  }
+}
+
+// ob_tran forward equations--mapping (lat,long) to (x,y)
+// transverse (90 degrees from normal orientation) - forwardTransverse
+// or oblique (arbitrary angle) used based on parameters - forwardOblique
+// -----------------------------------------------------------------
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
+function ob_tran_forward(p) {
+  return this.projectionType.forward(this, p);
+}
+
+// inverse equations--mapping (x,y) to (lat,long)
+// transverse: inverseTransverse
+// oblique: inverseOblique
+// -----------------------------------------------------------------
+/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
+function ob_tran_inverse(p) {
+  return this.projectionType.inverse(this, p);
+}
+
+/**
+ * @param {import('../defs.js').ProjectionDefinition & LocalThis} params - Initialized projection definition
+ * @param {Object} how - Transformation method
+ * @returns {{phip: number, lamp: number}}
+ */
+function createRotation(params, how) {
+  let phip, lamp;
+  if (how === paramSets.ROTATE) {
+    let lamc = params.oLongC;
+    let phic = params.oLatC;
+    let alpha = params.oAlpha;
+    if (Math.abs(Math.abs(phic) - HALF_PI) <= EPSLN) {
+      throw new Error('Invalid value for o_lat_c: ' + params.o_lat_c + ' should be < 90°');
+    }
+    lamp = lamc + Math.atan2(-1 * Math.cos(alpha), -1 * Math.sin(alpha) * Math.sin(phic));
+    phip = Math.asin(Math.cos(phic) * Math.sin(alpha));
+  } else if (how === paramSets.NEW_POLE) {
+    lamp = params.oLongP;
+    phip = params.oLatP;
+  } else {
+    let lam1 = params.oLong1;
+    let phi1 = params.oLat1;
+    let lam2 = params.oLong2;
+    let phi2 = params.oLat2;
+    let con = Math.abs(phi1);
+
+    if (Math.abs(phi1) > HALF_PI - EPSLN) {
+      throw new Error('Invalid value for o_lat_1: ' + params.o_lat_1 + ' should be < 90°');
+    }
+
+    if (Math.abs(phi2) > HALF_PI - EPSLN) {
+      throw new Error('Invalid value for o_lat_2: ' + params.o_lat_2 + ' should be < 90°');
+    }
+
+    if (Math.abs(phi1 - phi2) < EPSLN) {
+      throw new Error('Invalid value for o_lat_1 and o_lat_2: o_lat_1 should be different from o_lat_2');
+    }
+    if (con < EPSLN) {
+      throw new Error('Invalid value for o_lat_1: o_lat_1 should be different from zero');
+    }
+
+    lamp = Math.atan2(
+      (Math.cos(phi1) * Math.sin(phi2) * Math.cos(lam1))
+      - (Math.sin(phi1) * Math.cos(phi2) * Math.cos(lam2)),
+      (Math.sin(phi1) * Math.cos(phi2) * Math.sin(lam2))
+      - (Math.cos(phi1) * Math.sin(phi2) * Math.sin(lam1))
+    );
+
+    phip = Math.atan(-1 * Math.cos(lamp - lam1) / Math.tan(phi1));
+  }
+
+  return { lamp, phip };
+}
+
+/**
+ * Forward (lng, lat) to (x, y) for oblique case
+ * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
+ * @param {{x: number, y: number}} lp - lambda, phi
+ */
+function forwardOblique(self, lp) {
+  let { x: lam, y: phi } = lp;
+  lam = adjust_lon(lam - self.long0, self.over);
+  const coslam = Math.cos(lam);
+  const sinphi = Math.sin(phi);
+  const cosphi = Math.cos(phi);
+
+  lp.x = adjust_lon(
+    Math.atan2(
+      cosphi * Math.sin(lam),
+      (self.sphip * cosphi * coslam) + (self.cphip * sinphi)
+    ) + self.lamp
+  );
+  lp.y = Math.asin(
+    (self.sphip * sinphi) - (self.cphip * cosphi * coslam)
+  );
+
+  const result = self.obliqueProjection.forward(lp);
+  if (self.isIdentity) {
+    result.x *= R2D;
+    result.y *= R2D;
+  }
+  return result;
+}
+
+/**
+ * Forward (lng, lat) to (x, y) for transverse case
+ * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
+ * @param {{x: number, y: number}} lp - lambda, phi
+ */
+function forwardTransverse(self, lp) {
+  let { x: lam, y: phi } = lp;
+  lam = adjust_lon(lam - self.long0, self.over);
+  const cosphi = Math.cos(phi);
+  const coslam = Math.cos(lam);
+  lp.x = adjust_lon(
+    Math.atan2(
+      cosphi * Math.sin(lam),
+      Math.sin(phi)
+    ) + self.lamp
+  );
+  lp.y = Math.asin(-1 * cosphi * coslam);
+
+  const result = self.obliqueProjection.forward(lp);
+
+  if (self.isIdentity) {
+    result.x *= R2D;
+    result.y *= R2D;
+  }
+  return result;
+}
+
+/**
+ * Inverse (x, y) to (lng, lat) for oblique case
+ * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
+ * @param {{x: number, y: number}} lp - lambda, phi
+ */
+function inverseOblique(self, lp) {
+  if (self.isIdentity) {
+    lp.x *= D2R;
+    lp.y *= D2R;
+  }
+
+  const innerLp = self.obliqueProjection.inverse(lp);
+  let { x: lam, y: phi } = innerLp;
+
+  if (lam < Number.MAX_VALUE) {
+    lam -= self.lamp;
+    const coslam = Math.cos(lam);
+    const sinphi = Math.sin(phi);
+    const cosphi = Math.cos(phi);
+    lp.x = Math.atan2(
+      cosphi * Math.sin(lam),
+      (self.sphip * cosphi * coslam) - (self.cphip * sinphi)
+    );
+    lp.y = Math.asin(
+      (self.sphip * sinphi) + (self.cphip * cosphi * coslam)
+    );
+  }
+
+  lp.x = adjust_lon(lp.x + self.long0);
+  return lp;
+}
+
+/**
+ * Inverse (x, y) to (lng, lat) for transverse case
+ * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
+ * @param {{x: number, y: number}} lp - lambda, phi
+ */
+function inverseTransverse(self, lp) {
+  if (self.isIdentity) {
+    lp.x *= D2R;
+    lp.y *= D2R;
+  }
+
+  const innerLp = self.obliqueProjection.inverse(lp);
+  let { x: lam, y: phi } = innerLp;
+
+  if (lam < Number.MAX_VALUE) {
+    const cosphi = Math.cos(phi);
+    lam -= self.lamp;
+    lp.x = Math.atan2(
+      cosphi * Math.sin(lam),
+      -1 * Math.sin(phi)
+    );
+    lp.y = Math.asin(
+      cosphi * Math.cos(lam)
+    );
+  }
+
+  lp.x = adjust_lon(lp.x + self.long0);
+  return lp;
+}
+
+var ob_tran_names = ['General Oblique Transformation', 'General_Oblique_Transformation', 'ob_tran'];
+/* harmony default export */ const ob_tran = ({
+  init: ob_tran_init,
+  forward: ob_tran_forward,
+  inverse: ob_tran_inverse,
+  names: ob_tran_names
+});
+
 ;// ./node_modules/proj4/projs.js
+__webpack_require__.dn(proj4_projs);
+
+
 
 
 
@@ -11007,6 +11665,7 @@ var bonne_names = ['bonne', 'Bonne (Werner lat_1=90)'];
   proj4.Proj.projections.add(nzmg);
   proj4.Proj.projections.add(mill);
   proj4.Proj.projections.add(sinu);
+  proj4.Proj.projections.add(eck6);
   proj4.Proj.projections.add(moll);
   proj4.Proj.projections.add(eqdc);
   proj4.Proj.projections.add(vandg);
@@ -11019,6 +11678,7 @@ var bonne_names = ['bonne', 'Bonne (Werner lat_1=90)'];
   proj4.Proj.projections.add(geos);
   proj4.Proj.projections.add(eqearth);
   proj4.Proj.projections.add(bonne);
+  proj4.Proj.projections.add(ob_tran);
 }
 
 ;// ./node_modules/proj4/lib/index.js
@@ -11067,6 +11727,7 @@ proj4_projs(lib_proj4);
 /* harmony default export */ const lib = (lib_proj4);
 
 ;// ./node_modules/d3-selection/src/selector.js
+__webpack_require__.dn(selector);
 function none() {}
 
 /* harmony default export */ function selector(selector) {
@@ -11076,6 +11737,7 @@ function none() {}
 }
 
 ;// ./node_modules/d3-selection/src/selection/select.js
+__webpack_require__.dn(selection_select);
 
 
 
@@ -11106,6 +11768,7 @@ function array(x) {
 }
 
 ;// ./node_modules/d3-selection/src/selectorAll.js
+__webpack_require__.dn(selectorAll);
 function empty() {
   return [];
 }
@@ -11117,6 +11780,7 @@ function empty() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/selectAll.js
+__webpack_require__.dn(selectAll);
 
 
 
@@ -11144,6 +11808,7 @@ function arrayAll(select) {
 }
 
 ;// ./node_modules/d3-selection/src/matcher.js
+__webpack_require__.dn(matcher);
 /* harmony default export */ function matcher(selector) {
   return function() {
     return this.matches(selector);
@@ -11158,6 +11823,7 @@ function childMatcher(selector) {
 
 
 ;// ./node_modules/d3-selection/src/selection/selectChild.js
+__webpack_require__.dn(selectChild);
 
 
 var find = Array.prototype.find;
@@ -11178,6 +11844,7 @@ function childFirst() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/selectChildren.js
+__webpack_require__.dn(selectChildren);
 
 
 var filter = Array.prototype.filter;
@@ -11198,6 +11865,7 @@ function childrenFilter(match) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/filter.js
+__webpack_require__.dn(selection_filter);
 
 
 
@@ -11216,11 +11884,13 @@ function childrenFilter(match) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/sparse.js
+__webpack_require__.dn(sparse);
 /* harmony default export */ function sparse(update) {
   return new Array(update.length);
 }
 
 ;// ./node_modules/d3-selection/src/selection/enter.js
+__webpack_require__.dn(enter);
 
 
 
@@ -11245,13 +11915,15 @@ EnterNode.prototype = {
 };
 
 ;// ./node_modules/d3-selection/src/constant.js
-/* harmony default export */ function src_constant(x) {
+__webpack_require__.dn(constant);
+/* harmony default export */ function constant(x) {
   return function() {
     return x;
   };
 }
 
 ;// ./node_modules/d3-selection/src/selection/data.js
+__webpack_require__.dn(data);
 
 
 
@@ -11337,7 +12009,7 @@ function data_datum(node) {
       parents = this._parents,
       groups = this._groups;
 
-  if (typeof value !== "function") value = src_constant(value);
+  if (typeof value !== "function") value = constant(value);
 
   for (var m = groups.length, update = new Array(m), enter = new Array(m), exit = new Array(m), j = 0; j < m; ++j) {
     var parent = parents[j],
@@ -11382,6 +12054,7 @@ function arraylike(data) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/exit.js
+__webpack_require__.dn(exit);
 
 
 
@@ -11390,6 +12063,7 @@ function arraylike(data) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/join.js
+__webpack_require__.dn(join);
 /* harmony default export */ function join(onenter, onupdate, onexit) {
   var enter = this.enter(), update = this, exit = this.exit();
   if (typeof onenter === "function") {
@@ -11407,6 +12081,7 @@ function arraylike(data) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/merge.js
+__webpack_require__.dn(merge);
 
 
 /* harmony default export */ function merge(context) {
@@ -11428,7 +12103,8 @@ function arraylike(data) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/order.js
-/* harmony default export */ function order() {
+__webpack_require__.dn(selection_order);
+/* harmony default export */ function selection_order() {
 
   for (var groups = this._groups, j = -1, m = groups.length; ++j < m;) {
     for (var group = groups[j], i = group.length - 1, next = group[i], node; --i >= 0;) {
@@ -11443,6 +12119,7 @@ function arraylike(data) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/sort.js
+__webpack_require__.dn(sort);
 
 
 /* harmony default export */ function sort(compare) {
@@ -11469,6 +12146,7 @@ function ascending(a, b) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/call.js
+__webpack_require__.dn(call);
 /* harmony default export */ function call() {
   var callback = arguments[0];
   arguments[0] = this;
@@ -11477,11 +12155,13 @@ function ascending(a, b) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/nodes.js
+__webpack_require__.dn(nodes);
 /* harmony default export */ function nodes() {
   return Array.from(this);
 }
 
 ;// ./node_modules/d3-selection/src/selection/node.js
+__webpack_require__.dn(node);
 /* harmony default export */ function node() {
 
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
@@ -11495,6 +12175,7 @@ function ascending(a, b) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/size.js
+__webpack_require__.dn(size);
 /* harmony default export */ function size() {
   let size = 0;
   for (const node of this) ++size; // eslint-disable-line no-unused-vars
@@ -11502,11 +12183,13 @@ function ascending(a, b) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/empty.js
+__webpack_require__.dn(selection_empty);
 /* harmony default export */ function selection_empty() {
   return !this.node();
 }
 
 ;// ./node_modules/d3-selection/src/selection/each.js
+__webpack_require__.dn(each);
 /* harmony default export */ function each(callback) {
 
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
@@ -11530,6 +12213,7 @@ var xhtml = "http://www.w3.org/1999/xhtml";
 });
 
 ;// ./node_modules/d3-selection/src/namespace.js
+__webpack_require__.dn(namespace);
 
 
 /* harmony default export */ function namespace(name) {
@@ -11539,6 +12223,7 @@ var xhtml = "http://www.w3.org/1999/xhtml";
 }
 
 ;// ./node_modules/d3-selection/src/selection/attr.js
+__webpack_require__.dn(attr);
 
 
 function attrRemove(name) {
@@ -11598,6 +12283,7 @@ function attrFunctionNS(fullname, value) {
 }
 
 ;// ./node_modules/d3-selection/src/window.js
+__webpack_require__.dn(src_window);
 /* harmony default export */ function src_window(node) {
   return (node.ownerDocument && node.ownerDocument.defaultView) // node is a Node
       || (node.document && node) // node is a Window
@@ -11605,6 +12291,7 @@ function attrFunctionNS(fullname, value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/style.js
+__webpack_require__.dn(style);
 
 
 function styleRemove(name) {
@@ -11642,6 +12329,7 @@ function styleValue(node, name) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/property.js
+__webpack_require__.dn(property);
 function propertyRemove(name) {
   return function() {
     delete this[name];
@@ -11672,6 +12360,7 @@ function propertyFunction(name, value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/classed.js
+__webpack_require__.dn(classed);
 function classArray(string) {
   return string.trim().split(/^|\s+/);
 }
@@ -11749,6 +12438,7 @@ function classedFunction(names, value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/text.js
+__webpack_require__.dn(selection_text);
 function textRemove() {
   this.textContent = "";
 }
@@ -11776,6 +12466,7 @@ function textFunction(value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/html.js
+__webpack_require__.dn(html);
 function htmlRemove() {
   this.innerHTML = "";
 }
@@ -11803,6 +12494,7 @@ function htmlFunction(value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/raise.js
+__webpack_require__.dn(selection_raise);
 function raise() {
   if (this.nextSibling) this.parentNode.appendChild(this);
 }
@@ -11812,6 +12504,7 @@ function raise() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/lower.js
+__webpack_require__.dn(selection_lower);
 function lower() {
   if (this.previousSibling) this.parentNode.insertBefore(this, this.parentNode.firstChild);
 }
@@ -11821,6 +12514,7 @@ function lower() {
 }
 
 ;// ./node_modules/d3-selection/src/creator.js
+__webpack_require__.dn(creator);
 
 
 
@@ -11848,6 +12542,7 @@ function creatorFixed(fullname) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/append.js
+__webpack_require__.dn(append);
 
 
 /* harmony default export */ function append(name) {
@@ -11858,6 +12553,7 @@ function creatorFixed(fullname) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/insert.js
+__webpack_require__.dn(insert);
 
 
 
@@ -11874,6 +12570,7 @@ function constantNull() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/remove.js
+__webpack_require__.dn(selection_remove);
 function remove() {
   var parent = this.parentNode;
   if (parent) parent.removeChild(this);
@@ -11884,6 +12581,7 @@ function remove() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/clone.js
+__webpack_require__.dn(clone);
 function selection_cloneShallow() {
   var clone = this.cloneNode(false), parent = this.parentNode;
   return parent ? parent.insertBefore(clone, this.nextSibling) : clone;
@@ -11899,6 +12597,7 @@ function selection_cloneDeep() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/datum.js
+__webpack_require__.dn(selection_datum);
 /* harmony default export */ function selection_datum(value) {
   return arguments.length
       ? this.property("__data__", value)
@@ -11906,6 +12605,7 @@ function selection_cloneDeep() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/on.js
+__webpack_require__.dn(on);
 function contextListener(listener) {
   return function(event) {
     listener.call(this, event, this.__data__);
@@ -11975,6 +12675,7 @@ function onAdd(typename, value, options) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/dispatch.js
+__webpack_require__.dn(dispatch);
 
 
 function dispatchEvent(node, type, params) {
@@ -12011,6 +12712,7 @@ function dispatchFunction(type, params) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/iterator.js
+__webpack_require__.dn(iterator);
 /* harmony default export */ function* iterator() {
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
     for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
@@ -12083,7 +12785,7 @@ Selection.prototype = selection.prototype = {
   join: join,
   merge: merge,
   selection: selection_selection,
-  order: order,
+  order: selection_order,
   sort: sort,
   call: call,
   nodes: nodes,
@@ -12112,6 +12814,7 @@ Selection.prototype = selection.prototype = {
 /* harmony default export */ const src_selection = (selection);
 
 ;// ./node_modules/d3-selection/src/select.js
+__webpack_require__.dn(src_select);
 
 
 /* harmony default export */ function src_select(selector) {
@@ -12207,9 +12910,10 @@ function set(type, name, callback) {
 /* harmony default export */ const src_dispatch = (dispatch_dispatch);
 
 ;// ./node_modules/d3-drag/src/noevent.js
+__webpack_require__.dn(noevent);
 // These are typically used in conjunction with noevent to ensure that we can
 // preventDefault on the event.
-const nonpassive = {passive: false};
+const nonpassive = (/* unused pure expression or super */ null && ({passive: false}));
 const nonpassivecapture = {capture: true, passive: false};
 
 function nopropagation(event) {
@@ -12222,6 +12926,7 @@ function nopropagation(event) {
 }
 
 ;// ./node_modules/d3-drag/src/nodrag.js
+__webpack_require__.dn(nodrag);
 
 
 
@@ -12325,6 +13030,7 @@ function tanh(x) {
 })(Math.SQRT2, 2, 4));
 
 ;// ./node_modules/d3-selection/src/sourceEvent.js
+__webpack_require__.dn(sourceEvent);
 /* harmony default export */ function sourceEvent(event) {
   let sourceEvent;
   while (sourceEvent = event.sourceEvent) event = sourceEvent;
@@ -12332,6 +13038,7 @@ function tanh(x) {
 }
 
 ;// ./node_modules/d3-selection/src/pointer.js
+__webpack_require__.dn(pointer);
 
 
 /* harmony default export */ function pointer(event, node) {
@@ -12466,6 +13173,7 @@ function sleep(time) {
 }
 
 ;// ./node_modules/d3-timer/src/timeout.js
+__webpack_require__.dn(src_timeout);
 
 
 /* harmony default export */ function src_timeout(callback, delay, time) {
@@ -12479,6 +13187,7 @@ function sleep(time) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/schedule.js
+__webpack_require__.dn(schedule);
 
 
 
@@ -12634,6 +13343,7 @@ function create(node, id, self) {
 }
 
 ;// ./node_modules/d3-transition/src/interrupt.js
+__webpack_require__.dn(interrupt);
 
 
 /* harmony default export */ function interrupt(node, name) {
@@ -12660,6 +13370,7 @@ function create(node, id, self) {
 }
 
 ;// ./node_modules/d3-transition/src/selection/interrupt.js
+__webpack_require__.dn(selection_interrupt);
 
 
 /* harmony default export */ function selection_interrupt(name) {
@@ -12669,6 +13380,7 @@ function create(node, id, self) {
 }
 
 ;// ./node_modules/d3-interpolate/src/number.js
+__webpack_require__.dn(number);
 /* harmony default export */ function number(a, b) {
   return a = +a, b = +b, function(t) {
     return a * (1 - t) + b * t;
@@ -12676,6 +13388,7 @@ function create(node, id, self) {
 }
 
 ;// ./node_modules/d3-interpolate/src/transform/decompose.js
+__webpack_require__.dn(decompose);
 var degrees = 180 / Math.PI;
 
 var decompose_identity = {
@@ -12789,6 +13502,7 @@ var interpolateTransformCss = interpolateTransform(parseCss, "px, ", "px)", "deg
 var interpolateTransformSvg = interpolateTransform(parseSvg, ", ", ")", ")");
 
 ;// ./node_modules/d3-transition/src/transition/tween.js
+__webpack_require__.dn(tween);
 
 
 function tweenRemove(id, name) {
@@ -12872,6 +13586,7 @@ function tweenValue(transition, name, value) {
 }
 
 ;// ./node_modules/d3-color/src/define.js
+__webpack_require__.dn(src_define);
 /* harmony default export */ function src_define(constructor, factory, prototype) {
   constructor.prototype = factory.prototype = prototype;
   prototype.constructor = constructor;
@@ -13282,6 +13997,7 @@ function hsl2rgb(h, m1, m2) {
 }
 
 ;// ./node_modules/d3-interpolate/src/basis.js
+__webpack_require__.dn(src_basis);
 function basis(t1, v0, v1, v2, v3) {
   var t2 = t1 * t1, t3 = t2 * t1;
   return ((1 - 3 * t1 + 3 * t2 - t3) * v0
@@ -13303,6 +14019,7 @@ function basis(t1, v0, v1, v2, v3) {
 }
 
 ;// ./node_modules/d3-interpolate/src/basisClosed.js
+__webpack_require__.dn(basisClosed);
 
 
 /* harmony default export */ function basisClosed(values) {
@@ -13318,9 +14035,11 @@ function basis(t1, v0, v1, v2, v3) {
 }
 
 ;// ./node_modules/d3-interpolate/src/constant.js
-/* harmony default export */ const d3_interpolate_src_constant = (x => () => x);
+/* harmony default export */ const src_constant = (x => () => x);
+__webpack_require__.dn(src_constant);
 
 ;// ./node_modules/d3-interpolate/src/color.js
+/* unused harmony import specifier */ var color_constant;
 
 
 function linear(a, d) {
@@ -13337,18 +14056,18 @@ function exponential(a, b, y) {
 
 function hue(a, b) {
   var d = b - a;
-  return d ? linear(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : constant(isNaN(a) ? b : a);
+  return d ? linear(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : color_constant(isNaN(a) ? b : a);
 }
 
 function gamma(y) {
   return (y = +y) === 1 ? nogamma : function(a, b) {
-    return b - a ? exponential(a, b, y) : d3_interpolate_src_constant(isNaN(a) ? b : a);
+    return b - a ? exponential(a, b, y) : src_constant(isNaN(a) ? b : a);
   };
 }
 
 function nogamma(a, b) {
   var d = b - a;
-  return d ? linear(a, d) : d3_interpolate_src_constant(isNaN(a) ? b : a);
+  return d ? linear(a, d) : src_constant(isNaN(a) ? b : a);
 }
 
 ;// ./node_modules/d3-interpolate/src/rgb.js
@@ -13409,6 +14128,7 @@ var rgbBasis = rgbSpline(src_basis);
 var rgbBasisClosed = rgbSpline(basisClosed);
 
 ;// ./node_modules/d3-interpolate/src/string.js
+__webpack_require__.dn(string);
 
 
 var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g,
@@ -13475,6 +14195,7 @@ function one(b) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/interpolate.js
+__webpack_require__.dn(interpolate);
 
 
 
@@ -13487,6 +14208,7 @@ function one(b) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/attr.js
+__webpack_require__.dn(transition_attr);
 
 
 
@@ -13567,6 +14289,7 @@ function attr_attrFunctionNS(fullname, interpolate, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/attrTween.js
+__webpack_require__.dn(transition_attrTween);
 
 
 function attrInterpolate(name, i) {
@@ -13613,6 +14336,7 @@ function attrTween(name, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/delay.js
+__webpack_require__.dn(delay);
 
 
 function delayFunction(id, value) {
@@ -13638,6 +14362,7 @@ function delayConstant(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/duration.js
+__webpack_require__.dn(duration);
 
 
 function durationFunction(id, value) {
@@ -13663,6 +14388,7 @@ function durationConstant(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/ease.js
+__webpack_require__.dn(ease);
 
 
 function easeConstant(id, value) {
@@ -13681,6 +14407,7 @@ function easeConstant(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/easeVarying.js
+__webpack_require__.dn(transition_easeVarying);
 
 
 function easeVarying(id, value) {
@@ -13697,6 +14424,7 @@ function easeVarying(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/filter.js
+__webpack_require__.dn(transition_filter);
 
 
 
@@ -13715,6 +14443,7 @@ function easeVarying(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/merge.js
+__webpack_require__.dn(transition_merge);
 
 
 /* harmony default export */ function transition_merge(transition) {
@@ -13736,6 +14465,7 @@ function easeVarying(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/on.js
+__webpack_require__.dn(transition_on);
 
 
 function on_start(name) {
@@ -13770,6 +14500,7 @@ function onFunction(id, name, listener) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/remove.js
+__webpack_require__.dn(transition_remove);
 function removeFunction(id) {
   return function() {
     var parent = this.parentNode;
@@ -13783,6 +14514,7 @@ function removeFunction(id) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/select.js
+__webpack_require__.dn(transition_select);
 
 
 
@@ -13807,6 +14539,7 @@ function removeFunction(id) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/selectAll.js
+__webpack_require__.dn(transition_selectAll);
 
 
 
@@ -13835,6 +14568,7 @@ function removeFunction(id) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/selection.js
+__webpack_require__.dn(transition_selection);
 
 
 var selection_Selection = src_selection.prototype.constructor;
@@ -13844,6 +14578,7 @@ var selection_Selection = src_selection.prototype.constructor;
 }
 
 ;// ./node_modules/d3-transition/src/transition/style.js
+__webpack_require__.dn(transition_style);
 
 
 
@@ -13926,6 +14661,7 @@ function styleMaybeRemove(id, name) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/styleTween.js
+__webpack_require__.dn(transition_styleTween);
 function styleInterpolate(name, i, priority) {
   return function(t) {
     this.style.setProperty(name, i.call(this, t), priority);
@@ -13952,6 +14688,7 @@ function styleTween(name, value, priority) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/text.js
+__webpack_require__.dn(transition_text);
 
 
 function text_textConstant(value) {
@@ -13974,6 +14711,7 @@ function text_textFunction(value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/textTween.js
+__webpack_require__.dn(transition_textTween);
 function textInterpolate(i) {
   return function(t) {
     this.textContent = i.call(this, t);
@@ -14000,6 +14738,7 @@ function textTween(value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/transition.js
+__webpack_require__.dn(transition);
 
 
 
@@ -14026,6 +14765,7 @@ function textTween(value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/end.js
+__webpack_require__.dn(end);
 
 
 /* harmony default export */ function end() {
@@ -14145,6 +14885,7 @@ function cubicInOut(t) {
 }
 
 ;// ./node_modules/d3-transition/src/selection/transition.js
+__webpack_require__.dn(selection_transition);
 
 
 
@@ -14204,6 +14945,7 @@ src_selection.prototype.transition = selection_transition;
 
 ;// ./node_modules/d3-zoom/src/constant.js
 /* harmony default export */ const d3_zoom_src_constant = (x => () => x);
+__webpack_require__.dn(d3_zoom_src_constant);
 
 ;// ./node_modules/d3-zoom/src/event.js
 function ZoomEvent(type, {
@@ -14275,6 +15017,7 @@ function transform_transform(node) {
 }
 
 ;// ./node_modules/d3-zoom/src/noevent.js
+__webpack_require__.dn(src_noevent);
 function noevent_nopropagation(event) {
   event.stopImmediatePropagation();
 }
@@ -14285,6 +15028,7 @@ function noevent_nopropagation(event) {
 }
 
 ;// ./node_modules/d3-zoom/src/zoom.js
+__webpack_require__.dn(zoom);
 
 
 
@@ -15696,6 +16440,16 @@ class Map_Map {
          * */
         this.layers = opts.layers || []
 
+        /**
+         * When true, redraw() schedules one redraw for the next animation frame instead of
+         * drawing at once, so the many redraw requests of a busy moment (every tile that
+         * arrives, every info.json, every setting change) are drawn once. redrawNow() still
+         * draws at once. Off by default: redraw() stays synchronous, as it always was.
+         * @type {boolean} */
+        this.asyncRedraw = !!opts.asyncRedraw
+        /** @private @type {number|null} */
+        this._redrawFrame = null
+
         //get container element
         this.container = container || document.getElementById('gridviz')
         if (!this.container) {
@@ -15756,10 +16510,37 @@ class Map_Map {
          * @type {Tooltip} */
         this.tooltip = new Tooltip(opts.tooltip)
 
-        // add event listeners to container
-        this.mouseOverHandler = (e) => this.focusCell(e)
-        this.mouseMoveHandler = (e) => this.focusCell(e)
-        this.mouseOutHandler = (e) => this.tooltip.hide()
+        /** 
+         * Set to true so that the tooltip appears for the first layer starting from top where a cell is found.
+         * Otherwise, it shows a tooltip only for the first layer from the top with a cellInfoHTML property, even if there is no cell at the mouse position for this layer.
+         * @type {boolean} */
+        this.digForTooltip = opts.digForTooltip || false
+
+        // add event listeners to the canvas. Mouse moves are handled at most once per
+        // animation frame (the latest one): finding the cell and redrawing the highlight
+        // for every intermediate event only delays the one that's shown.
+        /** @private */
+        this._focusFrame = null
+        /** @private */
+        this._focusEvent = null
+        const scheduleFocus = (e) => {
+            this._focusEvent = e
+            if (this._focusFrame) return
+            this._focusFrame = requestAnimationFrame(() => {
+                this._focusFrame = null
+                const ev = this._focusEvent
+                this._focusEvent = null
+                if (ev) this.focusCell(ev)
+            })
+        }
+        this.mouseOverHandler = scheduleFocus
+        this.mouseMoveHandler = scheduleFocus
+        this.mouseOutHandler = (e) => {
+            if (this._focusFrame) cancelAnimationFrame(this._focusFrame)
+            this._focusFrame = null
+            this._focusEvent = null
+            this.tooltip.hide()
+        }
         this.geoCanvas.canvas.addEventListener('mouseover', this.mouseOverHandler)
         this.geoCanvas.canvas.addEventListener('mousemove', this.mouseMoveHandler)
         this.geoCanvas.canvas.addEventListener('mouseout', this.mouseOutHandler)
@@ -15836,8 +16617,31 @@ class Map_Map {
         return this
     }
 
-    /** @returns {this} */
+    /**
+     * Redraws the map: at once, or, with the asyncRedraw option, once at the next
+     * animation frame however many times it's called before then.
+     * @returns {this} */
     redraw() {
+        if (this.asyncRedraw) {
+            if (!this._redrawFrame && !this._destroyed)
+                this._redrawFrame = requestAnimationFrame(() => {
+                    this._redrawFrame = null
+                    this.redrawNow()
+                })
+            return this
+        }
+        return this.redrawNow()
+    }
+
+    /**
+     * Redraws the map at once, whatever the asyncRedraw option (and cancels a scheduled redraw).
+     * @returns {this} */
+    redrawNow() {
+        if (this._redrawFrame) cancelAnimationFrame(this._redrawFrame)
+        this._redrawFrame = null
+        // a destroyed map can still be asked to redraw by a dataset it shared (see destroy)
+        if (this._destroyed) return this
+
         //remove legend elements
         if (this.legend) this.legend.selectAll('*').remove()
 
@@ -15880,6 +16684,8 @@ class Map_Map {
         this.geoCanvas.ctx.drawImage(this.geoCanvas.offscreenCanvas, 0, 0)
 
         this.canvasSave = null
+        // the canvas holds no focus rectangle any more
+        this._focusedCell = undefined
 
         return this
     }
@@ -15905,6 +16711,18 @@ class Map_Map {
         }
         /** @type {{cell:import('./Dataset.js').Cell,html:string,resolution:number} | undefined} */
         const focus = this.getCellFocusInfo(mousePositionGeo)
+
+        // Same cell as the one already highlighted (or still no cell): the canvas is right
+        // as it is, only the tooltip follows the mouse. Saves a full-canvas copy per move.
+        const focusedCell = focus ? focus.cell : null
+        if (focusedCell === this._focusedCell) {
+            if (focus) {
+                this.tooltip.setPosition(e)
+                this.tooltip.show()
+            } else this.tooltip.hide()
+            return
+        }
+        this._focusedCell = focusedCell
 
         // Transparent background (Leaflet): redraw base, then draw focus rect directly on the visible canvas
         if (this.transparentBackground) {
@@ -15996,15 +16814,20 @@ class Map_Map {
      * @protected
      */
     getCellFocusInfo(posGeo) {
-        //go through the layers, starting from top
+
+        // go through the layers, starting from top one
         const z = this.geoCanvas.view.z
         for (let i = this.layers.length - 1; i >= 0; i--) {
+
             /** @type {import("./Layer.js").Layer} */
             const layer = this.layers[i]
+
             if (layer.visible && !layer.visible(z)) continue
-            if (layer.cellInfoHTML === 'none') continue // this is necessary in order to not show tooltips for layers 'on top' (e.g. population circles on top of squares)
+            if (layer.cellInfoHTML === 'none') continue
             if (!layer.cellInfoHTML) continue
             if (!layer.getDataset) continue
+
+            // get dataset
             const dsc = layer.getDataset(z)
             if (!dsc) continue
 
@@ -16012,7 +16835,12 @@ class Map_Map {
             /** @type {import('./Dataset.js').Cell|undefined} */
             const cell = dsc.getCellFromPosition(posGeo, dsc.getViewCache())
 
-            if (!cell) return undefined
+            // no cell found at theis position for this layer
+            if (!cell)
+                // dig to the next layer below
+                if (this.digForTooltip) continue
+                // no tooltip to show
+                else return undefined
 
             //rare case for a dataset with mixed resolutions
             if (dsc.mixedResolution) {
@@ -16186,6 +17014,8 @@ class Map_Map {
         })
 
         resizeObserver.observe(this.container)
+        /** @private */
+        this._resizeObserver = resizeObserver
     }
 
     /**
@@ -16194,14 +17024,26 @@ class Map_Map {
      * @memberof App
      */
     destroy() {
+        this._destroyed = true
+
         // clear layers
         this.layers = []
         this.bgLayers = []
 
-        // remove event listeners from container
-        this.container.removeEventListener('mouseover', this.mouseOverHandler)
-        this.container.removeEventListener('mousemove', this.mouseMoveHandler)
-        this.container.removeEventListener('mouseout', this.mouseOutHandler)
+        // cancel scheduled work
+        if (this._redrawFrame) cancelAnimationFrame(this._redrawFrame)
+        this._redrawFrame = null
+        if (this._focusFrame) cancelAnimationFrame(this._focusFrame)
+        this._focusFrame = null
+
+        // stop observing the container: the observer would otherwise keep this map alive
+        if (this._resizeObserver) this._resizeObserver.disconnect()
+        this._resizeObserver = null
+
+        // remove event listeners, from the canvas they were added to
+        this.geoCanvas.canvas.removeEventListener('mouseover', this.mouseOverHandler)
+        this.geoCanvas.canvas.removeEventListener('mousemove', this.mouseMoveHandler)
+        this.geoCanvas.canvas.removeEventListener('mouseout', this.mouseOutHandler)
 
         // remove canvas
         this.geoCanvas.canvas.remove()
@@ -16520,6 +17362,32 @@ class Dataset {
 
         /** @type {number} */
         const r = this.getResolution()
+
+        // Look the cell up in an index of the cells by grid position, built once per cell
+        // list (the view cache is a new array after each redraw) instead of scanning every
+        // cell on every mouse move.
+        const index = this.cellIndex(cells, r)
+        if (index) {
+            const fx = (posGeo.x - index.ox) / r
+            const fy = (posGeo.y - index.oy) / r
+            const ix = Math.floor(fx)
+            const iy = Math.floor(fy)
+            // a position on a cell's right/top edge also belongs to that cell (inclusive
+            // bounds, as in the scan below): check the cells left of and below it too
+            for (const [dx, dy] of [
+                [0, 0],
+                [-1, 0],
+                [0, -1],
+                [-1, -1],
+            ]) {
+                if (dx && fx !== ix) continue
+                if (dy && fy !== iy) continue
+                const cell = index.cells.get(cellKey(ix + dx, iy + dy))
+                if (cell) return cell
+            }
+            return undefined
+        }
+
         for (const cell of cells) {
             if (posGeo.x < cell.x) continue
             else if (cell.x + r < posGeo.x) continue
@@ -16528,6 +17396,47 @@ class Dataset {
             else return cell
         }
         return undefined
+    }
+
+    /**
+     * An index of cells by their position on the grid of resolution r, or null when some
+     * cell isn't on a common grid (then the caller scans the cells). Cached for the last
+     * cell list given.
+     *
+     * @param {Array.<Cell>} cells
+     * @param {number} r
+     * @returns {{cells: Map<number, Cell>, ox: number, oy: number} | null}
+     * @protected
+     */
+    cellIndex(cells, r) {
+        if (this._index && this._indexCells === cells && this._indexLength === cells.length && this._indexR === r)
+            return this._index
+        let index = null
+        if (cells.length && r > 0) {
+            const ox = +cells[0].x
+            const oy = +cells[0].y
+            const map = new Map()
+            index = { cells: map, ox, oy }
+            for (const cell of cells) {
+                const fx = (+cell.x - ox) / r
+                const fy = (+cell.y - oy) / r
+                const ix = Math.round(fx)
+                const iy = Math.round(fy)
+                // not on the grid: no index, scan instead
+                if (Math.abs(fx - ix) > 1e-6 || Math.abs(fy - iy) > 1e-6) {
+                    index = null
+                    break
+                }
+                const key = cellKey(ix, iy)
+                // the first cell at a position wins, as in the scan
+                if (!map.has(key)) map.set(key, cell)
+            }
+        }
+        this._index = index
+        this._indexCells = cells
+        this._indexLength = cells.length
+        this._indexR = r
+        return index
     }
 
     //getters and setters
@@ -16553,7 +17462,19 @@ class Dataset {
     }
 }
 
+/**
+ * One number per grid position: cell positions relative to the first cell stay well
+ * within +-2^21, so x * 2^22 + y is exact.
+ * @param {number} ix
+ * @param {number} iy
+ * @returns {number}
+ */
+function cellKey(ix, iy) {
+    return ix * 4194304 + iy
+}
+
 ;// ./node_modules/d3-fetch/src/json.js
+__webpack_require__.dn(json);
 function responseJson(response) {
   if (!response.ok) throw new Error(response.status + " " + response.statusText);
   if (response.status === 204 || response.status === 205) return;
@@ -16565,6 +17486,7 @@ function responseJson(response) {
 }
 
 ;// ./node_modules/d3-dsv/src/dsv.js
+__webpack_require__.dn(dsv);
 var EOL = {},
     EOF = {},
     QUOTE = 34,
@@ -16757,6 +17679,7 @@ var tsvFormatRow = tsv.formatRow;
 var tsvFormatValue = tsv.formatValue;
 
 ;// ./node_modules/d3-fetch/src/text.js
+__webpack_require__.dn(src_text);
 function responseText(response) {
   if (!response.ok) throw new Error(response.status + " " + response.statusText);
   return response.text();
@@ -16848,20 +17771,41 @@ class TiledGrid extends Dataset {
      */
     loadInfo() {
         if (!this.info && this.infoLoadingStatus === 'notLoaded') {
+            // marked before the request, so the redraws that happen while it's under way
+            // don't request it again
+            this.infoLoadingStatus = 'loading'
             ;(async () => {
                 try {
                     const data = await json(this.url + 'info.json')
                     this.info = data
                     this.resolution = data.resolutionGeo
                     this.infoLoadingStatus = 'loaded'
-                    this.map.redraw()
+                    // all the resolutions of a multi-resolution dataset load their info at
+                    // once: only the one currently shown needs a redraw
+                    if (this.isShown()) this.map.redraw()
                 } catch (error) {
                     //mark as failed
                     this.infoLoadingStatus = 'failed'
                 }
             })()
-        } else if (this.infoLoadingStatus === 'loaded' || this.infoLoadingStatus === 'failed') this.map.redraw()
+        }
+        // (no redraw for a failed info.json: every redraw would ask again - an endless loop)
         return this
+    }
+
+    /**
+     * True when a visible layer of the map shows this dataset at the current zoom.
+     * @returns {boolean}
+     */
+    isShown() {
+        if (!this.map || !this.map.layers) return false
+        const z = this.map.getZoom()
+        for (const lay of this.map.layers) {
+            if (lay.visible && !lay.visible(z)) continue
+            if (!lay.getDataset) continue
+            if (lay.getDataset(z) == this) return true
+        }
+        return false
     }
 
     /**
@@ -16990,19 +17934,7 @@ class TiledGrid extends Dataset {
         // Check if any visible layer depends on this dataset
         // check if redraw is really needed, that is if:
         // 1. the dataset belongs to a layer which is visible at the current zoom level
-        let needsRedraw = false
-        //go through the layers
-        const z = this.map.getZoom()
-        for (const lay of this.map.layers) {
-            if (lay.visible && !lay.visible(z)) continue
-            if (!lay.getDataset) continue
-            if (lay.getDataset(z) != this) continue
-            //found one layer. No need to seek more.
-            needsRedraw = true
-            break
-        }
-
-        if (!needsRedraw) return
+        if (!this.isShown()) return
 
         // Check if tile intersects the current view
         const env = this.map.updateExtentGeo()
@@ -17424,7 +18356,7 @@ class ShapeColorSizeStyle extends Style {
  * @module style
  * @author Julien Gaffuri
  */
-class StrokeStyle_StrokeStyle extends Style {
+class StrokeStyle extends Style {
     /** @param {object} opts */
     constructor(opts) {
         super(opts)
@@ -17552,7 +18484,7 @@ class StrokeStyle_StrokeStyle extends Style {
 }
 
 ;// ./node_modules/d3-array/src/extent.js
-function extent_extent(values, valueof) {
+function extent(values, valueof) {
   let min;
   let max;
   if (valueof === undefined) {
@@ -17605,7 +18537,7 @@ function getClass(v, breaks) {
 }
 
 //take 'nice' value (power of ten, or multiple)
-function utils_nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
+function nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
     //compute bigger power of ten below
     const v_ = Math.pow(10, Math.floor(Math.log10(v)))
     for (let multiple of multiples) if (v_ * multiple <= v) return v_ * multiple
@@ -17622,7 +18554,7 @@ function utils_nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
  * @param {Function} [fun]
  * @returns {Object}
  */
-function utils_cellsToGrid(cells, fun) {
+function cellsToGrid(cells, fun) {
     /** @type {Object} */
     const ind = {}
     for (const cell of cells) {
@@ -17653,8 +18585,8 @@ function utils_cellsToGrid(cells, fun) {
 function cellsToMatrix(cells, resolution, fun) {
 
     // get cells extent
-    const [minx, maxx] = extent_extent(cells, c => c.x)
-    const [miny, maxy] = extent_extent(cells, c => c.y)
+    const [minx, maxx] = extent(cells, c => c.x)
+    const [miny, maxy] = extent(cells, c => c.y)
 
     // get grid dimension
     const rows = Math.ceil((maxy - miny) / resolution) + 1
@@ -17760,7 +18692,7 @@ class JoyPlotStyle extends Style {
 
         //index cells by y and x
         /**  @type {object} */
-        const ind = utils_cellsToGrid(cells, cell => this.height(cell, resolution, z, viewScale))
+        const ind = cellsToGrid(cells, cell => this.height(cell, resolution, z, viewScale))
 
 
         //make grid
@@ -18855,6 +19787,111 @@ function makeWebGLCanvas(width, height, opts = {}) {
 }
 
 /**
+ * The shared, off-page WebGL canvases, one per set of context options.
+ * Styles draw into one of these and copy the result onto the map's canvas, one style at a
+ * time, so they never need a context each. Browsers keep only ~16 live WebGL contexts and
+ * drop the oldest beyond that, so one context per style instance (or worse, per draw)
+ * eventually blanks other WebGL content on the page.
+ * @type {Map<string, {canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number}>} */
+const sharedCanvases = new Map()
+
+/**
+ * Returns the shared WebGL canvas for these context options, resized to width x height.
+ * Resizing keeps the context (and its compiled programs and buffers); only its drawing
+ * buffer is reallocated. A lost context is replaced.
+ *
+ * @param {number} width
+ * @param {number} height
+ * @param {object} [opts] WebGL context attributes, e.g. { premultipliedAlpha: false }
+ * @returns {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}
+ */
+function getSharedWebGLCanvas(width, height, opts = undefined) {
+    const key = JSON.stringify(opts || {})
+    let cv = sharedCanvases.get(key)
+    if (!cv || cv.gl.isContextLost()) {
+        cv = makeWebGLCanvas(width + '', height + '', opts)
+        cv.width = +width
+        cv.height = +height
+        sharedCanvases.set(key, cv)
+    }
+    if (cv.width != width || cv.height != height) {
+        cv.canvas.width = width
+        cv.canvas.height = height
+        cv.width = +width
+        cv.height = +height
+    }
+    cv.gl.viewport(0, 0, cv.width, cv.height)
+    return cv
+}
+
+/** @type {WeakMap<WebGLRenderingContext, {programs: Map<string, WebGLProgram>, buffers: Map<string, WebGLBuffer>, owners: Map<string, any>}>} */
+const glResources = new WeakMap()
+function resourcesOf(gl) {
+    let r = glResources.get(gl)
+    if (!r) {
+        r = { programs: new Map(), buffers: new Map(), owners: new Map() }
+        glResources.set(gl, r)
+    }
+    return r
+}
+
+/**
+ * A shader program for these sources, compiled once per context and reused.
+ *
+ * @param {WebGLRenderingContext} gl
+ * @param {string} vertexSource
+ * @param {string} fragmentSource
+ * @returns {WebGLProgram}
+ */
+function getProgram(gl, vertexSource, fragmentSource) {
+    const programs = resourcesOf(gl).programs
+    const key = vertexSource + '\u0000' + fragmentSource
+    let program = programs.get(key)
+    if (!program) {
+        program = initShaderProgram(
+            gl,
+            createShader(gl, gl.VERTEX_SHADER, vertexSource),
+            createShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
+        )
+        programs.set(key, program)
+    }
+    return program
+}
+
+/**
+ * A named buffer of a context, created once and reused: refill it with bufferData instead
+ * of creating a new buffer per draw (buffers are never garbage collected while their
+ * context lives).
+ *
+ * @param {WebGLRenderingContext} gl
+ * @param {string} name
+ * @returns {WebGLBuffer}
+ */
+function getBuffer(gl, name) {
+    const buffers = resourcesOf(gl).buffers
+    let buffer = buffers.get(name)
+    if (!buffer) {
+        buffer = gl.createBuffer()
+        buffers.set(name, buffer)
+    }
+    return buffer
+}
+
+/**
+ * Who last filled a named buffer, so a style can tell whether the data it uploaded is
+ * still there or another style has overwritten it since.
+ * @param {WebGLRenderingContext} gl
+ * @param {string} name
+ * @param {any} [owner] sets the owner when given
+ * @returns {any} the owner
+ */
+function bufferOwner(gl, name, owner = undefined) {
+    const owners = resourcesOf(gl).owners
+    if (owner !== undefined) owners.set(name, owner)
+    return owners.get(name)
+}
+
+/**
  * Initialize a shader program, so WebGL knows how to draw our data
  *
  * @param {WebGLRenderingContext} gl
@@ -18914,6 +19951,33 @@ function checkWebGLSupport() {
 
 
 
+const VERTEX_SHADER = `
+        attribute vec2 pos;
+        uniform float sizePix;
+        uniform mat3 mat;
+        attribute float i;
+        varying float vi;
+        void main() {
+          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+          gl_PointSize = sizePix;
+          vi = i;
+        }`
+
+const FRAGMENT_SHADER = `
+        precision highp float;
+        varying float vi;
+        uniform sampler2D colorLUT;
+        uniform float lutSize;
+        void main(void) {
+            float idx = floor(vi + 0.5);
+            float u = (idx + 0.5) / lutSize;
+            gl_FragColor = texture2D(colorLUT, vec2(u, 0.5));
+        }`
+
+// names of the buffers this style fills in the shared context (getBuffer)
+const POSITION_BUFFER = 'SquareColorCategoryWebGLStyle.pos'
+const INDEX_BUFFER = 'SquareColorCategoryWebGLStyle.i'
+
 /**
  * Style based on webGL
  * To show cells as colored squares, from categories.
@@ -18922,7 +19986,7 @@ function checkWebGLSupport() {
  * @module style
  * @author Julien Gaffuri
  */
-class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style {
+class SquareColorCategoryWebGLStyle extends Style {
     /** @param {object} opts */
     constructor(opts) {
         super(opts)
@@ -18954,9 +20018,15 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
          * @type {function(number,number):number} */
         this.size = opts.size // (resolution, z) => ...
 
-        /**  * @type {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}*/
+        /** The shared WebGL canvas this style last drew into (getSharedWebGLCanvas)
+         * @type {{canvas:HTMLCanvasElement, gl:WebGLRenderingContext, width:number, height:number }}*/
         this.cvWGL = undefined
-        this.programm = undefined
+        /** @type {WebGLRenderingContext|undefined} */
+        this.gl = undefined
+        this.program = undefined
+        this.lutTexture = undefined
+        /** Number of points in the shared buffers, for drawArrays */
+        this.pointsNb = 0
 
         this.x = undefined
         this.y = undefined
@@ -18964,88 +20034,68 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
         this.cellsNb = undefined
     }
 
+    /**
+     * Binds this style's program, colour lookup texture and uniforms in the shared WebGL
+     * context (getSharedWebGLCanvas): compiled once per context, so a new style instance
+     * (e.g. a setting change rebuilding the style) costs no new context or program.
+     * @returns {boolean} true when the context is new to this style (its data must be re-uploaded)
+     */
     init(w, h) {
-        this.cvWGL = makeWebGLCanvas(w + '', h + '')
-        if (!this.cvWGL) { console.error('No webGL'); return }
-
+        this.cvWGL = getSharedWebGLCanvas(w, h)
         const gl = this.cvWGL.gl
-
-        //draw
-        const vectorShader = `
-        attribute vec2 pos;
-        uniform float sizePix;
-        uniform mat3 mat;
-        attribute float i;
-        varying float vi;
-        void main() {
-          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
-          gl_PointSize = sizePix;
-          vi = i;
-        }`
-        /** @type {WebGLShader} */
-        const vShader = createShader(gl, gl.VERTEX_SHADER, vectorShader)
-
-        const fragmentShader = `
-        precision highp float;
-        varying float vi;
-        uniform sampler2D colorLUT;
-        uniform float lutSize;
-        void main(void) {
-            float idx = floor(vi + 0.5);
-            float u = (idx + 0.5) / lutSize;
-            gl_FragColor = texture2D(colorLUT, vec2(u, 0.5));
-        }`
-        /** @type {WebGLShader} */
-        const fShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShader)
-
-        /** @type {WebGLProgram} */
-        this.program = initShaderProgram(gl, vShader, fShader)
+        const contextChanged = this.gl !== gl
+        if (contextChanged) {
+            this.gl = gl
+            this.program = getProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER)
+            this.lutTexture = undefined
+        }
         gl.useProgram(this.program)
+        this.bindColors()
+        return contextChanged
     }
 
     bindColors() {
         const gl = this.cvWGL.gl
-        const lutSize = this.colors.length;
-        const lutData = new Uint8Array(lutSize * 4); // RGBA for each entry
+        const lutSize = this.colors.length
 
-        // Fill lutData with your color values (e.g., rainbow, grayscale, etc.)
-        for (let i = 0; i < lutSize; i++) {
-            const c = color(this.colors[i])
-            lutData[i * 4] = +c.r;     // R
-            lutData[i * 4 + 1] = c.g; // G
-            lutData[i * 4 + 2] = c.b; // B
-            lutData[i * 4 + 3] = c?.opacity * 255; // A
+        // created once per style and context
+        if (!this.lutTexture) {
+            const lutData = new Uint8Array(lutSize * 4) // RGBA for each entry
+            for (let i = 0; i < lutSize; i++) {
+                const c = color(this.colors[i])
+                lutData[i * 4] = +c.r
+                lutData[i * 4 + 1] = c.g
+                lutData[i * 4 + 2] = c.b
+                lutData[i * 4 + 3] = c?.opacity * 255
+            }
+            this.lutTexture = gl.createTexture()
+            gl.bindTexture(gl.TEXTURE_2D, this.lutTexture)
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, lutSize, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
         }
 
-        // Create and bind texture
-        const lutTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, lutSize, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        // Get uniform locations
-        const uColorLUT = gl.getUniformLocation(this.program, 'colorLUT');
-        const uLutSize = gl.getUniformLocation(this.program, 'lutSize');
-
-        // Set uniform values
-        gl.uniform1i(uColorLUT, 0); // Texture unit 0
-        gl.uniform1f(uLutSize, lutSize);
-
-        // Bind the texture to texture unit 0
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+        gl.uniform1i(gl.getUniformLocation(this.program, 'colorLUT'), 0) // Texture unit 0
+        gl.uniform1f(gl.getUniformLocation(this.program, 'lutSize'), lutSize)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, this.lutTexture)
     }
 
+    /**
+     * Fills the shared position and colour index buffers with the cells to draw.
+     * @returns {number} the number of points uploaded (cells without a category are left out)
+     */
     bindVertices(cells, resolution, z, viewScale) {
         const gl = this.cvWGL.gl
         //add vertice and fragment data
         const r2 = resolution / 2
-        let c, nb = cells.length
-        const verticesBuffer = []
-        const iBuffer = []
+        let c,
+            nb = cells.length
+        const verticesBuffer = new Float32Array(2 * nb)
+        const iBuffer = new Float32Array(nb)
+        let n = 0
         for (let i = 0; i < nb; i++) {
             c = cells[i]
             const cat = this.code(c, resolution, z, viewScale)
@@ -19058,33 +20108,32 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
                 console.log('Unexpected category index: ' + cat + ' ' + i_)
                 continue
             }
-            verticesBuffer.push(c.x + r2, c.y + r2)
-            iBuffer.push(+i_)
+            verticesBuffer[2 * n] = c.x + r2
+            verticesBuffer[2 * n + 1] = c.y + r2
+            iBuffer[n] = +i_
+            n++
         }
 
-        //bind vertice data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.STATIC_DRAW)
-        const position = gl.getAttribLocation(this.program, 'pos')
-        gl.vertexAttribPointer(
-            position,
-            2, //numComponents
-            gl.FLOAT, //type
-            false, //normalise
-            0, //stride
-            0 //offset
-        )
-        gl.enableVertexAttribArray(position)
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, POSITION_BUFFER))
+        gl.bufferData(gl.ARRAY_BUFFER, verticesBuffer.subarray(0, 2 * n), gl.DYNAMIC_DRAW)
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, INDEX_BUFFER))
+        gl.bufferData(gl.ARRAY_BUFFER, iBuffer.subarray(0, n), gl.DYNAMIC_DRAW)
+        bufferOwner(gl, POSITION_BUFFER, this)
+        return n
+    }
 
-        //i data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iBuffer), gl.STATIC_DRAW)
+    /** Points the program's attributes at the shared buffers (whatever another style left bound). */
+    bindAttributes() {
+        const gl = this.cvWGL.gl
+        const position = gl.getAttribLocation(this.program, 'pos')
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, POSITION_BUFFER))
+        gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
+        gl.enableVertexAttribArray(position)
         const i = gl.getAttribLocation(this.program, 'i')
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, INDEX_BUFFER))
         gl.vertexAttribPointer(i, 1, gl.FLOAT, false, 0, 0)
         gl.enableVertexAttribArray(i)
     }
-
-
 
     // check if the vertices have to be bound again
     mapContentChanged(v, cellsNb) {
@@ -19112,11 +20161,8 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
         //get view scale
         const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
 
-        //create canvas and webgl renderer
-        if (!this.cvWGL || geoCanvas.w != this.cvWGL.width || geoCanvas.h != this.cvWGL.height) {
-            this.init(geoCanvas.w, geoCanvas.h)
-            this.bindColors()
-        }
+        //bind this style's program in the shared WebGL context
+        const contextChanged = this.init(geoCanvas.w, geoCanvas.h)
         const gl = this.cvWGL.gl
         const canvas = this.cvWGL.canvas
 
@@ -19124,21 +20170,29 @@ class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style 
         const sizePix = this.size ? this.size(resolution, z) / z : resolution / z + 0.2
         gl.uniform1f(gl.getUniformLocation(this.program, 'sizePix'), 1.0 * sizePix)
 
-        //
-        if (this.mapContentChanged(geoCanvas.view, cells.length))
-            //bind vertices
-            this.bindVertices(cells, resolution, z, viewScale)
-            //transformation
-            gl.uniformMatrix3fv(gl.getUniformLocation(this.program, 'mat'), false, new Float32Array(geoCanvas.getWebGLTransform()))
+        // mapContentChanged() is a cheap proxy for "did the content change", based on view
+        // x/y/z and cell count alone. The upload is also needed when the shared buffers
+        // hold another style's data (bufferOwner), or the context is new to this style
+        // (e.g. replaced after being lost).
+        const contentChanged = this.mapContentChanged(geoCanvas.view, cells.length)
+        if (contentChanged || contextChanged || bufferOwner(gl, POSITION_BUFFER) !== this)
+            this.pointsNb = this.bindVertices(cells, resolution, z, viewScale)
+        this.bindAttributes()
 
-        // Enable the depth test
-        //gl.enable(gl.DEPTH_TEST);
+        //transformation
+        gl.uniformMatrix3fv(
+            gl.getUniformLocation(this.program, 'mat'),
+            false,
+            new Float32Array(geoCanvas.getWebGLTransform())
+        )
+
         // Clear the color buffer bit
+        gl.clearColor(0, 0, 0, 0)
         gl.clear(gl.COLOR_BUFFER_BIT)
-        // Set the view port
-        //gl.viewport(0, 0, cg.w, cg.h);
 
-        gl.drawArrays(gl.POINTS, 0, cells.length)
+        // only the points actually uploaded: cells without a category are left out, and
+        // drawing past the end of the buffer is a WebGL error that draws nothing at all
+        gl.drawArrays(gl.POINTS, 0, this.pointsNb)
 
         //draw in canvas geo
         geoCanvas.initCanvasTransform()
@@ -19203,6 +20257,8 @@ function getFragmentShader2(colors) {
 
 */
 ;// ./node_modules/gridviz/src/style/ShadingRayStyle.js
+/* unused harmony import specifier */ var ShadingRayStyle_cellsToGrid;
+/* unused harmony import specifier */ var ShadingRayStyle_extent;
 //@ts-check
 
 
@@ -19312,7 +20368,7 @@ class ShadingRayStyle extends Style {
         //geoCanvas.setCanvasTransform()
 
         //draw shadowed cells with webgl style
-        new SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle({
+        new SquareColorCategoryWebGLStyle({
             code: () => "a",
             color: { 'a': this.color(resolution, z, viewScale) },
             //alpha: () => this.alpha(resolution, z, viewScale),
@@ -19438,11 +20494,11 @@ function referenceShadowV2(
 ) {
 
     //get geo extent
-    const [minx, maxx] = extent(cells, c => c.x)
-    const [miny, maxy] = extent(cells, c => c.y)
+    const [minx, maxx] = ShadingRayStyle_extent(cells, c => c.x)
+    const [miny, maxy] = ShadingRayStyle_extent(cells, c => c.y)
 
     //index cells by y and x
-    const ind = cellsToGrid(cells)
+    const ind = ShadingRayStyle_cellsToGrid(cells)
 
     // Sun direction TOWARD the sun
     const ux = Math.sin(sunAzimuth);
@@ -19485,7 +20541,7 @@ function referenceShadowV2(
 
 
 ;// ./node_modules/d3-array/src/max.js
-function max_max(values, valueof) {
+function max(values, valueof) {
   let max;
   if (valueof === undefined) {
     for (const value of values) {
@@ -19549,7 +20605,7 @@ class ShadingStyle extends SideStyle {
         }
 
         // compute maximum side value for normalization
-        this.viewScale = sides => max_max(sides, s => sideValue(s))
+        this.viewScale = sides => max(sides, s => sideValue(s))
 
         // get colors
         let colorTopLeft = opts.colorTopLeft || '255,255,255'
@@ -19734,6 +20790,28 @@ class SideCategoryStyle extends SideStyle {
 ;
 
 
+const WebGLSquareColoring_VERTEX_SHADER = `
+            attribute vec2 pos;
+            uniform float sizePix;
+            uniform mat3 mat;
+            attribute vec4 color;
+            varying vec4 vColor;
+            void main() {
+              gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+              gl_PointSize = sizePix;
+              vColor = color;
+            }
+          `
+
+const WebGLSquareColoring_FRAGMENT_SHADER = `
+            precision mediump float;
+            varying vec4 vColor;
+            void main(void) {
+                vec4 vColor_ = vColor / 255.0;
+                vColor_[3] = 255.0 * vColor_[3];
+                gl_FragColor = vColor_;
+            }`
+
 /**
  * Everything to easily draw colored squares with webGL.
  * All the same size, but different fill color.
@@ -19747,37 +20825,8 @@ class WebGLSquareColoring {
         this.gl = gl
         this.sizePix = sizePix || 10.0
 
-        this.program = initShaderProgram(
-            gl,
-            createShader(
-                gl,
-                gl.VERTEX_SHADER,
-                `
-            attribute vec2 pos;
-            uniform float sizePix;
-            uniform mat3 mat;
-            attribute vec4 color;
-            varying vec4 vColor;
-            void main() {
-              gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
-              gl_PointSize = sizePix;
-              vColor = color;
-            }
-          `
-            ),
-            createShader(
-                gl,
-                gl.FRAGMENT_SHADER,
-                `
-            precision mediump float;
-            varying vec4 vColor;
-            void main(void) {
-                vec4 vColor_ = vColor / 255.0;
-                vColor_[3] = 255.0 * vColor_[3];
-                gl_FragColor = vColor_;
-            }`
-            )
-        )
+        // compiled once per context, then reused
+        this.program = getProgram(gl, WebGLSquareColoring_VERTEX_SHADER, WebGLSquareColoring_FRAGMENT_SHADER)
         gl.useProgram(this.program)
 
         //buffer data
@@ -19809,9 +20858,11 @@ class WebGLSquareColoring {
     draw(transfoMat) {
         const gl = this.gl
 
-        //vertice data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.verticesBuffer), gl.STATIC_DRAW)
+        gl.useProgram(this.program)
+
+        //vertice data, in a buffer reused from draw to draw
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, 'WebGLSquareColoring.pos'))
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.verticesBuffer), gl.DYNAMIC_DRAW)
         const position = gl.getAttribLocation(this.program, 'pos')
         gl.vertexAttribPointer(
             position,
@@ -19824,8 +20875,8 @@ class WebGLSquareColoring {
         gl.enableVertexAttribArray(position)
 
         //color data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.colorsBuffer), gl.STATIC_DRAW)
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, 'WebGLSquareColoring.color'))
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.colorsBuffer), gl.DYNAMIC_DRAW)
         var color = gl.getAttribLocation(this.program, 'color')
         gl.vertexAttribPointer(color, 4, gl.FLOAT, false, 0, 0)
         gl.enableVertexAttribArray(color)
@@ -19839,6 +20890,7 @@ class WebGLSquareColoring {
         // Enable the depth test
         //gl.enable(gl.DEPTH_TEST);
         // Clear the color buffer bit
+        gl.clearColor(0, 0, 0, 0)
         gl.clear(gl.COLOR_BUFFER_BIT)
         // Set the view port
         //gl.viewport(0, 0, cg.w, cg.h);
@@ -19912,8 +20964,8 @@ class DotDensityStyle extends Style {
         const ctx = geoCanvas.offscreenCtx
 
         if (checkWebGLSupport()) {
-            //create canvas and webgl renderer
-            const cvWGL = makeWebGLCanvas(geoCanvas.w + '', geoCanvas.h + '')
+            //the shared webgl canvas (one context for all styles, instead of a new one per draw)
+            const cvWGL = getSharedWebGLCanvas(geoCanvas.w, geoCanvas.h)
             if (!cvWGL) {
                 console.error('No webGL')
                 return
@@ -20000,7 +21052,7 @@ class DotDensityStyle extends Style {
  * @module style
  * @author Julien Gaffuri
  */
-class SideTanakaStyle_SideTanakaStyle extends Style {
+class SideTanakaStyle extends Style {
     /** @param {object} opts */
     constructor(opts = {}) {
         super(opts)
@@ -20139,6 +21191,10 @@ class SideTanakaStyle_SideTanakaStyle extends Style {
 }
 
 ;// ./node_modules/gridviz/src/style/LegoStyle.js
+/* unused harmony import specifier */ var LegoStyle_StrokeStyle;
+/* unused harmony import specifier */ var LegoStyle_SquareColorCategoryWebGLStyle;
+/* unused harmony import specifier */ var clFun;
+/* unused harmony import specifier */ var LegoStyle_SideTanakaStyle;
 //@ts-check
 
 
@@ -20186,13 +21242,13 @@ class LegoStyle {
         for (let i = 0; i < colors.length; i++) colorsDict[i + ''] = colors[i]
 
         //make cell fill style
-        const cellStyle = new SquareColorCategoryWebGLStyle({
+        const cellStyle = new LegoStyle_SquareColorCategoryWebGLStyle({
             code: classifier2,
             color: colorsDict,
         })
 
         //make tanaka side style
-        const tanakaStyle = new SideTanakaStyle({
+        const tanakaStyle = new LegoStyle_SideTanakaStyle({
             classifier: () => classifier2,
             colorDark : opts.colorDark,
             colorBright : opts.colorBright,
@@ -20200,7 +21256,7 @@ class LegoStyle {
         })
 
         //style to show limits between pieces
-        const sst = new StrokeStyle({
+        const sst = new LegoStyle_StrokeStyle({
             strokeColor: () => '#666',
             strokeWidth: (c, r, z) => 0.2 * z,
             filter: opts.filter,
@@ -20227,9 +21283,9 @@ class LegoStyle {
         opts.colBright = opts.colBright || '#aaa'
 
         //
-        const s = new SquareColorCategoryWebGLStyle({ code: code, color: color })
+        const s = new LegoStyle_SquareColorCategoryWebGLStyle({ code: code, color: color })
         //style to show limits between pieces
-        const sst = new StrokeStyle({ strokeColor: () => '#666', strokeWidth: (c, r, z) => 0.2 * z })
+        const sst = new LegoStyle_StrokeStyle({ strokeColor: () => '#666', strokeWidth: (c, r, z) => 0.2 * z })
 
         return [s, sst, new LegoTopStyle({ colDark: opts.colDark, colBright: opts.colBright })]
     }
@@ -20279,6 +21335,21 @@ class LegoTopStyle extends Style {
 ;
 
 
+const WebGLSquareColoringAdvanced_VERTEX_SHADER = `
+        attribute vec2 pos;
+        uniform float sizePix;
+        uniform mat3 mat;
+
+        attribute float t;
+        varying float vt;
+
+        void main() {
+          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
+          gl_PointSize = sizePix;
+          vt = t;
+        }
+      `
+
 /**
  * Everything to easily draw colored squares with webGL.
  * All the same size, but different fill color.
@@ -20305,26 +21376,6 @@ class WebGLSquareColoringAdvanced {
         //gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
         //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-        /** @type {WebGLShader} */
-        const vShader = createShader(
-            gl,
-            gl.VERTEX_SHADER,
-            `
-        attribute vec2 pos;
-        uniform float sizePix;
-        uniform mat3 mat;
-
-        attribute float t;
-        varying float vt;
-
-        void main() {
-          gl_Position = vec4(mat * vec3(pos, 1.0), 1.0);
-          gl_PointSize = sizePix;
-          vt = t;
-        }
-      `
-        )
 
         //prepare fragment shader code
         //declare the uniform and other variables
@@ -20432,11 +21483,9 @@ class WebGLSquareColoringAdvanced {
         //let fshString = fshBuff.join("\n")
         //console.log(fshString)
 
-        /** @type {WebGLShader} */
-        const fShader = createShader(gl, gl.FRAGMENT_SHADER, fshString)
-
+        // compiled once per context and fragment source (colours, stretching), then reused
         /** @type {WebGLProgram} */
-        this.program = initShaderProgram(gl, vShader, fShader)
+        this.program = getProgram(gl, WebGLSquareColoringAdvanced_VERTEX_SHADER, fshString)
         gl.useProgram(this.program)
 
         //set uniforms
@@ -20466,9 +21515,11 @@ class WebGLSquareColoringAdvanced {
         const gl = this.gl
         const program = this.program
 
-        //vertice data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.STATIC_DRAW)
+        gl.useProgram(program)
+
+        //vertice data, in a buffer reused from draw to draw
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, 'WebGLSquareColoringAdvanced.pos'))
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticesBuffer), gl.DYNAMIC_DRAW)
         const position = gl.getAttribLocation(program, 'pos')
         gl.vertexAttribPointer(
             position,
@@ -20481,8 +21532,8 @@ class WebGLSquareColoringAdvanced {
         gl.enableVertexAttribArray(position)
 
         //t data
-        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tBuffer), gl.STATIC_DRAW)
+        gl.bindBuffer(gl.ARRAY_BUFFER, getBuffer(gl, 'WebGLSquareColoringAdvanced.t'))
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tBuffer), gl.DYNAMIC_DRAW)
         const t = gl.getAttribLocation(program, 't')
         gl.vertexAttribPointer(t, 1, gl.FLOAT, false, 0, 0)
         gl.enableVertexAttribArray(t)
@@ -20493,6 +21544,7 @@ class WebGLSquareColoringAdvanced {
         // Enable the depth test
         //gl.enable(gl.DEPTH_TEST);
         // Clear the color buffer bit
+        gl.clearColor(0, 0, 0, 0)
         gl.clear(gl.COLOR_BUFFER_BIT)
         // Set the view port
         //gl.viewport(0, 0, cg.w, cg.h);
@@ -20584,11 +21636,11 @@ class SquareColorWebGLStyle extends Style {
         //get view scale
         const viewScale = this.viewScale ? this.viewScale(cells, resolution, z) : undefined
 
-        //create canvas and webgl renderer
+        //the shared webgl canvas (one context for all styles, instead of a new one per draw)
         //for opacity control, see: https://webglfundamentals.org/webgl/lessons/webgl-and-alpha.html
-        const cvWGL = makeWebGLCanvas(
-            geoCanvas.w + '',
-            geoCanvas.h + '',
+        const cvWGL = getSharedWebGLCanvas(
+            geoCanvas.w,
+            geoCanvas.h,
             this.opacity != undefined ? { premultipliedAlpha: false } : undefined
         )
         if (!cvWGL) {
@@ -22425,6 +23477,7 @@ class GeoJSONLayer extends Layer {
         this.preprocess = opts.preprocess
 
         //for points
+
         /**
          * @private
          * @type {function(object,number):string} */
@@ -22434,35 +23487,31 @@ class GeoJSONLayer extends Layer {
          * @private
          * @type {function(object,number):number} */
         this.size = opts.size || ((f, z) => 10)
-        /**
-         * @private
-         * @type {function(object,number):string} */
-        this.strokeStyle = opts.strokeStyle || ((f, z) => 'red')
-        /**
-         * @private
-         * @type {function(object,number):string} */
-        this.fillStyle = opts.fillStyle || ((f, z) => 'black')
-        /**
-         * In pixel
-         * @private
-         * @type {function(object,number):number} */
-        this.lineWidth = opts.lineWidth || ((f, z) => 2)
 
-        //for lines
+        // for lines and polygon outlines
 
         /**
          * @private
          * @type {function(object,number):string} */
-        this.color = opts.color || ((f, z) => 'gray')
+        this.strokeStyle = opts.strokeStyle || opts.color || ((f, z) => 'gray')
         /**
          * In pixel
          * @private
          * @type {function(object,number):number} */
-        this.width = opts.width || ((f, z) => 2)
+        this.lineWidth = opts.lineWidth || opts.width || ((f, z) => 2)
         /**
          * @private
          * @type {function(object,number):Array.<number>|undefined} */
         this.lineDash = opts.lineDash || ((f, z) => undefined)
+
+
+        // for polygon filling and point symbol filling
+        /**
+         * @private
+         * @type {function(object,number):string} */
+        this.fillStyle = opts.fillStyle || ((f, z) => 'black')
+
+
 
         /**
          * @private
@@ -22491,81 +23540,136 @@ class GeoJSONLayer extends Layer {
         const z = geoCanvas.view.z
         const ctx = geoCanvas.offscreenCtx
 
-        for (const f of this.fs) {
-            const gt = f.geometry.type
+        // draw each feature
+        for (const f of this.fs)
+            this.drawGeometry(f, f.geometry, f.geometry.type, z, ctx)
 
-            if (gt == 'Point' || gt == 'MultiPoint') {
+    }
 
-                //get style parameters for the point feature
-                const shape = this.shape(f, z)
-                if (!shape || shape == 'none') continue
-                const size = this.size(f, z) * z
-                if (!size) continue
-                const strokeStyle = this.strokeStyle(f, z)
-                const fillStyle = this.fillStyle(f, z)
-                const lineWidth = this.lineWidth(f, z) * z
+    /**
+     * @private
+     * Draw a geometry on the canvas, according to its type and the layer style.
+     * @param {object} f The feature to draw
+     * @param {object} geom The geometry of the feature to draw
+     * @param {string} gt The geometry type (e.g. 'Point', 'LineString', etc.)
+     * @param {number} z The current zoom level of the map
+     * @param {CanvasRenderingContext2D} ctx The canvas context to draw on
+     * @returns {void}
+     */
+    drawGeometry(f, geom, gt, z, ctx) {
+        if (gt == 'Point' || gt == 'MultiPoint') {
 
-                //set canvas drawing parameters
-                if (strokeStyle) ctx.strokeStyle = strokeStyle
-                if (fillStyle) ctx.fillStyle = fillStyle
-                if (lineWidth) ctx.lineWidth = lineWidth
+            //get style parameters for the point feature
+            const shape = this.shape(f, z)
+            if (!shape || shape == 'none') return
+            const size = this.size(f, z) * z
+            if (!size) return
 
-                let cs = f.geometry.coordinates
-                if (gt == 'Point') cs = [cs]
+            const strokeStyle = this.strokeStyle(f, z)
+            const fillStyle = this.fillStyle(f, z)
+            const lineWidth = this.lineWidth(f, z) * z
 
-                if (shape == 'circle') {
-                    //draw circle - fill and stroke
-                    for (const c of cs) {
-                        ctx.beginPath()
-                        ctx.arc(c[0], c[1], size / 2, 0, 2 * Math.PI, false)
-                        if (fillStyle) ctx.fill()
-                        if (strokeStyle && lineWidth) ctx.stroke()
-                    }
-                } else if (shape == 'square') {
-                    //draw square - fill and stroke
-                    for (const c of cs) {
-                        ctx.beginPath()
-                        ctx.rect(c[0] - size / 2, c[1] - size / 2, size, size)
-                        if (fillStyle) ctx.fill()
-                        if (strokeStyle && lineWidth) ctx.stroke()
-                    }
-                } else {
-                    console.error('Unexpected shape for point geojson: ' + shape)
-                }
-            } else if (gt == 'LineString' || gt == 'MultiLineString') {
+            //set canvas drawing parameters
+            ctx.save()
+            if (strokeStyle) ctx.strokeStyle = strokeStyle
+            if (fillStyle) ctx.fillStyle = fillStyle
+            if (lineWidth) ctx.lineWidth = lineWidth
 
-                //set color
-                const col = this.color(f, z)
-                if (!col || col == 'none') continue
-                ctx.strokeStyle = col
+            let cs = geom.coordinates
+            if (gt == 'Point') cs = [cs]
 
-                //set linewidth
-                const wP = this.width(f, z)
-                if (!wP || wP < 0) continue
-                ctx.lineWidth = wP * z
-
-                //set line dash
-                const ldP = this.lineDash(f, z)
-                if (ldP) ctx.setLineDash(ldP)
-
-                let css = f.geometry.coordinates
-                if (gt == 'LineString') css = [css]
-
-                //draw lines
-                for (const cs of css) {
-                    if (cs.length < 2) continue
+            if (shape == 'circle') {
+                //draw circle - fill and stroke
+                for (const c of cs) {
                     ctx.beginPath()
-                    ctx.moveTo(cs[0][0], cs[0][1])
-                    for (let i = 1; i < cs.length; i++) ctx.lineTo(cs[i][0], cs[i][1])
-                    ctx.stroke()
+                    ctx.arc(c[0], c[1], size / 2, 0, 2 * Math.PI, false)
+                    if (fillStyle) ctx.fill()
+                    if (strokeStyle && lineWidth) ctx.stroke()
+                }
+            } else if (shape == 'square') {
+                //draw square - fill and stroke
+                for (const c of cs) {
+                    ctx.beginPath()
+                    ctx.rect(c[0] - size / 2, c[1] - size / 2, size, size)
+                    if (fillStyle) ctx.fill()
+                    if (strokeStyle && lineWidth) ctx.stroke()
                 }
             } else {
-                console.log('Unsupported geometry type in GeoJSONLayer: ' + gt)
+                console.error('Unexpected shape for point GeoJSON: ' + shape)
             }
-        }
+            ctx.restore()
 
-        //...
-        ctx.setLineDash([])
+        } else if (gt == 'LineString' || gt == 'MultiLineString') {
+
+            const col = this.strokeStyle(f, z)
+            if (!col || col === 'none') return
+
+            const wP = this.lineWidth(f, z)
+            if (!wP || wP < 0) return
+
+            ctx.save()
+            ctx.strokeStyle = col
+            ctx.lineWidth = wP * z
+            ctx.setLineDash(this.lineDash(f, z) || [])
+
+            //
+            const css = gt === 'LineString' ? [geom.coordinates] : geom.coordinates
+
+            for (const cs of css) {
+                if (cs.length < 2) continue
+                ctx.beginPath()
+                ctx.moveTo(cs[0][0], cs[0][1])
+                for (let i = 1; i < cs.length; i++) ctx.lineTo(cs[i][0], cs[i][1])
+                ctx.stroke()
+            }
+
+            ctx.restore()
+
+        } else if (gt == 'Polygon' || gt == 'MultiPolygon') {
+            ctx.save()
+
+            // A Polygon is [ outerRing, ...holes ]. A MultiPolygon is [ [ outerRing, ...holes ], ... ]
+            const polygons = gt === 'Polygon' ? [geom.coordinates] : geom.coordinates
+
+            ctx.beginPath()
+
+            for (const rings of polygons) {
+                for (const cs of rings) {
+                    if (cs.length < 2) continue
+                    ctx.moveTo(cs[0][0], cs[0][1])
+                    for (let i = 1; i < cs.length; i++) ctx.lineTo(cs[i][0], cs[i][1])
+                    ctx.closePath()
+                }
+            }
+
+            // Fill
+            const fillStyle = this.fillStyle(f, z)
+            if (fillStyle && fillStyle !== 'none') {
+                ctx.fillStyle = fillStyle
+                ctx.fill('evenodd')         // even-odd punches holes correctly regardless of ring winding order
+            }
+
+            // Stroke (optional, only if style provides a width)
+            const wP = this.lineWidth(f, z)
+            if (wP && wP > 0) {
+                const strokeStyle = this.strokeStyle?.(f, z) ?? fillStyle
+                if (strokeStyle && strokeStyle !== 'none') {
+                    ctx.strokeStyle = strokeStyle
+                    ctx.lineWidth = wP * z
+                    ctx.setLineDash(this.lineDash?.(f, z) || [])
+                    ctx.stroke()
+                }
+            }
+            ctx.restore()
+
+        } else if (gt == 'GeometryCollection') {
+            //recursive call for each geometry in the collection
+            for (const g of geom.geometries)
+                this.drawGeometry(f, g, g.type, z, ctx)
+
+        } else {
+            console.log('Unexpected geometry type in GeoJSONLayer: ' + gt)
+        }
     }
 
     /**
@@ -22575,7 +23679,7 @@ class GeoJSONLayer extends Layer {
      */
     async load(callback) {
         if (!this.url) {
-            console.log('Failed loading boundaries: No URL specified. ' + this.url)
+            console.log('Failed loading GeoJSON data: No URL specified. ' + this.url)
             this.loadingStatus = 'failed'
             this.labels = []
             return
@@ -22611,7 +23715,7 @@ class GeoJSONLayer extends Layer {
             //redraw
             if (callback) callback()
         } catch (error) {
-            console.log('Failed loading boundaries from ' + this.url)
+            console.log('Failed loading GeoJSON from ' + this.url)
             this.fs = []
             this.loadingStatus = 'failed'
         }
@@ -23059,6 +24163,8 @@ class ColorCategoryLegend extends Legend {
 }
 
 ;// ./node_modules/gridviz/src/legend/SizeLegend.js
+/* unused harmony import specifier */ var SizeLegend_nice;
+/* unused harmony import specifier */ var SizeLegend_max;
 //@ts-check
 
 
@@ -23222,7 +24328,7 @@ function sizeLegendViewScale(value, opts = {}) {
     const legends = []
     for (let k_ of k) {
         opts.title = k_ == k[0] ? opts.title : undefined
-        opts.label = (viewScale, cells) => nice(k_ * max(cells, value))
+        opts.label = (viewScale, cells) => SizeLegend_nice(k_ * SizeLegend_max(cells, value))
         legends.push(new SizeLegend(opts))
     }
     return legends
@@ -23802,6 +24908,7 @@ for (let fun of [exponentialScale, logarithmicScale])
 */
 
 ;// ./node_modules/d3-format/src/formatDecimal.js
+__webpack_require__.dn(formatDecimal);
 /* harmony default export */ function formatDecimal(x) {
   return Math.abs(x = Math.round(x)) >= 1e21
       ? x.toLocaleString("en").replace(/,/g, "")
@@ -23812,8 +24919,8 @@ for (let fun of [exponentialScale, logarithmicScale])
 // significant digits p, where x is positive and p is in [1, 21] or undefined.
 // For example, formatDecimalParts(1.23) returns ["123", 0].
 function formatDecimalParts(x, p) {
-  if ((i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e")) < 0) return null; // NaN, ±Infinity
-  var i, coefficient = x.slice(0, i);
+  if (!isFinite(x) || x === 0) return null; // NaN, ±Infinity, ±0
+  var i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e"), coefficient = x.slice(0, i);
 
   // The string returned by toExponential either has the form \d\.\d+e[-+]\d+
   // (e.g., 1.2e+3) or the form \de[-+]\d+ (e.g., 1e+3).
@@ -23824,6 +24931,7 @@ function formatDecimalParts(x, p) {
 }
 
 ;// ./node_modules/d3-format/src/exponent.js
+__webpack_require__.dn(exponent);
 
 
 /* harmony default export */ function exponent(x) {
@@ -23831,6 +24939,7 @@ function formatDecimalParts(x, p) {
 }
 
 ;// ./node_modules/d3-format/src/formatGroup.js
+__webpack_require__.dn(formatGroup);
 /* harmony default export */ function formatGroup(grouping, thousands) {
   return function(value, width) {
     var i = value.length,
@@ -23851,6 +24960,7 @@ function formatDecimalParts(x, p) {
 }
 
 ;// ./node_modules/d3-format/src/formatNumerals.js
+__webpack_require__.dn(formatNumerals);
 /* harmony default export */ function formatNumerals(numerals) {
   return function(value) {
     return value.replace(/[0-9]/g, function(i) {
@@ -23909,6 +25019,7 @@ FormatSpecifier.prototype.toString = function() {
 };
 
 ;// ./node_modules/d3-format/src/formatTrim.js
+__webpack_require__.dn(formatTrim);
 // Trims insignificant zeros, e.g., replaces 1.2000k with 1.2k.
 /* harmony default export */ function formatTrim(s) {
   out: for (var n = s.length, i = 1, i0 = -1, i1; i < n; ++i) {
@@ -23922,13 +25033,14 @@ FormatSpecifier.prototype.toString = function() {
 }
 
 ;// ./node_modules/d3-format/src/formatPrefixAuto.js
+__webpack_require__.dn(formatPrefixAuto);
 
 
 var prefixExponent;
 
 /* harmony default export */ function formatPrefixAuto(x, p) {
   var d = formatDecimalParts(x, p);
-  if (!d) return x + "";
+  if (!d) return prefixExponent = undefined, x.toPrecision(p);
   var coefficient = d[0],
       exponent = d[1],
       i = exponent - (prefixExponent = Math.max(-8, Math.min(8, Math.floor(exponent / 3))) * 3) + 1,
@@ -23940,6 +25052,7 @@ var prefixExponent;
 }
 
 ;// ./node_modules/d3-format/src/formatRounded.js
+__webpack_require__.dn(formatRounded);
 
 
 /* harmony default export */ function formatRounded(x, p) {
@@ -23974,11 +25087,13 @@ var prefixExponent;
 });
 
 ;// ./node_modules/d3-format/src/identity.js
+__webpack_require__.dn(src_identity);
 /* harmony default export */ function src_identity(x) {
   return x;
 }
 
 ;// ./node_modules/d3-format/src/locale.js
+__webpack_require__.dn(locale);
 
 
 
@@ -24001,7 +25116,7 @@ var map = Array.prototype.map,
       minus = locale.minus === undefined ? "−" : locale.minus + "",
       nan = locale.nan === undefined ? "NaN" : locale.nan + "";
 
-  function newFormat(specifier) {
+  function newFormat(specifier, options) {
     specifier = formatSpecifier(specifier);
 
     var fill = specifier.fill,
@@ -24026,8 +25141,8 @@ var map = Array.prototype.map,
 
     // Compute the prefix and suffix.
     // For SI-prefix, the suffix is lazily computed.
-    var prefix = symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
-        suffix = symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "";
+    var prefix = (options && options.prefix !== undefined ? options.prefix : "") + (symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : ""),
+        suffix = (symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "") + (options && options.suffix !== undefined ? options.suffix : "");
 
     // What format function should we use?
     // Is this an integer type?
@@ -24068,7 +25183,7 @@ var map = Array.prototype.map,
 
         // Compute the prefix and suffix.
         valuePrefix = (valueNegative ? (sign === "(" ? sign : minus) : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
-        valueSuffix = (type === "s" ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
+        valueSuffix = (type === "s" && !isNaN(value) && prefixExponent !== undefined ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
 
         // Break the formatted value into the integer “value” part that can be
         // grouped, and fractional or exponential “suffix” part that is not.
@@ -24113,12 +25228,11 @@ var map = Array.prototype.map,
   }
 
   function formatPrefix(specifier, value) {
-    var f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier)),
-        e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
+    var e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
         k = Math.pow(10, -e),
-        prefix = prefixes[8 + e / 3];
+        f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier), {suffix: prefixes[8 + e / 3]});
     return function(value) {
-      return f(k * value) + prefix;
+      return f(k * value);
     };
   }
 
@@ -24252,10 +25366,21 @@ function registerGridvizLayer(Lin = L) {
         this.gridvizMap = null // gridviz map. See https://eurostat.github.io/gridviz/docs/reference
         this.onLayerDidMountCallback = opts.onLayerDidMountCallback || null
         this.legendContainer = opts.legendContainer || null
+        // canvas padding (L.GridvizCanvasLayer options.padding)
+        if (opts.padding !== undefined) this.options = Object.assign({}, this.options, { padding: opts.padding })
+        // a container given by the user (otherwise the canvas's pane, per Leaflet map)
+        const userContainer = opts.container
 
         this.onLayerDidMount = function () {
-            // build gridviz app
-            this.buildGridvizMap()
+            // build the gridviz app once; when the layer is added again, the same one is
+            // reused (with its datasets, tile caches and WebGL resources) - see destroy()
+            // (rebuilt when added to another Leaflet map: the old one is tied to that map's pane)
+            if (this.gridvizMap && !this.gridvizMap._destroyed && this._gridvizLeafletMap !== this._map) {
+                this.gridvizMap.destroy()
+                this.gridvizMap = null
+            }
+            if (!this.gridvizMap || this.gridvizMap._destroyed) this.buildGridvizMap()
+            else this.syncGridvizSize()
 
             if (this.onLayerDidMountCallback) this.onLayerDidMountCallback(this.gridvizMap)
 
@@ -24266,9 +25391,35 @@ function registerGridvizLayer(Lin = L) {
             this.addResizeObserver(this._canvas)
         }
 
+        // gridviz map size = canvas size (the Leaflet map's size, plus the padding)
+        this.syncGridvizSize = function () {
+            const size = this._getCanvasSize()
+            const w = size.x | 0
+            const h = size.y | 0
+            const gv = this.gridvizMap
+            if (gv.w === w && gv.h === h) return
+            gv.w = w
+            gv.h = h
+            gv.geoCanvas.w = w
+            gv.geoCanvas.h = h
+            gv.geoCanvas.offscreenCanvas.width = w
+            gv.geoCanvas.offscreenCanvas.height = h
+            this._canvas.setAttribute('width', '' + w)
+            this._canvas.setAttribute('height', '' + h)
+        }
+
+        // Draws the gridviz map now. With a gridviz that schedules redraw() (asyncRedraw),
+        // drawing in the same frame as the canvas is repositioned keeps content and
+        // position in step.
+        this.redrawGridvizNow = function () {
+            if (this.gridvizMap.redrawNow) this.gridvizMap.redrawNow()
+            else this.gridvizMap.redraw()
+        }
+
         this.addResizeObserver = function (canvas) {
             const map = this._map
             const mapContainer = map._container
+            if (this._resizeObserver) this._resizeObserver.disconnect()
 
             const resizeObserver = new ResizeObserver((entries) => {
                 if (!Array.isArray(entries) || !entries.length) return
@@ -24276,37 +25427,52 @@ function registerGridvizLayer(Lin = L) {
                 // Let Leaflet settle its size, then sync to the final dimensions.
                 map.invalidateSize({ debounceMoveend: true })
                 map.once('resize', (e) => {
-                    const size = e && e.newSize ? e.newSize : map.getSize()
+                    // removed meanwhile
+                    if (!this._map || !this.gridvizMap) return
+                    const size = this._getCanvasSize(e && e.newSize ? e.newSize : map.getSize())
                     const w = size.x | 0
                     const h = size.y | 0
 
                     if (this.gridvizMap.w === w && this.gridvizMap.h === h) return
 
-                    this.gridvizMap.w = w
-                    this.gridvizMap.h = h
-                    this.gridvizMap.geoCanvas.w = w
-                    this.gridvizMap.geoCanvas.h = h
-                    this.gridvizMap.geoCanvas.offscreenCanvas.width = w
-                    this.gridvizMap.geoCanvas.offscreenCanvas.height = h
+                    this.syncGridvizSize()
 
                     if (canvas) {
-                        canvas.setAttribute('width', '' + w)
-                        canvas.setAttribute('height', '' + h)
                         L.DomUtil.setTransform(canvas, L.point(0, 0), 1)
                         this._updatePosition()
                         this._initCanvasLevel()
                     }
 
-                    this.gridvizMap.redraw()
+                    // one redraw, in the next frame with the repositioned canvas
                     this.needRedraw()
                 })
             })
 
             resizeObserver.observe(mapContainer)
+            this._resizeObserver = resizeObserver
         }
 
+        // Removing the layer keeps its gridviz map for when it's added again: only what
+        // ties it to the page is released (the resize observer, a pending redraw, the
+        // tooltip). Call destroy() to dispose of it for good.
         this.onLayerWillUnmount = function () {
-            this.gridvizMap.destroy()
+            if (this._resizeObserver) this._resizeObserver.disconnect()
+            this._resizeObserver = null
+            if (!this.gridvizMap) return
+            if (this.gridvizMap._redrawFrame) {
+                cancelAnimationFrame(this.gridvizMap._redrawFrame)
+                this.gridvizMap._redrawFrame = null
+            }
+            if (this.gridvizMap.tooltip) this.gridvizMap.tooltip.hide()
+        }
+
+        /** Disposes of the gridviz map (remove the layer from the map first). */
+        this.destroy = function () {
+            if (this._map) this._map.removeLayer(this)
+            if (this.gridvizMap) this.gridvizMap.destroy()
+            this.gridvizMap = null
+            this._canvas = null
+            return this
         }
 
         this.setData = function (_data) {
@@ -24322,8 +25488,8 @@ function registerGridvizLayer(Lin = L) {
                 const zoomFactor = this.leafletZoomToGridvizZoom()
                 this.gridvizMap.setView(geoCenter[0], geoCenter[1], zoomFactor)
 
-                // Redraw gridviz canvas
-                this.gridvizMap.redraw()
+                // Redraw gridviz canvas, in this frame
+                this.redrawGridvizNow()
             }
         }
 
@@ -24360,11 +25526,16 @@ function registerGridvizLayer(Lin = L) {
         // build a gridviz app and add a layer to it
         this.buildGridvizMap = function () {
             const geoCenter = this.leafletToGeoCenter(this._map.getCenter())
-            opts.container = opts.container || this._canvas.parentElement
+            opts.container = userContainer || this._canvas.parentElement
+            this._gridvizLeafletMap = this._map
+            const size = this._getCanvasSize()
             this.gridvizMap = new Map_Map(opts.container, {
                 canvas: this._canvas,
-                w: window.innerWidth,
-                h: window.innerHeight,
+                // the canvas's size (the window's used to be given: wrong until the first resize)
+                w: size.x,
+                h: size.y,
+                // draw once per animation frame however many tiles arrive (gridviz >= 3.0.37)
+                asyncRedraw: true,
                 x: geoCenter[0],
                 y: geoCenter[1],
                 z: this.leafletZoomToGridvizZoom(),

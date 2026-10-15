@@ -22,6 +22,13 @@ L.DomUtil.setTransform =
 // -----------------------------------------------------------------------------
 // Canvas Layer definition
 L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
+    options: {
+        // Extra canvas around the view, as a fraction of the map size on each side (e.g.
+        // 0.15). Content is only redrawn when a pan ends, so without it the newly uncovered
+        // strip stays empty while dragging. 0 (the default) keeps the canvas the map's size.
+        padding: 0,
+    },
+
     initialize: function (options) {
         this._map = null
         this._canvas = null
@@ -77,15 +84,31 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
             if (this._map == null) return
             if (this._map.containerPointToLayerPoint == null) return
             if (this._zooming) return
-            var topLeft = this._map.containerPointToLayerPoint([0, 0])
+            var topLeft = this._map.containerPointToLayerPoint(this._getPad().multiplyBy(-1))
             L.DomUtil.setTransform(this._canvas, topLeft, 1)
         })
+    },
+
+    // The padding (see options.padding) in pixels, on each side
+    _getPad: function () {
+        var p = this.options.padding || 0
+        if (!this._map || !(p > 0)) return L.point(0, 0)
+        return this._map.getSize().multiplyBy(p).round()
+    },
+
+    // Canvas size: the map's size plus the padding on both sides
+    _getCanvasSize: function (size) {
+        return (size || this._map.getSize()).add(this._getPad().multiplyBy(2))
     },
 
     // ---------------------------------------------------------------------------
     onAdd: function (map) {
         this._map = map
-        this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
+        // One canvas per Leaflet map: a gridviz map bound to it (event listeners, context)
+        // is reused when the layer is added to the same map again, instead of being rebuilt
+        var reused = !!this._canvas && this._canvasMap === map
+        if (!reused) this._canvas = L.DomUtil.create('canvas', 'leaflet-layer')
+        this._canvasMap = map
         this._canvas.style.transformOrigin = '0 0'
         // Deliberately NOT excluded from Leaflet's own CSS transition (the
         // .leaflet-zoom-anim .leaflet-zoom-animated rule, ~0.25s on transform) the
@@ -107,15 +130,15 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated')
         L.DomUtil.addClass(this._canvas, 'gridviz-canvas-layer')
 
-        var size = map.getSize()
+        var size = this._getCanvasSize()
         this._canvas.width = size.x
         this._canvas.height = size.y
 
         var animated = map.options.zoomAnimation && L.Browser.any3d
         L.DomUtil.addClass(this._canvas, 'leaflet-zoom-' + (animated ? 'animated' : 'hide'))
 
-        // Create a dedicated pane for the canvas (useful for ordering)
-        var pane = map.createPane('gridviz')
+        // Create a dedicated pane for the canvas (useful for ordering), once per map
+        var pane = map.getPane('gridviz') || map.createPane('gridviz')
         pane.style.zIndex = 399
         pane.appendChild(this._canvas)
         // Use gridviz pane like other overlay layers
@@ -139,12 +162,14 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
         if (this._frame) L.Util.cancelAnimFrame(this._frame)
 
+        this._frame = null
+
         var pane = map.getPane('gridviz')
         if (this._canvas && this._canvas.parentElement === pane) {
             pane.removeChild(this._canvas)
         }
         map.off(this.getEvents(), this)
-        this._canvas = null
+        // the canvas is kept (detached) for when the layer is added again
     },
 
     // ---------------------------------------------------------------------------
@@ -153,7 +178,8 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         if (this._map) {
             var z = this._map.getZoom()
             var c = this._map.getCenter()
-            var topLeft = this._map._getTopLeftPoint(c, z).round()
+            // the canvas's own top-left, padding included
+            var topLeft = this._map._getTopLeftPoint(c, z).round().subtract(this._getPad())
             this._canvasLevel = { zoom: z, origin: topLeft, el: this._canvas }
         }
     },
@@ -273,7 +299,9 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         })
         if (this._zooming) return
         this._updatePosition()
-        this.drawLayer()
+        // through the once-per-frame guard: a zoom ends with 'zoomend' (which schedules a
+        // redraw) immediately followed by 'moveend', and must draw once, not twice
+        this.needRedraw()
     },
 
     _onViewReset: function (e) {
@@ -354,8 +382,9 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
 
     // ---------------------------------------------------------------------------
     _onLayerDidResize: function (e) {
-        this._canvas.width = e.newSize.x
-        this._canvas.height = e.newSize.y
+        var size = this._getCanvasSize(e.newSize)
+        this._canvas.width = size.x
+        this._canvas.height = size.y
         this._initCanvasLevel()
         this._updatePosition()
         this.drawLayer()
@@ -391,10 +420,10 @@ L.GridvizCanvasLayer = (L.Layer ? L.Layer : L.Class).extend({
         }
         // this._frame is set via requestAnimFrame in needRedraw(); onRemove() (e.g.
         // the map container being torn down by a resize-triggered re-render) can
-        // null out this._canvas before that already-scheduled frame fires, so this
-        // callback can run after the layer is gone. Bail out rather than throw on
-        // a null canvas - there is nothing left to draw or reveal.
-        if (!this._canvas) {
+        // remove the layer before that already-scheduled frame fires, so this
+        // callback can run after the layer is gone. Bail out - there is nothing
+        // left to draw or reveal.
+        if (!this._canvas || !this._map) {
             this._frame = null
             return
         }
