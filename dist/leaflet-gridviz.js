@@ -1,8 +1,8 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 718
-() {
+/***/ 718:
+/***/ (() => {
 
 /*
   Generic Canvas Layer for Leaflet 0.7–1.9
@@ -448,22 +448,22 @@ L.gridvizCanvasLayer = function () {
 }
 
 
-/***/ }
+/***/ })
 
 /******/ 	});
 /************************************************************************/
 /******/ 	// The module cache
-/******/ 	const __webpack_module_cache__ = {};
+/******/ 	var __webpack_module_cache__ = {};
 /******/ 	
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		const cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
 /******/ 		if (cachedModule !== undefined) {
 /******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
-/******/ 		const module = __webpack_module_cache__[moduleId] = {
+/******/ 		var module = __webpack_module_cache__[moduleId] = {
 /******/ 			// no module.id needed
 /******/ 			// no module.loaded needed
 /******/ 			exports: {}
@@ -477,16 +477,6 @@ L.gridvizCanvasLayer = function () {
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/set anonymous default export name */
-/******/ 	// set .name for anonymous default exports per ES spec
-/******/ 	// skipped when the property is non-configurable (pre-ES2015 engines),
-/******/ 	// where Object.defineProperty would throw
-/******/ 	__webpack_require__.dn = (x) => {
-/******/ 		var descriptor = Object.getOwnPropertyDescriptor(x, "name");
-/******/ 		if (!descriptor || (!descriptor.writable && descriptor.configurable)) Object.defineProperty(x, "name", { value: "default", configurable: true });
-/******/ 	};
-/******/ 	
-/************************************************************************/
 // This entry needs to be wrapped in an IIFE because it needs to be in strict mode.
 (() => {
 "use strict";
@@ -494,7 +484,6 @@ L.gridvizCanvasLayer = function () {
 // UNUSED EXPORTS: default, registerGridvizLayer
 
 ;// ./node_modules/proj4/lib/global.js
-__webpack_require__.dn(global);
 /* harmony default export */ function global(defs) {
   defs('EPSG:4326', '+title=WGS 84 (long/lat) +proj=longlat +ellps=WGS84 +datum=WGS84 +units=degrees');
   defs('EPSG:4269', '+title=NAD83 (long/lat) +proj=longlat +a=6378137.0 +b=6356752.31414036 +ellps=GRS80 +datum=NAD83 +units=degrees');
@@ -504,8 +493,6 @@ __webpack_require__.dn(global);
     defs('EPSG:' + (32600 + i), '+proj=utm +zone=' + i + ' +datum=WGS84 +units=m');
     defs('EPSG:' + (32700 + i), '+proj=utm +zone=' + i + ' +south +datum=WGS84 +units=m');
   }
-  defs('EPSG:5041', '+title=WGS 84 / UPS North (E,N) +proj=stere +lat_0=90 +lon_0=0 +k=0.994 +x_0=2000000 +y_0=2000000 +datum=WGS84 +units=m');
-  defs('EPSG:5042', '+title=WGS 84 / UPS South (E,N) +proj=stere +lat_0=-90 +lon_0=0 +k=0.994 +x_0=2000000 +y_0=2000000 +datum=WGS84 +units=m');
 
   defs.WGS84 = defs['EPSG:4326'];
   defs['EPSG:3785'] = defs['EPSG:3857']; // maintain backward compat, official code is 3857
@@ -608,7 +595,6 @@ function match(obj, key) {
 }
 
 ;// ./node_modules/proj4/lib/projString.js
-__webpack_require__.dn(projString);
 
 
 
@@ -634,10 +620,7 @@ __webpack_require__.dn(projString);
   }, {});
   var paramName, paramVal, paramOutname;
   var params = {
-    proj: function (v) {
-      // 'lonlat', 'latlon' and 'latlong' are aliases of 'longlat'
-      self.projName = ['lonlat', 'latlon', 'latlong'].includes(v) ? 'longlat' : v;
-    },
+    proj: 'projName',
     datum: 'datumCode',
     rf: function (v) {
       self.rf = parseFloat(v);
@@ -656,9 +639,6 @@ __webpack_require__.dn(projString);
     },
     lon_0: function (v) {
       self.long0 = v * D2R;
-    },
-    lon_wrap: function (v) {
-      self.long_wrap = parseFloat(v) * D2R;
     },
     lon_1: function (v) {
       self.long1 = v * D2R;
@@ -742,9 +722,6 @@ __webpack_require__.dn(projString);
     },
     approx: function () {
       self.approx = true;
-    },
-    over: function () {
-      self.over = true;
     }
   };
   for (paramName in paramObj) {
@@ -763,11 +740,10 @@ __webpack_require__.dn(projString);
   if (typeof self.datumCode === 'string' && self.datumCode !== 'WGS84') {
     self.datumCode = self.datumCode.toLowerCase();
   }
-  self['projStr'] = defData;
   return self;
 }
 
-;// ./node_modules/wkt-parser/PROJJSONBuilder.js
+;// ./node_modules/wkt-parser/PROJJSONBuilderBase.js
 class PROJJSONBuilderBase {
   static getId(node) {
     const idNode = node.find((child) => Array.isArray(child) && child[0] === 'ID');
@@ -816,11 +792,10 @@ class PROJJSONBuilderBase {
       if (abbreviation === 'E') direction = 'east';
       else if (abbreviation === 'N') direction = 'north';
       else if (abbreviation === 'U') direction = 'up';
-      else if (node[2]) direction = node[2];
       else throw new Error(`Unknown axis abbreviation: ${abbreviation}`);
     } else {
       // Use the explicit direction provided in the AXIS node
-      direction = node[2] || 'unknown';
+      direction = node[2] ? node[2].toLowerCase() : 'unknown';
     }
 
     const orderNode = node.find((child) => Array.isArray(child) && child[0] === 'ORDER');
@@ -864,7 +839,7 @@ class PROJJSONBuilderBase {
         const csNode = node.find((child) => Array.isArray(child) && child[0] === 'CS');
         if (csNode) {
           result.coordinate_system = {
-            subtype: csNode[1],
+            type: csNode[1],
             axis: this.extractAxes(node),
           };
         }
@@ -880,8 +855,7 @@ class PROJJSONBuilderBase {
 
       case 'BASEGEOGCRS':
       case 'GEOGCRS':
-      case 'GEODCRS':
-        result.type = node[0] === 'GEODCRS' ? 'GeodeticCRS' : 'GeographicCRS';
+        result.type = 'GeographicCRS';
         result.name = node[1];
       
         // Handle DATUM or ENSEMBLE
@@ -904,9 +878,8 @@ class PROJJSONBuilderBase {
           }
         }
       
-        const geogCsNode = node.find((child) => Array.isArray(child) && child[0] === 'CS');
         result.coordinate_system = {
-          subtype: geogCsNode ? geogCsNode[1] : 'ellipsoidal',
+          type: 'ellipsoidal',
           axis: this.extractAxes(node),
         };
       
@@ -1087,9 +1060,93 @@ class PROJJSONBuilderBase {
   }
 }
 
-/* harmony default export */ const PROJJSONBuilder = (PROJJSONBuilderBase);
+/* harmony default export */ const wkt_parser_PROJJSONBuilderBase = (PROJJSONBuilderBase);
+;// ./node_modules/wkt-parser/PROJJSONBuilder2015.js
+
+
+class PROJJSONBuilder2015 extends wkt_parser_PROJJSONBuilderBase {
+  static convert(node, result = {}) {
+    super.convert(node, result);
+
+    // Skip `CS` and `USAGE` nodes for WKT2-2015
+    if (result.coordinate_system && result.coordinate_system.subtype === 'Cartesian') {
+      delete result.coordinate_system;
+    }
+    if (result.usage) {
+      delete result.usage;
+    }
+
+    return result;
+  }
+}
+
+/* harmony default export */ const wkt_parser_PROJJSONBuilder2015 = (PROJJSONBuilder2015);
+;// ./node_modules/wkt-parser/PROJJSONBuilder2019.js
+
+
+class PROJJSONBuilder2019 extends wkt_parser_PROJJSONBuilderBase {
+  static convert(node, result = {}) {
+    super.convert(node, result);
+
+    // Handle `CS` node for WKT2-2019
+    const csNode = node.find((child) => Array.isArray(child) && child[0] === 'CS');
+    if (csNode) {
+      result.coordinate_system = {
+        subtype: csNode[1],
+        axis: this.extractAxes(node),
+      };
+    }
+
+    // Handle `USAGE` node for WKT2-2019
+    const usageNode = node.find((child) => Array.isArray(child) && child[0] === 'USAGE');
+    if (usageNode) {
+      const scope = usageNode.find((child) => Array.isArray(child) && child[0] === 'SCOPE');
+      const area = usageNode.find((child) => Array.isArray(child) && child[0] === 'AREA');
+      const bbox = usageNode.find((child) => Array.isArray(child) && child[0] === 'BBOX');
+      result.usage = {};
+      if (scope) {
+        result.usage.scope = scope[1];
+      }
+      if (area) {
+        result.usage.area = area[1];
+      }
+      if (bbox) {
+        result.usage.bbox = bbox.slice(1);
+      }
+    }
+
+    return result;
+  }
+}
+
+/* harmony default export */ const wkt_parser_PROJJSONBuilder2019 = (PROJJSONBuilder2019);
 ;// ./node_modules/wkt-parser/buildPROJJSON.js
 
+
+
+/**
+ * Detects the WKT2 version based on the structure of the WKT.
+ * @param {Array} root The root WKT array node.
+ * @returns {string} The detected version ("2015" or "2019").
+ */
+function detectWKT2Version(root) {
+  // Check for WKT2-2019-specific nodes
+  if (root.find((child) => Array.isArray(child) && child[0] === 'USAGE')) {
+    return '2019'; // `USAGE` is specific to WKT2-2019
+  }
+
+  // Check for WKT2-2015-specific nodes
+  if (root.find((child) => Array.isArray(child) && child[0] === 'CS')) {
+    return '2015'; // `CS` is valid in both, but default to 2015 unless `USAGE` is present
+  }
+
+  if (root[0] === 'BOUNDCRS' || root[0] === 'PROJCRS' || root[0] === 'GEOGCRS') {
+    return '2015'; // These are valid in both, but default to 2015
+  }
+
+  // Default to WKT2-2015 if no specific indicators are found
+  return '2015';
+}
 
 /**
  * Builds a PROJJSON object from a WKT array structure.
@@ -1097,7 +1154,9 @@ class PROJJSONBuilderBase {
  * @returns {Object} The PROJJSON object.
  */
 function buildPROJJSON(root) {
-  return PROJJSONBuilder.convert(root);
+  const version = detectWKT2Version(root);
+  const builder = version === '2019' ? wkt_parser_PROJJSONBuilder2019 : wkt_parser_PROJJSONBuilder2015;
+  return builder.convert(root);
 }
 
 ;// ./node_modules/wkt-parser/detectWKTVersion.js
@@ -1440,8 +1499,8 @@ function applyProjectionDefaults(wkt) {
   // Normalize projName for WKT2 compatibility
   const normalizedProjName = (wkt.projName || '').toLowerCase().replace(/_/g, ' ');
 
-  if (wkt.long0 === undefined && wkt.longc !== undefined) {
-    wkt.long0 = wkt.longc; // keep in the projection's native prime meridian frame
+  if (!wkt.long0 && wkt.longc && (normalizedProjName === 'albers conic equal area' || normalizedProjName === 'lambert azimuthal equal area')) {
+    wkt.long0 = wkt.longc;
   }
   if (!wkt.lat_ts && wkt.lat1 && (normalizedProjName === 'stereographic south pole' || normalizedProjName === 'polar stereographic (variant b)')) {
     wkt.lat0 = d2r(wkt.lat1 > 0 ? 90 : -90);
@@ -1539,12 +1598,6 @@ function transformPROJJSON(projjson, result = {}) {
       case 'type':
         if (value === 'GeographicCRS') {
           result.projName = 'longlat';
-        } else if (value === 'GeodeticCRS') {
-          if (projjson.coordinate_system && projjson.coordinate_system.subtype === 'Cartesian') {
-            result.projName = 'geocent';
-          } else {
-            result.projName = 'longlat';
-          }
         } else if (value === 'ProjectedCRS' && projjson.conversion && projjson.conversion.method) {
           result.projName = projjson.conversion.method.name; // Retain original capitalization
         }
@@ -1573,24 +1626,16 @@ function transformPROJJSON(projjson, result = {}) {
 
       case 'coordinate_system':
         if (value.axis) {
-          const directionMap = {
-            'east': 'e',
-            'north': 'n',
-            'west': 'w',
-            'south': 's',
-            'up': 'u',
-            'down': 'd',
-            'geocentricx': 'e',
-            'geocentricy': 'n',
-            'geocentricz': 'u',
-          };
-          const mapped = value.axis.map((axis) => directionMap[axis.direction.toLowerCase()]);
-          if (mapped.every(Boolean)) {
-            result.axis = mapped.join('');
-            if (result.axis.length === 2) {
-              result.axis += 'u';
-            }
-          }
+          result.axis = value.axis
+            .map((axis) => {
+              const direction = axis.direction;
+              if (direction === 'east') return 'e';
+              if (direction === 'north') return 'n';
+              if (direction === 'west') return 'w';
+              if (direction === 'south') return 's';
+              throw new Error(`Unknown axis direction: ${direction}`);
+            })
+            .join('') + 'u'; // Combine into a single string (e.g., "enu")
 
           if (value.unit) {
             const { units, to_meter } = processUnit(value.unit);
@@ -1651,11 +1696,6 @@ function transformPROJJSON(projjson, result = {}) {
         break;
     }
   });
-
-  // Geographic and geodetic CRSs have no base_crs, so use their own id as datumCode
-  if (!result.datumCode && (projjson.type === 'GeographicCRS' || projjson.type === 'GeodeticCRS') && projjson.id) {
-    result.datumCode = projjson.id.authority + '_' + projjson.id.code;
-  }
 
   // Additional calculated properties
   if (result.latitude_of_false_origin !== undefined) {
@@ -1738,7 +1778,6 @@ function transformPROJJSON(projjson, result = {}) {
   return result;
 }
 ;// ./node_modules/wkt-parser/index.js
-__webpack_require__.dn(wkt_parser);
 
 
 
@@ -1835,9 +1874,9 @@ function setPropertiesFromWkt(wkt) {
     geogcs = wkt;
   }
   if (geogcs) {
-    if (geogcs.PRIMEM && geogcs.PRIMEM.convert) {
-      wkt.from_greenwich = d2r(geogcs.PRIMEM.convert);
-    }
+    //if(wkt.GEOGCS.PRIMEM&&wkt.GEOGCS.PRIMEM.convert){
+    //  wkt.from_greenwich=wkt.GEOGCS.PRIMEM.convert*D2R;
+    //}
     if (geogcs.DATUM) {
       wkt.datumCode = geogcs.DATUM.name.toLowerCase();
     } else {
@@ -1865,7 +1904,7 @@ function setPropertiesFromWkt(wkt) {
       }
 
       wkt.a = geogcs.DATUM.SPHEROID.a;
-      wkt.rf = parseFloat(geogcs.DATUM.SPHEROID.rf);
+      wkt.rf = parseFloat(geogcs.DATUM.SPHEROID.rf, 10);
     }
 
     if (geogcs.DATUM && geogcs.DATUM.TOWGS84) {
@@ -1979,7 +2018,6 @@ function setPropertiesFromWkt(wkt) {
  * @property {number} [long0]
  * @property {number} [long1]
  * @property {number} [long2]
- * @property {number} [long_wrap]
  * @property {number} [alpha]
  * @property {number} [longc]
  * @property {number} [x0]
@@ -2000,8 +2038,6 @@ function setPropertiesFromWkt(wkt) {
  * @property {boolean} [sphere]
  * @property {number} [rectified_grid_angle]
  * @property {boolean} [approx]
- * @property {boolean} [over]
- * @property {string} [projStr]
  * @property {<T extends import('./core').TemplateCoordinates>(coordinates: T, enforceAxis?: boolean) => T} inverse
  * @property {<T extends import('./core').TemplateCoordinates>(coordinates: T, enforceAxis?: boolean) => T} forward
  */
@@ -2038,14 +2074,8 @@ function defs(name) {
       } else {
         defs[/** @type {string} */ (name)] = wkt_parser(arguments[1]);
       }
-    } else if (def && typeof def === 'object' && !('projName' in def)) {
-      // PROJJSON
-      defs[/** @type {string} */ (name)] = wkt_parser(arguments[1]);
     } else {
       defs[/** @type {string} */ (name)] = def;
-      if (!def) {
-        delete defs[/** @type {string} */ (name)];
-      }
     }
   } else if (arguments.length === 1) {
     if (Array.isArray(name)) {
@@ -2091,9 +2121,6 @@ function testWKT(code) {
 }
 var codes = ['3857', '900913', '3785', '102113'];
 function checkMercator(item) {
-  if (item.title) {
-    return item.title.toLowerCase().indexOf('epsg:') === 0 && codes.indexOf(item.title.substr(5)) > -1;
-  }
   var auth = match(item, 'authority');
   if (!auth) {
     return;
@@ -2116,33 +2143,36 @@ function testProj(code) {
  * @returns {import('./defs').ProjectionDefinition}
  */
 function parse(code) {
-  let out;
   if (testObj(code)) {
     // check to see if this is a WKT string
     if (testDef(code)) {
-      out = lib_defs[code];
-    } else if (testWKT(code)) {
-      out = wkt_parser(code);
+      return lib_defs[code];
+    }
+    if (testWKT(code)) {
+      var out = wkt_parser(code);
+      // test of spetial case, due to this being a very common and often malformed
+      if (checkMercator(out)) {
+        return lib_defs['EPSG:3857'];
+      }
       var maybeProjStr = checkProjStr(out);
       if (maybeProjStr) {
-        out = projString(maybeProjStr);
+        return projString(maybeProjStr);
       }
-    } else if (testProj(code)) {
-      out = projString(code);
+      return out;
+    }
+    if (testProj(code)) {
+      return projString(code);
     }
   } else if (!('projName' in code)) {
-    out = wkt_parser(code);
+    return wkt_parser(code);
   } else {
-    out = code;
+    return code;
   }
-  // test for special Web Mercator case, due to this being a very common and often malformed
-  return out && checkMercator(out) ? lib_defs['EPSG:3857'] : out;
 }
 
 /* harmony default export */ const parseCode = (parse);
 
 ;// ./node_modules/proj4/lib/extend.js
-__webpack_require__.dn(extend);
 /* harmony default export */ function extend(destination, source) {
   destination = destination || {};
   var value, property;
@@ -2159,32 +2189,25 @@ __webpack_require__.dn(extend);
 }
 
 ;// ./node_modules/proj4/lib/common/msfnz.js
-__webpack_require__.dn(msfnz);
 /* harmony default export */ function msfnz(eccent, sinphi, cosphi) {
   var con = eccent * sinphi;
   return cosphi / (Math.sqrt(1 - con * con));
 }
 
 ;// ./node_modules/proj4/lib/common/sign.js
-__webpack_require__.dn(sign);
 /* harmony default export */ function sign(x) {
   return x < 0 ? -1 : 1;
 }
 
 ;// ./node_modules/proj4/lib/common/adjust_lon.js
-__webpack_require__.dn(adjust_lon);
 
 
 
-/* harmony default export */ function adjust_lon(x, skipAdjust) {
-  if (skipAdjust) {
-    return x;
-  }
+/* harmony default export */ function adjust_lon(x) {
   return (Math.abs(x) <= SPI) ? x : (x - (sign(x) * TWO_PI));
 }
 
 ;// ./node_modules/proj4/lib/common/tsfnz.js
-__webpack_require__.dn(tsfnz);
 
 
 /* harmony default export */ function tsfnz(eccent, phi, sinphi) {
@@ -2195,7 +2218,6 @@ __webpack_require__.dn(tsfnz);
 }
 
 ;// ./node_modules/proj4/lib/common/phi2z.js
-__webpack_require__.dn(phi2z);
 
 
 /* harmony default export */ function phi2z(eccent, ts) {
@@ -2239,7 +2261,6 @@ function init() {
   if (!('y0' in this)) {
     this.y0 = 0;
   }
-  this.long0 = this.long0 || 0;
   this.e = Math.sqrt(this.es);
   if (this.lat_ts) {
     if (this.sphere) {
@@ -2274,12 +2295,12 @@ function forward(p) {
     return null;
   } else {
     if (this.sphere) {
-      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0, this.over);
+      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0);
       y = this.y0 + this.a * this.k0 * Math.log(Math.tan(FORTPI + 0.5 * lat));
     } else {
       var sinphi = Math.sin(lat);
       var ts = tsfnz(this.e, lat, sinphi);
-      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0, this.over);
+      x = this.x0 + this.a * this.k0 * adjust_lon(lon - this.long0);
       y = this.y0 - this.a * this.k0 * Math.log(ts);
     }
     p.x = x;
@@ -2304,7 +2325,7 @@ function inverse(p) {
       return null;
     }
   }
-  lon = adjust_lon(this.long0 + x / (this.a * this.k0), this.over);
+  lon = adjust_lon(this.long0 + x / (this.a * this.k0));
 
   p.x = lon;
   p.y = lat;
@@ -2329,7 +2350,7 @@ function identity(pt) {
 }
 
 
-var longlat_names = ['longlat', 'identity', 'lonlat', 'latlon', 'latlong'];
+var longlat_names = ['longlat', 'identity'];
 /* harmony default export */ const longlat = ({
   init: longlat_init,
   forward: identity,
@@ -2574,7 +2595,7 @@ var ellipsoids = {
   },
   plessis: {
     a: 6376523,
-    b: 6355863,
+    rf: 6355863,
     ellipseName: 'Plessis 1817 (France)'
   },
   krass: {
@@ -2707,7 +2728,7 @@ var datums = {
   },
   carthage: {
     towgs84: '-263.0,6.0,431.0',
-    ellipse: 'clrk80ign',
+    ellipse: 'clark80',
     datumName: 'Carthage 1934 Tunisia'
   },
   hermannskogel: {
@@ -2805,7 +2826,7 @@ var datums = {
     towgs84: '-178.3,-316.7,-131.5,5.278,6.077,10.979,19.166'
   },
   EPSG_4231: {
-    towgs84: '-83.11,-97.38,-117.22,0.005693,-0.044698,0.044285,0.1218'
+    towgs84: '-83.11,-97.38,-117.22,0.0276,-0.2167,0.2147,0.1218'
   },
   EPSG_4274: {
     towgs84: '-230.994,102.591,25.199,0.633,-0.239,0.9,1.95'
@@ -2835,7 +2856,7 @@ var datums = {
     towgs84: '8.846,-4.394,-1.122,-0.00237,-0.146528,0.130428,0.783926'
   },
   EPSG_4289: {
-    towgs84: '565.7381,50.4018,465.2904,-0.395026,0.330772,-1.876073,4.07244'
+    towgs84: '565.7381,50.4018,465.2904,-1.91514,1.60363,-9.09546,4.07244'
   },
   EPSG_4230: {
     towgs84: '-68.863,-134.888,-111.49,-0.53,-0.14,0.57,-3.4'
@@ -2865,7 +2886,7 @@ var datums = {
     towgs84: '-45,417,-3.5'
   },
   EPSG_4611: {
-    towgs84: '-162.619,-276.959,-161.764,0.067753,-2.243648,-1.158828,-1.094246'
+    towgs84: '-162.619,-276.959,-161.764,0.067753,-2.243649,-1.158827,-1.094246'
   },
   EPSG_4633: {
     towgs84: '137.092,131.66,91.475,-1.9436,-11.5993,-4.3321,-7.4824'
@@ -2883,7 +2904,7 @@ var datums = {
     towgs84: '482.5,-130.6,564.6,-1.042,-0.214,-0.631,8.15'
   },
   EPSG_4660: {
-    towgs84: '982.6087,552.753,-540.873,6.681627,-31.611492,-19.848161,16.805'
+    towgs84: '982.6087,552.753,-540.873,32.39344,-153.25684,-96.2266,16.805'
   },
   EPSG_4662: {
     towgs84: '97.295,-263.247,310.882,-1.5999,0.8386,3.1409,13.3259'
@@ -2913,7 +2934,7 @@ var datums = {
     towgs84: '217.109,86.452,23.711,0.0183,-0.0003,0.007,-0.0093'
   },
   EPSG_9333: {
-    towgs84: '0,0,0,-0.008393,0.000749,-0.010276,0'
+    towgs84: '0,0,0,-8.393,0.749,-10.276,0'
   },
   EPSG_9059: {
     towgs84: '0,0,0'
@@ -3069,7 +3090,7 @@ var datums = {
     towgs84: '674.374,15.056,405.346'
   },
   EPSG_4617: {
-    towgs84: '-0.991,1.9072,0.5129,0.02579,0.00965,0.01166,0'
+    towgs84: '-0.991,1.9072,0.5129,1.25033e-7,4.6785e-8,5.6529e-8,0'
   },
   EPSG_4663: {
     towgs84: '-210.502,-66.902,-48.476,2.094,-15.067,-5.817,0.485'
@@ -3132,10 +3153,10 @@ var datums = {
     towgs84: '275.57,676.78,229.6'
   },
   EPSG_4283: {
-    towgs84: '0.06155,-0.01087,-0.04019,0.039492,0.032722,0.032898,-0.009994'
+    towgs84: '61.55,-10.87,-40.19,39.4924,32.7221,32.8979,-9.994'
   },
   EPSG_4317: {
-    towgs84: '2.3287,-147.0425,-92.0802,-0.309248,0.324822,0.497299,5.689063'
+    towgs84: '2.3287,-147.0425,-92.0802,-0.3092483,0.32482185,0.49729934,5.68906266'
   },
   EPSG_4272: {
     towgs84: '59.47,-5.04,187.44,0.47,-0.1,1.024,-4.5993'
@@ -3258,7 +3279,7 @@ var datums = {
     towgs84: '-208.4058,-109.8777,-2.5764'
   },
   ESRI_104101: {
-    towgs84: '372.87,149.23,585.29'
+    towgs84: '374,150,588'
   },
   EPSG_4693: {
     towgs84: '0,-0.15,0.68'
@@ -3943,87 +3964,6 @@ var datums = {
   },
   EPSG_4818: {
     towgs84: '589,76,480'
-  },
-  EPSG_10328: {
-    towgs84: '0,0,0'
-  },
-  EPSG_9782: {
-    towgs84: '0,0,0'
-  },
-  EPSG_9777: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10690: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10639: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10739: {
-    towgs84: '0,0,0'
-  },
-  EPSG_7686: {
-    towgs84: '0,0,0'
-  },
-  EPSG_8900: {
-    towgs84: '0,0,0'
-  },
-  EPSG_5886: {
-    towgs84: '0,0,0'
-  },
-  EPSG_7683: {
-    towgs84: '0,0,0'
-  },
-  EPSG_6668: {
-    towgs84: '0,0,0'
-  },
-  EPSG_20046: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10299: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10310: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10475: {
-    towgs84: '0,0,0'
-  },
-  EPSG_4742: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10671: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10762: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10725: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10791: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10800: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10305: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10941: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10968: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10875: {
-    towgs84: '0,0,0'
-  },
-  EPSG_6318: {
-    towgs84: '0,0,0'
-  },
-  EPSG_10910: {
-    towgs84: '0,0,0'
   }
 };
 
@@ -4042,10 +3982,14 @@ for (var key in datums) {
 
 function datum_datum(datumCode, datum_params, a, b, es, ep2, nadgrids) {
   var out = {};
-  out.datum_type = PJD_NODATUM;
+
+  if (datumCode === undefined || datumCode === 'none') {
+    out.datum_type = PJD_NODATUM;
+  } else {
+    out.datum_type = PJD_WGS84;
+  }
 
   if (datum_params) {
-    out.datum_type = PJD_WGS84;
     out.datum_params = datum_params.map(parseFloat);
     if (out.datum_params[0] !== 0 || out.datum_params[1] !== 0 || out.datum_params[2] !== 0) {
       out.datum_type = PJD_3PARAM;
@@ -4117,6 +4061,22 @@ function datum_datum(datumCode, datum_params, a, b, es, ep2, nadgrids) {
 
 /** @typedef {{header: NadgridHeader, subgrids: Array<Subgrid>}} NADGrid */
 
+/**
+ * @typedef {Object} GeoTIFF
+ * @property {() => Promise<number>} getImageCount - Returns the number of images in the GeoTIFF.
+ * @property {(index: number) => Promise<GeoTIFFImage>} getImage - Returns a GeoTIFFImage for the given index.
+ */
+
+/**
+ * @typedef {Object} GeoTIFFImage
+ * @property {() => number} getWidth - Returns the width of the image.
+ * @property {() => number} getHeight - Returns the height of the image.
+ * @property {() => number[]} getBoundingBox - Returns the bounding box as [minX, minY, maxX, maxY] in degrees.
+ * @property {() => Promise<ArrayLike<ArrayLike<number>>>} readRasters - Returns the raster data as an array of bands.
+ * @property {Object} fileDirectory - The file directory object containing metadata.
+ * @property {Object} fileDirectory.ModelPixelScale - The pixel scale array [scaleX, scaleY, scaleZ] in degrees.
+ */
+
 var loadedNadgrids = {};
 
 /**
@@ -4129,14 +4089,14 @@ var loadedNadgrids = {};
 /**
  * @overload
  * @param {string} key - The key to associate with the loaded grid.
- * @param {import('geotiff').GeoTIFF} data - The GeoTIFF instance to read the grid from.
+ * @param {GeoTIFF} data - The GeoTIFF instance to read the grid from.
  * @returns {{ready: Promise<NADGrid>}} - A promise that resolves to the loaded grid information.
  */
 /**
  * Load either a NTv2 file (.gsb) or a Geotiff (.tif) to a key that can be used in a proj string like +nadgrids=<key>. Pass the NTv2 file
  * as an ArrayBuffer. Pass Geotiff as a GeoTIFF instance from the geotiff.js library.
  * @param {string} key - The key to associate with the loaded grid.
- * @param {ArrayBuffer|import('geotiff').GeoTIFF} data The data to load, either an ArrayBuffer for NTv2 or a GeoTIFF instance.
+ * @param {ArrayBuffer|GeoTIFF} data The data to load, either an ArrayBuffer for NTv2 or a GeoTIFF instance.
  * @param {NTV2GridOptions} [options] Optional parameters.
  * @returns {{ready: Promise<NADGrid>}|NADGrid} - A promise that resolves to the loaded grid information.
  */
@@ -4169,7 +4129,7 @@ function readNTV2Grid(key, data, options) {
 
 /**
  * @param {string} key The key to associate with the loaded grid.
- * @param {import('geotiff').GeoTIFF} tiff The GeoTIFF instance to read the grid from.
+ * @param {GeoTIFF} tiff The GeoTIFF instance to read the grid from.
  * @returns {Promise<NADGrid>} A promise that resolves to the loaded NAD grid information.
  */
 async function readGeotiffGrid(key, tiff) {
@@ -4183,12 +4143,7 @@ async function readGeotiffGrid(key, tiff) {
     var data = rasters;
     var lim = [image.getWidth(), image.getHeight()];
     var imageBBoxRadians = image.getBoundingBox().map(degreesToRadians);
-    var modelPixelScale = typeof image.fileDirectory.getValue === 'function'
-      // geotiff v3
-      ? image.fileDirectory.getValue('ModelPixelScale')
-      // geotiff v2
-      : /** @type {any} */ (image.fileDirectory).ModelPixelScale;
-    var del = [modelPixelScale[0], modelPixelScale[1]].map(degreesToRadians);
+    var del = [image.fileDirectory.ModelPixelScale[0], image.fileDirectory.ModelPixelScale[1]].map(degreesToRadians);
 
     var maxX = imageBBoxRadians[0] + (lim[0] - 1) * del[0];
     var minY = imageBBoxRadians[3] - (lim[1] - 1) * del[1];
@@ -4408,8 +4363,6 @@ function Projection(srsCode, callback) {
   this.init = null;
   /** @type {string} */
   this.name;
-  /** @type {string} */
-  this.axis;
   /** @type {Array<string>} */
   this.names = null;
   /** @type {string} */
@@ -4437,6 +4390,7 @@ function Projection(srsCode, callback) {
       json.datumName = datumDef.datumName ? datumDef.datumName : json.datumCode;
     }
   }
+  json.k0 = json.k0 || 1.0;
   json.axis = json.axis || 'enu';
   json.ellps = json.ellps || 'wgs84';
   json.lat1 = json.lat1 || json.lat0; // Lambert_Conformal_Conic_1SP, for example, needs this
@@ -4468,11 +4422,6 @@ function Projection(srsCode, callback) {
   // init the projection
   if ('init' in this && typeof this.init === 'function') {
     this.init();
-  }
-
-  // only default the scale factor once the projection had a chance to set its own
-  if (!this.k0) {
-    this.k0 = 1.0;
   }
 
   // legecy callback from back in the day when it went to spatialreference.org
@@ -4725,7 +4674,6 @@ function geocentricFromWgs84(p, datum_type, datum_params) {
 }
 
 ;// ./node_modules/proj4/lib/datum_transform.js
-__webpack_require__.dn(datum_transform);
 
 
 
@@ -4916,82 +4864,60 @@ function nadInterpolate(pin, ct) {
 }
 
 ;// ./node_modules/proj4/lib/adjust_axis.js
-var order = ['x', 'y', 'z'];
-
-/**
- * Convert a point in a given CRS axis order to ENU (east/north/up) order
- * @param {import('./defs').ProjectionDefinition} crs
- * @param {import('./core').InterfaceCoordinates} point
- * @returns {import('./core').InterfaceCoordinates | null}
- */
-function adjustAxisToEnu(crs, point) {
+/* harmony default export */ function adjust_axis(crs, denorm, point) {
+  var xin = point.x,
+    yin = point.y,
+    zin = point.z || 0.0;
+  var v, t, i;
   /** @type {import("./core").InterfaceCoordinates} */
-  const out = {};
-  for (let i = 0, ii = crs.axis.length; i < ii; i++) {
-    if (i === 2 && point.z === undefined) {
+  var out = {};
+  for (i = 0; i < 3; i++) {
+    if (denorm && i === 2 && point.z === undefined) {
       continue;
     }
-    let v = point[order[i]];
-    switch (crs.axis[i]) {
-      case 'e':
-        out.x = v;
-        break;
-      case 'w':
-        out.x = -v;
-        break;
-      case 'n':
-        out.y = v;
-        break;
-      case 's':
-        out.y = -v;
-        break;
-      case 'u':
-        out.z = v;
-        break;
-      case 'd':
-        out.z = -v;
-        break;
-      default:
-        // console.log("ERROR: unknown axis ("+crs.axis[i]+") - check definition of "+crs.projName);
-        return null;
-    }
-  }
-  return out;
-}
-
-/**
- * Convert a point in ENU (east/north/up) order to the given CRS axis order.
- * @param {import('./defs').ProjectionDefinition} crs
- * @param {import('./core').InterfaceCoordinates} point
- * @returns {import('./core').InterfaceCoordinates | null}
- */
-function adjustAxisFromEnu(crs, point) {
-  const out = /** @type {import("./core").InterfaceCoordinates} */ ({});
-  for (let i = 0, ii = crs.axis.length; i < ii; i++) {
-    if (i === 2 && point.z === undefined) {
-      continue;
+    if (i === 0) {
+      v = xin;
+      if ('ew'.indexOf(crs.axis[i]) !== -1) {
+        t = 'x';
+      } else {
+        t = 'y';
+      }
+    } else if (i === 1) {
+      v = yin;
+      if ('ns'.indexOf(crs.axis[i]) !== -1) {
+        t = 'y';
+      } else {
+        t = 'x';
+      }
+    } else {
+      v = zin;
+      t = 'z';
     }
     switch (crs.axis[i]) {
       case 'e':
-        out[order[i]] = point.x;
+        out[t] = v;
         break;
       case 'w':
-        out[order[i]] = -point.x;
+        out[t] = -v;
         break;
       case 'n':
-        out[order[i]] = point.y;
+        out[t] = v;
         break;
       case 's':
-        out[order[i]] = -point.y;
+        out[t] = -v;
         break;
       case 'u':
-        out[order[i]] = point.z;
+        if (point[t] !== undefined) {
+          out.z = v;
+        }
         break;
       case 'd':
-        out[order[i]] = -point.z;
+        if (point[t] !== undefined) {
+          out.z = -v;
+        }
         break;
       default:
-        // console.log("ERROR: unknown axis ("+crs.axis[i]+") - check definition of "+crs.projName);
+      // console.log("ERROR: unknow axis ("+crs.axis[i]+") - check definition of "+crs.projName);
         return null;
     }
   }
@@ -4999,7 +4925,6 @@ function adjustAxisFromEnu(crs, point) {
 }
 
 ;// ./node_modules/proj4/lib/common/toPoint.js
-__webpack_require__.dn(toPoint);
 /**
  * @param {Array<number>} array
  * @returns {import("../core").InterfaceCoordinates}
@@ -5019,7 +4944,6 @@ __webpack_require__.dn(toPoint);
 }
 
 ;// ./node_modules/proj4/lib/checkSanity.js
-__webpack_require__.dn(checkSanity);
 /* harmony default export */ function checkSanity(point) {
   checkCoord(point.x);
   checkCoord(point.y);
@@ -5044,7 +4968,6 @@ function checkCoord(num) {
 
 
 
-
 function checkNotWGS(source, dest) {
   return (
     (source.datum.datum_type === PJD_3PARAM || source.datum.datum_type === PJD_7PARAM || source.datum.datum_type === PJD_GRIDSHIFT) && dest.datumCode !== 'WGS84')
@@ -5052,26 +4975,36 @@ function checkNotWGS(source, dest) {
 }
 
 /**
- * Internal transform: accepts an already-cloned point object, returns transformed point object.
  * @param {import('./defs').ProjectionDefinition} source
  * @param {import('./defs').ProjectionDefinition} dest
- * @param {import('./core').InterfaceCoordinates} point
- * @param {boolean} [enforceAxis]
+ * @param {import('./core').TemplateCoordinates} point
+ * @param {boolean} enforceAxis
  * @returns {import('./core').InterfaceCoordinates | undefined}
  */
-function transformInternal(source, dest, point, enforceAxis) {
+function transform(source, dest, point, enforceAxis) {
   var wgs84;
+  if (Array.isArray(point)) {
+    point = toPoint(point);
+  } else {
+    // Clone the point object so inputs don't get modified
+    point = {
+      x: point.x,
+      y: point.y,
+      z: point.z,
+      m: point.m
+    };
+  }
   var hasZ = point.z !== undefined;
   checkSanity(point);
   // Workaround for datum shifts towgs84, if either source or destination projection is not wgs84
   if (source.datum && dest.datum && checkNotWGS(source, dest)) {
     wgs84 = new Proj('WGS84');
-    point = transformInternal(source, wgs84, point, enforceAxis);
+    point = transform(source, wgs84, point, enforceAxis);
     source = wgs84;
   }
   // DGR, 2010/11/12
   if (enforceAxis && source.axis !== 'enu') {
-    point = adjustAxisToEnu(source, point);
+    point = adjust_axis(source, false, point);
   }
   // Transform source points to long/lat, if they aren't already.
   if (source.projName === 'longlat') {
@@ -5116,10 +5049,6 @@ function transformInternal(source, dest, point, enforceAxis) {
   }
 
   if (dest.projName === 'longlat') {
-    // wrap longitude into the range centered on dest.long_wrap, if requested (+lon_wrap)
-    if (dest.long_wrap !== undefined) {
-      point.x = dest.long_wrap + adjust_lon(point.x - dest.long_wrap);
-    }
     // convert radians to decimal degrees
     point = {
       x: point.x * R2D,
@@ -5139,35 +5068,16 @@ function transformInternal(source, dest, point, enforceAxis) {
 
   // DGR, 2010/11/12
   if (enforceAxis && dest.axis !== 'enu') {
-    return adjustAxisFromEnu(dest, point);
+    return adjust_axis(dest, true, point);
   }
 
-  if (point && !hasZ && dest.projName !== 'geocent') {
+  if (point && !hasZ) {
     delete point.z;
   }
   return point;
 }
 
-/**
- * @param {import('./defs').ProjectionDefinition} source
- * @param {import('./defs').ProjectionDefinition} dest
- * @param {import('./core').TemplateCoordinates} point
- * @param {boolean} [enforceAxis]
- * @returns {import('./core').InterfaceCoordinates | undefined}
- */
-function transform(source, dest, point, enforceAxis) {
-  var pt;
-  if (Array.isArray(point)) {
-    pt = toPoint(point);
-  } else {
-    // Clone the point object so inputs don't get modified
-    pt = { x: point.x, y: point.y, z: point.z, m: point.m };
-  }
-  return transformInternal(source, dest, pt, enforceAxis);
-}
-
 ;// ./node_modules/proj4/lib/core.js
-
 
 
 var wgs84 = Proj('WGS84');
@@ -5252,36 +5162,37 @@ var wgs84 = Proj('WGS84');
  * @returns {T}
  */
 function transformer(from, to, coords, enforceAxis) {
-  var out, geocent, keys;
+  var transformedArray, out, keys;
   if (Array.isArray(coords)) {
-    out = transformInternal(from, to, toPoint(coords), enforceAxis) || { x: NaN, y: NaN };
+    transformedArray = transform(from, to, coords, enforceAxis) || { x: NaN, y: NaN };
     if (coords.length > 2) {
-      geocent = (typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent');
-      if (geocent) {
-        if (typeof out.z === 'number') {
-          return /** @type {T} */ ([out.x, out.y, out.z].concat(coords.slice(3)));
+      if ((typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent')) {
+        if (typeof transformedArray.z === 'number') {
+          return /** @type {T} */ ([transformedArray.x, transformedArray.y, transformedArray.z].concat(coords.slice(3)));
+        } else {
+          return /** @type {T} */ ([transformedArray.x, transformedArray.y, coords[2]].concat(coords.slice(3)));
         }
-        return /** @type {T} */ ([out.x, out.y, coords[2]].concat(coords.slice(3)));
+      } else {
+        return /** @type {T} */ ([transformedArray.x, transformedArray.y].concat(coords.slice(2)));
       }
-      if (enforceAxis && typeof out.z === 'number') {
-        return /** @type {T} */ ([out.x, out.y, out.z].concat(coords.slice(3)));
-      }
-      return /** @type {T} */ ([out.x, out.y].concat(coords.slice(2)));
+    } else {
+      return /** @type {T} */ ([transformedArray.x, transformedArray.y]);
     }
-    return /** @type {T} */ ([out.x, out.y]);
   } else {
-    out = transformInternal(from, to, { x: coords.x, y: coords.y, z: coords.z, m: coords.m }, enforceAxis) || { x: NaN, y: NaN };
+    out = transform(from, to, coords, enforceAxis);
     keys = Object.keys(coords);
     if (keys.length === 2) {
       return /** @type {T} */ (out);
     }
-    geocent = (typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent');
     keys.forEach(function (key) {
-      if (key === 'x' || key === 'y') {
-        return;
-      }
-      if (key === 'z' && (geocent || enforceAxis)) {
-        return;
+      if ((typeof from.name !== 'undefined' && from.name === 'geocent') || (typeof to.name !== 'undefined' && to.name === 'geocent')) {
+        if (key === 'x' || key === 'y' || key === 'z') {
+          return;
+        }
+      } else {
+        if (key === 'x' || key === 'y') {
+          return;
+        }
       }
       out[key] = coords[key];
     });
@@ -6183,7 +6094,6 @@ Point.prototype.toMGRS = function (accuracy) {
 /* harmony default export */ const lib_Point = (Point);
 
 ;// ./node_modules/proj4/lib/common/pj_enfn.js
-__webpack_require__.dn(pj_enfn);
 var C00 = 1;
 var C02 = 0.25;
 var C04 = 0.046875;
@@ -6210,7 +6120,6 @@ var C88 = 0.3076171875;
 }
 
 ;// ./node_modules/proj4/lib/common/pj_mlfn.js
-__webpack_require__.dn(pj_mlfn);
 /* harmony default export */ function pj_mlfn(phi, sphi, cphi, en) {
   cphi *= sphi;
   sphi *= sphi;
@@ -6218,7 +6127,6 @@ __webpack_require__.dn(pj_mlfn);
 }
 
 ;// ./node_modules/proj4/lib/common/pj_inv_mlfn.js
-__webpack_require__.dn(pj_inv_mlfn);
 
 
 
@@ -6282,7 +6190,7 @@ function tmerc_forward(p) {
   var lon = p.x;
   var lat = p.y;
 
-  var delta_lon = adjust_lon(lon - this.long0, this.over);
+  var delta_lon = adjust_lon(lon - this.long0);
   var con;
   var x, y;
   var sin_phi = Math.sin(lat);
@@ -6370,7 +6278,7 @@ function tmerc_inverse(p) {
     if ((g === 0) && (h === 0)) {
       lon = 0;
     } else {
-      lon = adjust_lon(Math.atan2(g, h) + this.long0, this.over);
+      lon = adjust_lon(Math.atan2(g, h) + this.long0);
     }
   } else { // ellipsoidal form
     con = this.ml0 + y / this.k0;
@@ -6397,7 +6305,7 @@ function tmerc_inverse(p) {
       lon = adjust_lon(this.long0 + (d * (1
         - ds / 6 * (1 + 2 * t + c
           - ds / 20 * (5 + 28 * t + 24 * ts + 8 * c * t + 6 * c
-            - ds / 42 * (61 + 662 * t + 1320 * ts + 720 * ts * t)))) / cos_phi), this.over);
+            - ds / 42 * (61 + 662 * t + 1320 * ts + 720 * ts * t)))) / cos_phi));
     } else {
       lat = HALF_PI * sign(y);
       lon = 0;
@@ -6419,7 +6327,6 @@ var tmerc_names = ['Fast_Transverse_Mercator', 'Fast Transverse Mercator'];
 });
 
 ;// ./node_modules/proj4/lib/common/sinh.js
-__webpack_require__.dn(sinh);
 /* harmony default export */ function sinh(x) {
   var r = Math.exp(x);
   r = (r - 1 / r) / 2;
@@ -6427,7 +6334,6 @@ __webpack_require__.dn(sinh);
 }
 
 ;// ./node_modules/proj4/lib/common/hypot.js
-__webpack_require__.dn(hypot);
 /* harmony default export */ function hypot(x, y) {
   x = Math.abs(x);
   y = Math.abs(y);
@@ -6438,7 +6344,6 @@ __webpack_require__.dn(hypot);
 }
 
 ;// ./node_modules/proj4/lib/common/log1py.js
-__webpack_require__.dn(log1py);
 /* harmony default export */ function log1py(x) {
   var y = 1 + x;
   var z = y - 1;
@@ -6447,7 +6352,6 @@ __webpack_require__.dn(log1py);
 }
 
 ;// ./node_modules/proj4/lib/common/asinhy.js
-__webpack_require__.dn(asinhy);
 
 
 
@@ -6459,7 +6363,6 @@ __webpack_require__.dn(asinhy);
 }
 
 ;// ./node_modules/proj4/lib/common/gatg.js
-__webpack_require__.dn(gatg);
 /* harmony default export */ function gatg(pp, B) {
   var cos_2B = 2 * Math.cos(2 * B);
   var i = pp.length - 1;
@@ -6477,7 +6380,6 @@ __webpack_require__.dn(gatg);
 }
 
 ;// ./node_modules/proj4/lib/common/clens.js
-__webpack_require__.dn(clens);
 /* harmony default export */ function clens(pp, arg_r) {
   var r = 2 * Math.cos(arg_r);
   var i = pp.length - 1;
@@ -6495,7 +6397,6 @@ __webpack_require__.dn(clens);
 }
 
 ;// ./node_modules/proj4/lib/common/cosh.js
-__webpack_require__.dn(cosh);
 /* harmony default export */ function cosh(x) {
   var r = Math.exp(x);
   r = (r + 1 / r) / 2;
@@ -6503,7 +6404,6 @@ __webpack_require__.dn(cosh);
 }
 
 ;// ./node_modules/proj4/lib/common/clens_cmplx.js
-__webpack_require__.dn(clens_cmplx);
 
 
 
@@ -6577,7 +6477,6 @@ function etmerc_init() {
   this.y0 = this.y0 !== undefined ? this.y0 : 0;
   this.long0 = this.long0 !== undefined ? this.long0 : 0;
   this.lat0 = this.lat0 !== undefined ? this.lat0 : 0;
-  this.k0 = this.k0 !== undefined ? this.k0 : 1;
 
   this.cgb = [];
   this.cbg = [];
@@ -6641,7 +6540,7 @@ function etmerc_init() {
 }
 
 function etmerc_forward(p) {
-  var Ce = adjust_lon(p.x - this.long0, this.over);
+  var Ce = adjust_lon(p.x - this.long0);
   var Cn = p.y;
 
   Cn = gatg(this.cbg, Cn);
@@ -6701,7 +6600,7 @@ function etmerc_inverse(p) {
     Cn = Math.atan2(sin_Cn * cos_Ce, hypot(sin_Ce, cos_Ce * cos_Cn));
     Ce = Math.atan2(sin_Ce, cos_Ce * cos_Cn);
 
-    lon = adjust_lon(Ce + this.long0, this.over);
+    lon = adjust_lon(Ce + this.long0);
     lat = gatg(this.cgb, Cn);
   } else {
     lon = Infinity;
@@ -6723,7 +6622,6 @@ var etmerc_names = ['Extended_Transverse_Mercator', 'Extended Transverse Mercato
 });
 
 ;// ./node_modules/proj4/lib/common/adjust_zone.js
-__webpack_require__.dn(adjust_zone);
 
 
 /* harmony default export */ function adjust_zone(zone, lon) {
@@ -6770,7 +6668,6 @@ var utm_names = ['Universal Transverse Mercator System', 'utm'];
 });
 
 ;// ./node_modules/proj4/lib/common/srat.js
-__webpack_require__.dn(srat);
 /* harmony default export */ function srat(esinp, exp) {
   return (Math.pow((1 - esinp) / (1 + esinp), exp));
 }
@@ -6871,7 +6768,7 @@ function sterea_init() {
 
 function sterea_forward(p) {
   var sinc, cosc, cosl, k;
-  p.x = adjust_lon(p.x - this.long0, this.over);
+  p.x = adjust_lon(p.x - this.long0);
   gauss.forward.apply(this, [p]);
   sinc = Math.sin(p.y);
   cosc = Math.cos(p.y);
@@ -6905,7 +6802,7 @@ function sterea_inverse(p) {
   p.x = lon;
   p.y = lat;
   gauss.inverse.apply(this, [p]);
-  p.x = adjust_lon(p.x + this.long0, this.over);
+  p.x = adjust_lon(p.x + this.long0);
   return p;
 }
 
@@ -6955,7 +6852,7 @@ function stere_init() {
   this.coslat0 = Math.cos(this.lat0);
   this.sinlat0 = Math.sin(this.lat0);
   if (this.sphere) {
-    if (!isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN) {
+    if (this.k0 === 1 && !isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN) {
       this.k0 = 0.5 * (1 + sign(this.lat0) * Math.sin(this.lat_ts));
     }
   } else {
@@ -6971,9 +6868,9 @@ function stere_init() {
       }
     }
     this.cons = Math.sqrt(Math.pow(1 + this.e, 1 + this.e) * Math.pow(1 - this.e, 1 - this.e));
-    if (!isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN && Math.abs(Math.cos(this.lat_ts)) > EPSLN) {
-      // Polar Stereographic variant B: k0 is derived from lat_ts (EPSG guidance note 7-2, method 9829)
-      // https://epsg.org/coord-operation-method_9829/Polar-Stereographic-variant-B.html
+    if (this.k0 === 1 && !isNaN(this.lat_ts) && Math.abs(this.coslat0) <= EPSLN && Math.abs(Math.cos(this.lat_ts)) > EPSLN) {
+      // When k0 is 1 (default value) and lat_ts is a vaild number and lat0 is at a pole and lat_ts is not at a pole
+      // Recalculate k0 using formula 21-35 from p161 of Snyder, 1987
       this.k0 = 0.5 * this.cons * msfnz(this.e, Math.sin(this.lat_ts), Math.cos(this.lat_ts)) / tsfnz(this.e, this.con * this.lat_ts, this.con * Math.sin(this.lat_ts));
     }
     this.ms1 = msfnz(this.e, this.sinlat0, this.coslat0);
@@ -6990,7 +6887,7 @@ function stere_forward(p) {
   var sinlat = Math.sin(lat);
   var coslat = Math.cos(lat);
   var A, X, sinX, cosX, ts, rh;
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
 
   if (Math.abs(Math.abs(lon - this.long0) - Math.PI) <= EPSLN && Math.abs(lat + this.lat0) <= EPSLN) {
     // case of the origine point
@@ -7051,12 +6948,12 @@ function stere_inverse(p) {
     lat = Math.asin(Math.cos(c) * this.sinlat0 + p.y * Math.sin(c) * this.coslat0 / rh);
     if (Math.abs(this.coslat0) < EPSLN) {
       if (this.lat0 > 0) {
-        lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y), this.over);
+        lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y));
       } else {
-        lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y), this.over);
+        lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y));
       }
     } else {
-      lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(c), rh * this.coslat0 * Math.cos(c) - p.y * this.sinlat0 * Math.sin(c)), this.over);
+      lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(c), rh * this.coslat0 * Math.cos(c) - p.y * this.sinlat0 * Math.sin(c)));
     }
     p.x = lon;
     p.y = lat;
@@ -7075,7 +6972,7 @@ function stere_inverse(p) {
       p.y *= this.con;
       ts = rh * this.cons / (2 * this.a * this.k0);
       lat = this.con * phi2z(this.e, ts);
-      lon = this.con * adjust_lon(this.con * this.long0 + Math.atan2(p.x, -1 * p.y), this.over);
+      lon = this.con * adjust_lon(this.con * this.long0 + Math.atan2(p.x, -1 * p.y));
     } else {
       ce = 2 * Math.atan(rh * this.cosX0 / (2 * this.a * this.k0 * this.ms1));
       lon = this.long0;
@@ -7083,7 +6980,7 @@ function stere_inverse(p) {
         Chi = this.X0;
       } else {
         Chi = Math.asin(Math.cos(ce) * this.sinX0 + p.y * Math.sin(ce) * this.cosX0 / rh);
-        lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(ce), rh * this.cosX0 * Math.cos(ce) - p.y * this.sinX0 * Math.sin(ce)), this.over);
+        lon = adjust_lon(this.long0 + Math.atan2(p.x * Math.sin(ce), rh * this.cosX0 * Math.cos(ce) - p.y * this.sinX0 * Math.sin(ce)));
       }
       lat = -1 * phi2z(this.e, Math.tan(0.5 * (HALF_PI + Chi)));
     }
@@ -7124,9 +7021,6 @@ var stere_names = ['stere', 'Stereographic_South_Pole', 'Polar_Stereographic_var
 
 /** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function somerc_init() {
-  if (!this.k0) {
-    this.k0 = 1;
-  }
   var phy0 = this.lat0;
   this.lambda0 = this.long0;
   var sinPhy0 = Math.sin(phy0);
@@ -7252,10 +7146,6 @@ function omerc_init() {
   var con, com, cosph0, D, F, H, L, sinph0, p, J, gamma = 0,
     gamma0, lamc = 0, lam1 = 0, lam2 = 0, phi1 = 0, phi2 = 0, alpha_c = 0;
 
-  if (!this.k0) {
-    this.k0 = 1;
-  }
-
   // only Type A uses the no_off or no_uoff property
   // https://github.com/OSGeo/proj.4/issues/104
   this.no_off = isTypeA(this);
@@ -7277,10 +7167,6 @@ function omerc_init() {
 
   if (gam) {
     gamma = this.rectified_grid_angle;
-    if (!alp) {
-      alpha_c = 0;
-      alp = true;
-    }
   }
 
   if (alp || gam) {
@@ -7354,8 +7240,8 @@ function omerc_init() {
       lam2 += TWO_PI;
     }
 
-    this.lam0 = adjust_lon(0.5 * (lam1 + lam2) - Math.atan(J * Math.tan(0.5 * this.B * (lam1 - lam2)) / p) / this.B, this.over);
-    gamma0 = Math.atan(2 * Math.sin(this.B * adjust_lon(lam1 - this.lam0, this.over)) / (F - 1 / F));
+    this.lam0 = adjust_lon(0.5 * (lam1 + lam2) - Math.atan(J * Math.tan(0.5 * this.B * (lam1 - lam2)) / p) / this.B);
+    gamma0 = Math.atan(2 * Math.sin(this.B * adjust_lon(lam1 - this.lam0)) / (F - 1 / F));
     gamma = alpha_c = Math.asin(D * Math.sin(gamma0));
   }
 
@@ -7428,12 +7314,6 @@ function omerc_forward(p) {
   coords.x = (this.a * coords.x + this.x0);
   coords.y = (this.a * coords.y + this.y0);
 
-  if (p.z !== undefined) {
-    coords.z = p.z;
-  }
-  if (p.m !== undefined) {
-    coords.m = p.m;
-  }
   return coords;
 }
 
@@ -7474,12 +7354,6 @@ function omerc_inverse(p) {
 
   coords.x += this.lam0;
 
-  if (p.z !== undefined) {
-    coords.z = p.z;
-  }
-  if (p.m !== undefined) {
-    coords.m = p.m;
-  }
   return coords;
 }
 
@@ -7529,7 +7403,6 @@ function lcc_init() {
   }
   this.x0 = this.x0 || 0;
   this.y0 = this.y0 || 0;
-  this.long0 = this.long0 || 0;
   // Standard Parallels cannot be equal and on opposite sides of the equator
   if (Math.abs(this.lat1 + this.lat2) < EPSLN) {
     return;
@@ -7547,7 +7420,10 @@ function lcc_init() {
   var cos2 = Math.cos(this.lat2);
   var ms2 = msfnz(this.e, sin2, cos2);
   var ts2 = tsfnz(this.e, this.lat2, sin2);
-  var ts0 = tsfnz(this.e, this.lat0, Math.sin(this.lat0));
+
+  var ts0 = Math.abs(Math.abs(this.lat0) - HALF_PI) < EPSLN
+    ? 0 // Handle poles by setting ts0 to 0
+    : tsfnz(this.e, this.lat0, Math.sin(this.lat0));
 
   if (Math.abs(this.lat1 - this.lat2) > EPSLN) {
     this.ns = Math.log(ms1 / ms2) / Math.log(ts1 / ts2);
@@ -7558,9 +7434,7 @@ function lcc_init() {
     this.ns = sin1;
   }
   this.f0 = ms1 / (this.ns * Math.pow(ts1, this.ns));
-  this.rh = Math.abs(Math.abs(this.lat0) - HALF_PI) < EPSLN
-    ? 0 // Handle poles by setting rh to 0
-    : this.a * this.f0 * Math.pow(ts0, this.ns);
+  this.rh = this.a * this.f0 * Math.pow(ts0, this.ns);
   if (!this.title) {
     this.title = 'Lambert Conformal Conic';
   }
@@ -7589,7 +7463,7 @@ function lcc_forward(p) {
     }
     rh1 = 0;
   }
-  var theta = this.ns * adjust_lon(lon - this.long0, this.over);
+  var theta = this.ns * adjust_lon(lon - this.long0);
   p.x = this.k0 * (rh1 * Math.sin(theta)) + this.x0;
   p.y = this.k0 * (this.rh - rh1 * Math.cos(theta)) + this.y0;
 
@@ -7624,7 +7498,7 @@ function lcc_inverse(p) {
   } else {
     lat = -HALF_PI;
   }
-  lon = adjust_lon(theta / this.ns + this.long0, this.over);
+  lon = adjust_lon(theta / this.ns + this.long0);
 
   p.x = lon;
   p.y = lat;
@@ -7659,7 +7533,7 @@ function krovak_init() {
     this.lat0 = 0.863937979737193;
   }
   if (!this.long0) {
-    this.long0 = 0.7417649320975901 - 0.308341501185665; // 42.5° from Ferro = 24.833° from Greenwich
+    this.long0 = 0.7417649320975901 - 0.308341501185665;
   }
   /* if scale not set default to 0.9999 */
   if (!this.k0) {
@@ -7690,7 +7564,7 @@ function krovak_forward(p) {
   var gfi, u, deltav, s, d, eps, ro;
   var lon = p.x;
   var lat = p.y;
-  var delta_lon = adjust_lon(lon - this.long0, this.over);
+  var delta_lon = adjust_lon(lon - this.long0);
   /* Transformation */
   gfi = Math.pow(((1 + this.e * Math.sin(lat)) / (1 - this.e * Math.sin(lat))), (this.alfa * this.e / 2));
   u = 2 * (Math.atan(this.k * Math.pow(Math.tan(lat / 2 + this.s45), this.alfa) / gfi) - this.s45);
@@ -7748,7 +7622,7 @@ function krovak_inverse(p) {
   return (p);
 }
 
-var krovak_names = ['Krovak', 'Krovak Modified', 'Krovak (North Orientated)', 'Krovak Modified (North Orientated)', 'krovak'];
+var krovak_names = ['Krovak', 'krovak'];
 /* harmony default export */ const krovak = ({
   init: krovak_init,
   forward: krovak_forward,
@@ -7757,44 +7631,37 @@ var krovak_names = ['Krovak', 'Krovak Modified', 'Krovak (North Orientated)', 'K
 });
 
 ;// ./node_modules/proj4/lib/common/mlfn.js
-__webpack_require__.dn(mlfn);
 /* harmony default export */ function mlfn(e0, e1, e2, e3, phi) {
   return (e0 * phi - e1 * Math.sin(2 * phi) + e2 * Math.sin(4 * phi) - e3 * Math.sin(6 * phi));
 }
 
 ;// ./node_modules/proj4/lib/common/e0fn.js
-__webpack_require__.dn(e0fn);
 /* harmony default export */ function e0fn(x) {
   return (1 - 0.25 * x * (1 + x / 16 * (3 + 1.25 * x)));
 }
 
 ;// ./node_modules/proj4/lib/common/e1fn.js
-__webpack_require__.dn(e1fn);
 /* harmony default export */ function e1fn(x) {
   return (0.375 * x * (1 + 0.25 * x * (1 + 0.46875 * x)));
 }
 
 ;// ./node_modules/proj4/lib/common/e2fn.js
-__webpack_require__.dn(e2fn);
 /* harmony default export */ function e2fn(x) {
   return (0.05859375 * x * x * (1 + 0.75 * x));
 }
 
 ;// ./node_modules/proj4/lib/common/e3fn.js
-__webpack_require__.dn(e3fn);
 /* harmony default export */ function e3fn(x) {
   return (x * x * x * (35 / 3072));
 }
 
 ;// ./node_modules/proj4/lib/common/gN.js
-__webpack_require__.dn(gN);
 /* harmony default export */ function gN(a, e, sinphi) {
   var temp = e * sinphi;
   return a / Math.sqrt(1 - temp * temp);
 }
 
 ;// ./node_modules/proj4/lib/common/adjust_lat.js
-__webpack_require__.dn(adjust_lat);
 
 
 
@@ -7803,7 +7670,6 @@ __webpack_require__.dn(adjust_lat);
 }
 
 ;// ./node_modules/proj4/lib/common/imlfn.js
-__webpack_require__.dn(imlfn);
 /* harmony default export */ function imlfn(ml, e0, e1, e2, e3) {
   var phi;
   var dphi;
@@ -7862,7 +7728,7 @@ function cass_forward(p) {
   var x, y;
   var lam = p.x;
   var phi = p.y;
-  lam = adjust_lon(lam - this.long0, this.over);
+  lam = adjust_lon(lam - this.long0);
 
   if (this.sphere) {
     x = this.a * Math.asin(Math.cos(phi) * Math.sin(lam));
@@ -7922,7 +7788,7 @@ function cass_inverse(p) {
     lam = dl * (1 - dsq * (tl1 / 3 + (1 + 3 * tl1) * tl1 * dsq / 15)) / Math.cos(phi1);
   }
 
-  p.x = adjust_lon(lam + this.long0, this.over);
+  p.x = adjust_lon(lam + this.long0);
   p.y = adjust_lat(phi);
   return p;
 }
@@ -7936,7 +7802,6 @@ var cass_names = ['Cassini', 'Cassini_Soldner', 'cass'];
 });
 
 ;// ./node_modules/proj4/lib/common/qsfnz.js
-__webpack_require__.dn(qsfnz);
 /* harmony default export */ function qsfnz(eccent, sinphi) {
   var con;
   if (eccent > 1.0e-7) {
@@ -7947,37 +7812,7 @@ __webpack_require__.dn(qsfnz);
   }
 }
 
-;// ./node_modules/proj4/lib/common/authset.js
-var P00 = 0.33333333333333333333;
-var P01 = 0.17222222222222222222;
-var P02 = 0.10257936507936507936;
-var P10 = 0.06388888888888888888;
-var P11 = 0.06640211640211640211;
-var P20 = 0.01641501294219154443;
-
-function authset(es) {
-  var t;
-  var APA = [];
-  APA[0] = es * P00;
-  t = es * es;
-  APA[0] += t * P01;
-  APA[1] = t * P10;
-  t *= es;
-  APA[0] += t * P02;
-  APA[1] += t * P11;
-  APA[2] = t * P20;
-  return APA;
-}
-
-;// ./node_modules/proj4/lib/common/authlat.js
-function authlat(beta, APA) {
-  var t = beta + beta;
-  return (beta + APA[0] * Math.sin(t) + APA[1] * Math.sin(t + t) + APA[2] * Math.sin(t + t + t));
-}
-
 ;// ./node_modules/proj4/lib/projections/laea.js
-
-
 
 
 
@@ -8071,7 +7906,7 @@ function laea_forward(p) {
   var lam = p.x;
   var phi = p.y;
 
-  lam = adjust_lon(lam - this.long0, this.over);
+  lam = adjust_lon(lam - this.long0);
   if (this.sphere) {
     sinphi = Math.sin(phi);
     cosphi = Math.cos(phi);
@@ -8239,9 +8074,37 @@ function laea_inverse(p) {
     phi = authlat(Math.asin(ab), this.apa);
   }
 
-  p.x = adjust_lon(this.long0 + lam, this.over);
+  p.x = adjust_lon(this.long0 + lam);
   p.y = phi;
   return p;
+}
+
+/* determine latitude from authalic latitude */
+var P00 = 0.33333333333333333333;
+
+var P01 = 0.17222222222222222222;
+var P02 = 0.10257936507936507936;
+var P10 = 0.06388888888888888888;
+var P11 = 0.06640211640211640211;
+var P20 = 0.01641501294219154443;
+
+function authset(es) {
+  var t;
+  var APA = [];
+  APA[0] = es * P00;
+  t = es * es;
+  APA[0] += t * P01;
+  APA[1] = t * P10;
+  t *= es;
+  APA[0] += t * P02;
+  APA[1] += t * P11;
+  APA[2] = t * P20;
+  return APA;
+}
+
+function authlat(beta, APA) {
+  var t = beta + beta;
+  return (beta + APA[0] * Math.sin(t) + APA[1] * Math.sin(t + t) + APA[2] * Math.sin(t + t + t));
 }
 
 var laea_names = ['Lambert Azimuthal Equal Area', 'Lambert_Azimuthal_Equal_Area', 'laea'];
@@ -8257,7 +8120,6 @@ var laea_names = ['Lambert Azimuthal Equal Area', 'Lambert_Azimuthal_Equal_Area'
 });
 
 ;// ./node_modules/proj4/lib/common/asinz.js
-__webpack_require__.dn(asinz);
 /* harmony default export */ function asinz(x) {
   if (Math.abs(x) > 1) {
     x = (x > 1) ? 1 : -1;
@@ -8343,7 +8205,7 @@ function aea_forward(p) {
 
   var qs = qsfnz(this.e3, this.sin_phi);
   var rh1 = this.a * Math.sqrt(this.c - this.ns0 * qs) / this.ns0;
-  var theta = this.ns0 * adjust_lon(lon - this.long0, this.over);
+  var theta = this.ns0 * adjust_lon(lon - this.long0);
   var x = rh1 * Math.sin(theta) + this.x0;
   var y = this.rh - rh1 * Math.cos(theta) + this.y0;
 
@@ -8376,7 +8238,7 @@ function aea_inverse(p) {
     lat = this.phi1z(this.e3, qs);
   }
 
-  lon = adjust_lon(theta / this.ns0 + this.long0, this.over);
+  lon = adjust_lon(theta / this.ns0 + this.long0);
   p.x = lon;
   p.y = lat;
   return p;
@@ -8459,7 +8321,7 @@ function gnom_forward(p) {
   var lat = p.y;
   /* Forward equations
       ----------------- */
-  dlon = adjust_lon(lon - this.long0, this.over);
+  dlon = adjust_lon(lon - this.long0);
 
   sinphi = Math.sin(lat);
   cosphi = Math.cos(lat);
@@ -8507,7 +8369,7 @@ function gnom_inverse(p) {
 
     lat = asinz(cosc * this.sin_p14 + (p.y * sinc * this.cos_p14) / rh);
     lon = Math.atan2(p.x * sinc, rh * this.cos_p14 * cosc - p.y * this.sin_p14 * sinc);
-    lon = adjust_lon(this.long0 + lon, this.over);
+    lon = adjust_lon(this.long0 + lon);
   } else {
     lat = this.phic0;
     lon = 0;
@@ -8527,7 +8389,6 @@ var gnom_names = ['gnom'];
 });
 
 ;// ./node_modules/proj4/lib/common/iqsfnz.js
-__webpack_require__.dn(iqsfnz);
 
 
 /* harmony default export */ function iqsfnz(eccent, q) {
@@ -8593,7 +8454,7 @@ function cea_forward(p) {
   var x, y;
   /* Forward equations
       ----------------- */
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
   if (this.sphere) {
     x = this.x0 + this.a * dlon * Math.cos(this.lat_ts);
     y = this.y0 + this.a * Math.sin(lat) / Math.cos(this.lat_ts);
@@ -8616,11 +8477,11 @@ function cea_inverse(p) {
   var lon, lat;
 
   if (this.sphere) {
-    lon = adjust_lon(this.long0 + (p.x / this.a) / Math.cos(this.lat_ts), this.over);
+    lon = adjust_lon(this.long0 + (p.x / this.a) / Math.cos(this.lat_ts));
     lat = Math.asin((p.y / this.a) * Math.cos(this.lat_ts));
   } else {
     lat = iqsfnz(this.e, 2 * p.y * this.k0 / this.a);
-    lon = adjust_lon(this.long0 + p.x / (this.a * this.k0), this.over);
+    lon = adjust_lon(this.long0 + p.x / (this.a * this.k0));
   }
 
   p.x = lon;
@@ -8657,7 +8518,7 @@ function eqc_forward(p) {
   var lon = p.x;
   var lat = p.y;
 
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
   var dlat = adjust_lat(lat - this.lat0);
   p.x = this.x0 + (this.a * dlon * this.rc);
   p.y = this.y0 + (this.a * dlat);
@@ -8670,7 +8531,7 @@ function eqc_inverse(p) {
   var x = p.x;
   var y = p.y;
 
-  p.x = adjust_lon(this.long0 + ((x - this.x0) / (this.a * this.rc)), this.over);
+  p.x = adjust_lon(this.long0 + ((x - this.x0) / (this.a * this.rc)));
   p.y = adjust_lat(this.lat0 + ((y - this.y0) / (this.a)));
   return p;
 }
@@ -8729,7 +8590,7 @@ function poly_forward(p) {
   var lon = p.x;
   var lat = p.y;
   var x, y, el;
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
   el = dlon * Math.sin(lat);
   if (this.sphere) {
     if (Math.abs(lat) <= EPSLN) {
@@ -8765,7 +8626,7 @@ function poly_inverse(p) {
 
   if (this.sphere) {
     if (Math.abs(y + this.a * this.lat0) <= EPSLN) {
-      lon = adjust_lon(x / this.a + this.long0, this.over);
+      lon = adjust_lon(x / this.a + this.long0);
       lat = 0;
     } else {
       al = this.lat0 + y / this.a;
@@ -8781,12 +8642,12 @@ function poly_inverse(p) {
           break;
         }
       }
-      lon = adjust_lon(this.long0 + (Math.asin(x * Math.tan(phi) / this.a)) / Math.sin(lat), this.over);
+      lon = adjust_lon(this.long0 + (Math.asin(x * Math.tan(phi) / this.a)) / Math.sin(lat));
     }
   } else {
     if (Math.abs(y + this.ml0) <= EPSLN) {
       lat = 0;
-      lon = adjust_lon(this.long0 + x / this.a, this.over);
+      lon = adjust_lon(this.long0 + x / this.a);
     } else {
       al = (this.ml0 + y) / this.a;
       bl = x * x / this.a / this.a + al * al;
@@ -8809,7 +8670,7 @@ function poly_inverse(p) {
 
       // lat=phi4z(this.e,this.e0,this.e1,this.e2,this.e3,al,bl,0,0);
       cl = Math.sqrt(1 - this.es * Math.pow(Math.sin(lat), 2)) * Math.tan(lat);
-      lon = adjust_lon(this.long0 + Math.asin(x * cl / this.a) / Math.sin(lat), this.over);
+      lon = adjust_lon(this.long0 + Math.asin(x * cl / this.a) / Math.sin(lat));
     }
   }
 
@@ -9051,8 +8912,7 @@ var nzmg_names = ['New_Zealand_Map_Grid', 'nzmg'];
   init: nzmg_init,
   forward: nzmg_forward,
   inverse: nzmg_inverse,
-  names: nzmg_names,
-  iterations: iterations
+  names: nzmg_names
 });
 
 ;// ./node_modules/proj4/lib/projections/mill.js
@@ -9077,7 +8937,7 @@ function mill_forward(p) {
   var lat = p.y;
   /* Forward equations
       ----------------- */
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
   var x = this.x0 + this.a * dlon;
   var y = this.y0 + this.a * Math.log(Math.tan((Math.PI / 4) + (lat / 2.5))) * 1.25;
 
@@ -9092,7 +8952,7 @@ function mill_inverse(p) {
   p.x -= this.x0;
   p.y -= this.y0;
 
-  var lon = adjust_lon(this.long0 + p.x / this.a, this.over);
+  var lon = adjust_lon(this.long0 + p.x / this.a);
   var lat = 2.5 * (Math.atan(Math.exp(0.8 * p.y / this.a)) - Math.PI / 4);
 
   p.x = lon;
@@ -9133,7 +8993,6 @@ var sinu_MAX_ITER = 20;
 function sinu_init() {
   /* Place parameters in static storage for common use
     ------------------------------------------------- */
-  this.long0 = this.long0 || 0;
 
   if (!this.sphere) {
     this.en = pj_enfn(this.es);
@@ -9154,7 +9013,7 @@ function sinu_forward(p) {
   var lat = p.y;
   /* Forward equations
     ----------------- */
-  lon = adjust_lon(lon - this.long0, this.over);
+  lon = adjust_lon(lon - this.long0);
 
   if (this.sphere) {
     if (!this.m) {
@@ -9199,7 +9058,7 @@ function sinu_inverse(p) {
     } else if (this.n !== 1) {
       lat = asinz(Math.sin(lat) / this.n);
     }
-    lon = adjust_lon(lon + this.long0, this.over);
+    lon = adjust_lon(lon + this.long0);
     lat = adjust_lat(lat);
   } else {
     lat = pj_inv_mlfn(p.y / this.a, this.es, this.en);
@@ -9208,7 +9067,7 @@ function sinu_inverse(p) {
       s = Math.sin(lat);
       temp = this.long0 + p.x * Math.sqrt(1 - this.es * s * s) / (this.a * Math.cos(lat));
       // temp = this.long0 + p.x / (this.a * Math.cos(lat));
-      lon = adjust_lon(temp, this.over);
+      lon = adjust_lon(temp);
     } else if ((s - EPSLN) < HALF_PI) {
       lon = this.long0;
     }
@@ -9226,56 +9085,9 @@ var sinu_names = ['Sinusoidal', 'sinu'];
   names: sinu_names
 });
 
-;// ./node_modules/proj4/lib/projections/eck6.js
-
-
-/**
- * Eckert VI projection — spherical sinusoidal variant with m=1, n=1+π/2.
- * Always forces spherical computation regardless of the ellipsoid.
- *
- * @typedef {Object} LocalThis
- * @property {number} m
- * @property {number} n
- * @property {number} C_y
- * @property {number} C_x
- * @property {number} es
- */
-
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
-function eck6_init() {
-  /* Force spherical handling */
-  this.sphere = true;
-  this.b = this.a;
-
-  this.m = 1.0;
-  this.n = 2.570796326794896619231321691; /* 1 + π/2 */
-  this.es = 0;
-
-  this.C_y = Math.sqrt((this.m + 1.0) / this.n);
-  this.C_x = this.C_y / (this.m + 1.0);
-}
-
-var eck6_forward = sinu_forward;
-var eck6_inverse = sinu_inverse;
-
-var eck6_names = ['Eckert_VI', 'eck6'];
-/* harmony default export */ const eck6 = ({
-  init: eck6_init,
-  forward: eck6_forward,
-  inverse: eck6_inverse,
-  names: eck6_names
-});
-
 ;// ./node_modules/proj4/lib/projections/moll.js
 
-
-
-/** @this {import('../defs.js').ProjectionDefinition} */
-function moll_init() {
-  this.x0 = this.x0 !== undefined ? this.x0 : 0;
-  this.y0 = this.y0 !== undefined ? this.y0 : 0;
-  this.long0 = this.long0 !== undefined ? this.long0 : 0;
-}
+function moll_init() {}
 
 /* Mollweide forward equations--mapping lat,long to x,y
     ---------------------------------------------------- */
@@ -9285,7 +9097,7 @@ function moll_forward(p) {
   var lon = p.x;
   var lat = p.y;
 
-  var delta_lon = adjust_lon(lon - this.long0, this.over);
+  var delta_lon = adjust_lon(lon - this.long0);
   var theta = lat;
   var con = Math.PI * Math.sin(lat);
 
@@ -9331,7 +9143,7 @@ function moll_inverse(p) {
     arg = 0.999999999999;
   }
   theta = Math.asin(arg);
-  var lon = adjust_lon(this.long0 + (p.x / (0.900316316158 * this.a * Math.cos(theta))), this.over);
+  var lon = adjust_lon(this.long0 + (p.x / (0.900316316158 * this.a * Math.cos(theta))));
   if (lon < (-Math.PI)) {
     lon = -Math.PI;
   }
@@ -9442,7 +9254,7 @@ function eqdc_forward(p) {
     var ml = mlfn(this.e0, this.e1, this.e2, this.e3, lat);
     rh1 = this.a * (this.g - ml);
   }
-  var theta = this.ns * adjust_lon(lon - this.long0, this.over);
+  var theta = this.ns * adjust_lon(lon - this.long0);
   var x = this.x0 + rh1 * Math.sin(theta);
   var y = this.y0 + this.rh - rh1 * Math.cos(theta);
   p.x = x;
@@ -9469,7 +9281,7 @@ function eqdc_inverse(p) {
   }
 
   if (this.sphere) {
-    lon = adjust_lon(this.long0 + theta / this.ns, this.over);
+    lon = adjust_lon(this.long0 + theta / this.ns);
     lat = adjust_lat(this.g - rh1 / this.a);
     p.x = lon;
     p.y = lat;
@@ -9477,7 +9289,7 @@ function eqdc_inverse(p) {
   } else {
     var ml = this.g - rh1 / this.a;
     lat = imlfn(ml, this.e0, this.e1, this.e2, this.e3);
-    lon = adjust_lon(this.long0 + theta / this.ns, this.over);
+    lon = adjust_lon(this.long0 + theta / this.ns);
     p.x = lon;
     p.y = lat;
     return p;
@@ -9519,15 +9331,12 @@ function vandg_forward(p) {
 
   /* Forward equations
     ----------------- */
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
   var x, y;
 
   if (Math.abs(lat) <= EPSLN) {
     x = this.x0 + this.R * dlon;
     y = this.y0;
-    p.x = x;
-    p.y = y;
-    return p;
   }
   var theta = asinz(2 * Math.abs(lat / Math.PI));
   if ((Math.abs(dlon) <= EPSLN) || (Math.abs(Math.abs(lat) - HALF_PI) <= EPSLN)) {
@@ -9537,9 +9346,7 @@ function vandg_forward(p) {
     } else {
       y = this.y0 + Math.PI * this.R * -Math.tan(0.5 * theta);
     }
-    p.x = x;
-    p.y = y;
-    return p;
+    //  return(OK);
   }
   var al = 0.5 * Math.abs((Math.PI / dlon) - (dlon / Math.PI));
   var asq = al * al;
@@ -9613,7 +9420,7 @@ function vandg_inverse(p) {
   if (Math.abs(xx) < EPSLN) {
     lon = this.long0;
   } else {
-    lon = adjust_lon(this.long0 + Math.PI * (xys - 1 + Math.sqrt(1 + 2 * (xx * xx - yy * yy) + xys * xys)) / 2 / xx, this.over);
+    lon = adjust_lon(this.long0 + Math.PI * (xys - 1 + Math.sqrt(1 + 2 * (xx * xx - yy * yy) + xys * xys)) / 2 / xx);
   }
 
   p.x = lon;
@@ -9779,9 +9586,6 @@ function vincentyDirect(lat1, lon1, azi1, s12, a, f) {
 function aeqd_init() {
   this.sin_p12 = Math.sin(this.lat0);
   this.cos_p12 = Math.cos(this.lat0);
-  this.x0 = this.x0 || 0;
-  this.y0 = this.y0 || 0;
-  this.long0 = this.long0 || 0;
   // flattening for ellipsoid
   this.f = this.es / (1 + Math.sqrt(1 - this.es));
 }
@@ -9791,7 +9595,7 @@ function aeqd_forward(p) {
   var lat = p.y;
   var sinphi = Math.sin(p.y);
   var cosphi = Math.cos(p.y);
-  var dlon = adjust_lon(lon - this.long0, this.over);
+  var dlon = adjust_lon(lon - this.long0);
   var e0, e1, e2, e3, Mlp, Ml, c, kp, cos_c, vars, azi1;
   if (this.sphere) {
     if (Math.abs(this.sin_p12 - 1) <= EPSLN) {
@@ -9835,14 +9639,13 @@ function aeqd_forward(p) {
     } else {
       // Default case
       if (Math.abs(lon) < EPSLN && Math.abs(lat - this.lat0) < EPSLN) {
-        p.x = this.x0;
-        p.y = this.y0;
+        p.x = p.y = 0;
         return p;
       }
       vars = vincentyInverse(this.lat0, this.long0, lat, lon, this.a, this.f);
       azi1 = vars.azi1;
-      p.x = this.x0 + vars.s12 * Math.sin(azi1);
-      p.y = this.y0 + vars.s12 * Math.cos(azi1);
+      p.x = vars.s12 * Math.sin(azi1);
+      p.y = vars.s12 * Math.cos(azi1);
       return p;
     }
   }
@@ -9870,12 +9673,12 @@ function aeqd_inverse(p) {
       con = Math.abs(this.lat0) - HALF_PI;
       if (Math.abs(con) <= EPSLN) {
         if (this.lat0 >= 0) {
-          lon = adjust_lon(this.long0 + Math.atan2(p.x, -p.y), this.over);
+          lon = adjust_lon(this.long0 + Math.atan2(p.x, -p.y));
         } else {
-          lon = adjust_lon(this.long0 - Math.atan2(-p.x, p.y), this.over);
+          lon = adjust_lon(this.long0 - Math.atan2(-p.x, p.y));
         }
       } else {
-        lon = adjust_lon(this.long0 + Math.atan2(p.x * sinz, rh * this.cos_p12 * cosz - p.y * this.sin_p12 * sinz), this.over);
+        lon = adjust_lon(this.long0 + Math.atan2(p.x * sinz, rh * this.cos_p12 * cosz - p.y * this.sin_p12 * sinz));
       }
     }
 
@@ -9893,7 +9696,7 @@ function aeqd_inverse(p) {
       rh = Math.sqrt(p.x * p.x + p.y * p.y);
       M = Mlp - rh;
       lat = imlfn(M / this.a, e0, e1, e2, e3);
-      lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y), this.over);
+      lon = adjust_lon(this.long0 + Math.atan2(p.x, -1 * p.y));
       p.x = lon;
       p.y = lat;
       return p;
@@ -9904,7 +9707,7 @@ function aeqd_inverse(p) {
       M = rh - Mlp;
 
       lat = imlfn(M / this.a, e0, e1, e2, e3);
-      lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y), this.over);
+      lon = adjust_lon(this.long0 + Math.atan2(p.x, p.y));
       p.x = lon;
       p.y = lat;
       return p;
@@ -9946,8 +9749,8 @@ function ortho_init() {
 
   /* Place parameters in static storage for common use
       ------------------------------------------------- */
-  this.sin_p14 = Math.sin(this.lat0 || 0);
-  this.cos_p14 = Math.cos(this.lat0 || 0);
+  this.sin_p14 = Math.sin(this.lat0);
+  this.cos_p14 = Math.cos(this.lat0);
 }
 
 /* Orthographic forward equations--mapping lat,long to x,y
@@ -9962,7 +9765,7 @@ function ortho_forward(p) {
   var lat = p.y;
   /* Forward equations
       ----------------- */
-  dlon = adjust_lon(lon - (this.long0 || 0), this.over);
+  dlon = adjust_lon(lon - this.long0);
 
   sinphi = Math.sin(lat);
   cosphi = Math.cos(lat);
@@ -9971,8 +9774,8 @@ function ortho_forward(p) {
   g = this.sin_p14 * sinphi + this.cos_p14 * cosphi * coslon;
   ksp = 1;
   if ((g > 0) || (Math.abs(g) <= EPSLN)) {
-    x = (this.x0 || 0) + this.a * ksp * cosphi * Math.sin(dlon);
-    y = (this.y0 || 0) + this.a * ksp * (this.cos_p14 * sinphi - this.sin_p14 * cosphi * coslon);
+    x = this.a * ksp * cosphi * Math.sin(dlon);
+    y = this.y0 + this.a * ksp * (this.cos_p14 * sinphi - this.sin_p14 * cosphi * coslon);
   }
   p.x = x;
   p.y = y;
@@ -9985,39 +9788,36 @@ function ortho_inverse(p) {
   var sinz, cosz; /* sin of z and cos of z      */
   var con;
   var lon, lat;
-  var long0, lat0;
   /* Inverse equations
       ----------------- */
-  p.x -= this.x0 || 0;
-  p.y -= this.y0 || 0;
+  p.x -= this.x0;
+  p.y -= this.y0;
   rh = Math.sqrt(p.x * p.x + p.y * p.y);
   z = asinz(rh / this.a);
 
   sinz = Math.sin(z);
   cosz = Math.cos(z);
 
-  long0 = this.long0 || 0;
-  lat0 = this.lat0 || 0;
-  lon = long0;
+  lon = this.long0;
   if (Math.abs(rh) <= EPSLN) {
-    lat = lat0;
+    lat = this.lat0;
     p.x = lon;
     p.y = lat;
     return p;
   }
   lat = asinz(cosz * this.sin_p14 + (p.y * sinz * this.cos_p14) / rh);
-  con = Math.abs(lat0) - HALF_PI;
+  con = Math.abs(this.lat0) - HALF_PI;
   if (Math.abs(con) <= EPSLN) {
-    if (lat0 >= 0) {
-      lon = adjust_lon(long0 + Math.atan2(p.x, -p.y), this.over);
+    if (this.lat0 >= 0) {
+      lon = adjust_lon(this.long0 + Math.atan2(p.x, -p.y));
     } else {
-      lon = adjust_lon(long0 - Math.atan2(-p.x, p.y), this.over);
+      lon = adjust_lon(this.long0 - Math.atan2(-p.x, p.y));
     }
     p.x = lon;
     p.y = lat;
     return p;
   }
-  lon = adjust_lon(long0 + Math.atan2((p.x * sinz), rh * this.cos_p14 * cosz - p.y * this.sin_p14 * sinz), this.over);
+  lon = adjust_lon(this.long0 + Math.atan2((p.x * sinz), rh * this.cos_p14 * cosz - p.y * this.sin_p14 * sinz));
   p.x = lon;
   p.y = lat;
   return p;
@@ -10497,7 +10297,7 @@ function robin_init() {
 }
 
 function robin_forward(ll) {
-  var lon = adjust_lon(ll.x - this.long0, this.over);
+  var lon = adjust_lon(ll.x - this.long0);
 
   var dphi = Math.abs(ll.y);
   var i = Math.floor(dphi * C1);
@@ -10517,13 +10317,6 @@ function robin_forward(ll) {
 
   xy.x = xy.x * this.a * FXC + this.x0;
   xy.y = xy.y * this.a * FYC + this.y0;
-
-  if (ll.z !== undefined) {
-    xy.z = ll.z;
-  }
-  if (ll.m !== undefined) {
-    xy.m = ll.m;
-  }
   return xy;
 }
 
@@ -10568,14 +10361,7 @@ function robin_inverse(xy) {
     }
   }
 
-  ll.x = adjust_lon(ll.x + this.long0, this.over);
-
-  if (xy.z !== undefined) {
-    ll.z = xy.z;
-  }
-  if (xy.m !== undefined) {
-    ll.m = xy.m;
-  }
+  ll.x = adjust_lon(ll.x + this.long0);
   return ll;
 }
 
@@ -11011,70 +10797,35 @@ var geos_names = ['Geostationary Satellite View', 'Geostationary_Satellite', 'ge
 
 
 
-
-
-
 var A1 = 1.340264,
   A2 = -0.081106,
   A3 = 0.000893,
   A4 = 0.003796,
   M = Math.sqrt(3) / 2.0;
 
-/**
- * @typedef {Object} LocalThis
- * @property {number} es
- * @property {number} e
- * @property {Array<number>} apa
- * @property {number} qp
- * @property {number} rqda
- */
-
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function eqearth_init() {
+  this.es = 0;
   this.long0 = this.long0 !== undefined ? this.long0 : 0;
-  this.x0 = this.x0 !== undefined ? this.x0 : 0;
-  this.y0 = this.y0 !== undefined ? this.y0 : 0;
-  if (this.es !== 0) {
-    this.apa = authset(this.es);
-    this.qp = qsfnz(this.e, 1);
-    this.rqda = Math.sqrt(0.5 * this.qp);
-  }
 }
 
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function eqearth_forward(p) {
-  var lam = adjust_lon(p.x - this.long0, this.over);
+  var lam = adjust_lon(p.x - this.long0);
   var phi = p.y;
-  var sinphi = Math.sin(phi);
-  if (this.es !== 0) {
-    sinphi = qsfnz(this.e, sinphi) / this.qp;
-  }
-  var paramLat = Math.asin(M * sinphi),
+  var paramLat = Math.asin(M * Math.sin(phi)),
     paramLatSq = paramLat * paramLat,
     paramLatPow6 = paramLatSq * paramLatSq * paramLatSq;
   p.x = lam * Math.cos(paramLat)
     / (M * (A1 + 3 * A2 * paramLatSq + paramLatPow6 * (7 * A3 + 9 * A4 * paramLatSq)));
   p.y = paramLat * (A1 + A2 * paramLatSq + paramLatPow6 * (A3 + A4 * paramLatSq));
 
-  if (this.es !== 0) {
-    p.x *= this.rqda;
-    p.y *= this.rqda;
-  }
-
   p.x = this.a * p.x + this.x0;
   p.y = this.a * p.y + this.y0;
   return p;
 }
 
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
 function eqearth_inverse(p) {
   p.x = (p.x - this.x0) / this.a;
   p.y = (p.y - this.y0) / this.a;
-
-  if (this.es !== 0) {
-    p.x /= this.rqda;
-    p.y /= this.rqda;
-  }
 
   var EPS = 1e-9,
     NITER = 12,
@@ -11097,11 +10848,7 @@ function eqearth_inverse(p) {
     / Math.cos(paramLat);
   p.y = Math.asin(Math.sin(paramLat) / M);
 
-  if (this.es !== 0) {
-    p.y = authlat(p.y, this.apa);
-  }
-
-  p.x = adjust_lon(p.x + this.long0, this.over);
+  p.x = adjust_lon(p.x + this.long0);
   return p;
 }
 
@@ -11161,7 +10908,7 @@ function bonne_init() {
 }
 
 function e_fwd(p) {
-  var lam = adjust_lon(p.x - (this.long0 || 0), this.over);
+  var lam = adjust_lon(p.x - (this.long0 || 0));
   var phi = p.y;
   var rh, E, c;
   rh = this.am1 + this.m1 - pj_mlfn(phi, E = Math.sin(phi), c = Math.cos(phi), this.en);
@@ -11189,13 +10936,13 @@ function e_inv(p) {
   } else {
     throw new Error();
   }
-  p.x = adjust_lon(lam + (this.long0 || 0), this.over);
+  p.x = adjust_lon(lam + (this.long0 || 0));
   p.y = adjust_lat(phi);
   return p;
 }
 
 function s_fwd(p) {
-  var lam = adjust_lon(p.x - (this.long0 || 0), this.over);
+  var lam = adjust_lon(p.x - (this.long0 || 0));
   var phi = p.y;
   var E, rh;
   rh = this.cphi1 + this.phi1 - phi;
@@ -11226,7 +10973,7 @@ function s_inv(p) {
   } else {
     lam = rh * Math.atan2(p.x, p.y) / Math.cos(phi);
   }
-  p.x = adjust_lon(lam + (this.long0 || 0), this.over);
+  p.x = adjust_lon(lam + (this.long0 || 0));
   p.y = adjust_lat(phi);
   return p;
 }
@@ -11237,383 +10984,7 @@ var bonne_names = ['bonne', 'Bonne (Werner lat_1=90)'];
   names: bonne_names
 });
 
-;// ./node_modules/proj4/lib/projections/ob_tran.js
-
-
-
-
-
-/**
-    Original projection implementation:
-        https://github.com/OSGeo/PROJ/blob/46c47e9adf6376ae06afabe5d24a0016a05ced82/src/projections/ob_tran.cpp
-
-    Documentation:
-        https://proj.org/operations/projections/ob_tran.html
-
-    References/Formulas:
-        https://pubs.usgs.gov/pp/1395/report.pdf
-
-    Examples:
-        +proj=ob_tran +o_proj=moll +o_lat_p=45 +o_lon_p=-90
-        +proj=ob_tran +o_proj=moll +o_lat_p=45 +o_lon_p=-90 +lon_0=60
-        +proj=ob_tran +o_proj=moll +o_lat_p=45 +o_lon_p=-90 +lon_0=-90
-*/
-
-const projectionType = {
-  OBLIQUE: {
-    forward: forwardOblique,
-    inverse: inverseOblique
-  },
-  TRANSVERSE: {
-    forward: forwardTransverse,
-    inverse: inverseTransverse
-  }
-};
-
-/**
- * @typedef {Object} LocalThis
- * @property {number} lamp
- * @property {number} cphip
- * @property {number} sphip
- * @property {Object} projectionType
- * @property {string | undefined} o_proj
- * @property {string | undefined} o_lon_p
- * @property {string | undefined} o_lat_p
- * @property {string | undefined} o_alpha
- * @property {string | undefined} o_lon_c
- * @property {string | undefined} o_lat_c
- * @property {string | undefined} o_lon_1
- * @property {string | undefined} o_lat_1
- * @property {string | undefined} o_lon_2
- * @property {string | undefined} o_lat_2
- * @property {number | undefined} oLongP
- * @property {number | undefined} oLatP
- * @property {number | undefined} oAlpha
- * @property {number | undefined} oLongC
- * @property {number | undefined} oLatC
- * @property {number | undefined} oLong1
- * @property {number | undefined} oLat1
- * @property {number | undefined} oLong2
- * @property {number | undefined} oLat2
- * @property {boolean} isIdentity
- * @property {import('..').Converter} obliqueProjection
- *
- */
-
-/**
- *    Parameters can be from the following sets:
- *       New pole --> o_lat_p, o_lon_p
- *       Rotate about point --> o_alpha, o_lon_c, o_lat_c
- *       New equator points --> lon_1, lat_1, lon_2, lat_2
- *
- *    Per the original source code, the parameter sets are
- *    checked in the order of the object below.
- */
-const paramSets = {
-  ROTATE: {
-    o_alpha: 'oAlpha',
-    o_lon_c: 'oLongC',
-    o_lat_c: 'oLatC'
-  },
-  NEW_POLE: {
-    o_lat_p: 'oLatP',
-    o_lon_p: 'oLongP'
-  },
-  NEW_EQUATOR: {
-    o_lon_1: 'oLong1',
-    o_lat_1: 'oLat1',
-    o_lon_2: 'oLong2',
-    o_lat_2: 'oLat2'
-  }
-};
-
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
-function ob_tran_init() {
-  this.x0 = this.x0 || 0;
-  this.y0 = this.y0 || 0;
-  this.long0 = this.long0 || 0;
-  this.title = this.title || 'General Oblique Transformation';
-  this.isIdentity = longlat_names.includes(this.o_proj);
-
-  /** Verify required parameters exist */
-  if (!this.o_proj) {
-    throw new Error('Missing parameter: o_proj');
-  }
-
-  if (this.o_proj === `ob_tran`) {
-    throw new Error('Invalid value for o_proj: ' + this.o_proj);
-  }
-
-  const newProjStr = this.projStr.replace('+proj=ob_tran', '').replace('+o_proj=', '+proj=').trim();
-
-  /** @type {import('../defs.js').ProjectionDefinition} */
-  const oProj = Proj(newProjStr);
-  if (!oProj) {
-    throw new Error('Invalid parameter: o_proj. Unknown projection ' + this.o_proj);
-  }
-  oProj.long0 = 0; // we handle long0 before/after forward/inverse
-  this.obliqueProjection = oProj;
-
-  let matchedSet;
-  const paramSetsKeys = Object.keys(paramSets);
-
-  /**
-   * parse strings, convert to radians, throw on NaN
-   * @param {string} name
-   * @returns {number | undefined}
-   */
-  const parseParam = (name) => {
-    if (typeof this[name] === `undefined`) {
-      return undefined;
-    }
-    const val = parseFloat(this[name]) * D2R;
-    if (isNaN(val)) {
-      throw new Error('Invalid value for ' + name + ': ' + this[name]);
-    }
-    return val;
-  };
-
-  for (let i = 0; i < paramSetsKeys.length; i++) {
-    const setKey = paramSetsKeys[i];
-    const set = paramSets[setKey];
-    const params = Object.entries(set);
-    const setHasParams = params.some(
-      ([p]) => typeof this[p] !== 'undefined'
-    );
-    if (!setHasParams) {
-      continue;
-    }
-    matchedSet = set;
-    for (let ii = 0; ii < params.length; ii++) {
-      const [inputParam, param] = params[ii];
-      const val = parseParam(inputParam);
-      if (typeof val === 'undefined') {
-        throw new Error('Missing parameter: ' + inputParam + '.');
-      }
-      this[param] = val;
-    }
-    break;
-  }
-
-  if (!matchedSet) {
-    throw new Error('No valid parameters provided for ob_tran projection.');
-  }
-
-  const { lamp, phip } = createRotation(this, matchedSet);
-  this.lamp = lamp;
-
-  if (Math.abs(phip) > EPSLN) {
-    this.cphip = Math.cos(phip);
-    this.sphip = Math.sin(phip);
-    this.projectionType = projectionType.OBLIQUE;
-  } else {
-    this.projectionType = projectionType.TRANSVERSE;
-  }
-}
-
-// ob_tran forward equations--mapping (lat,long) to (x,y)
-// transverse (90 degrees from normal orientation) - forwardTransverse
-// or oblique (arbitrary angle) used based on parameters - forwardOblique
-// -----------------------------------------------------------------
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
-function ob_tran_forward(p) {
-  return this.projectionType.forward(this, p);
-}
-
-// inverse equations--mapping (x,y) to (lat,long)
-// transverse: inverseTransverse
-// oblique: inverseOblique
-// -----------------------------------------------------------------
-/** @this {import('../defs.js').ProjectionDefinition & LocalThis} */
-function ob_tran_inverse(p) {
-  return this.projectionType.inverse(this, p);
-}
-
-/**
- * @param {import('../defs.js').ProjectionDefinition & LocalThis} params - Initialized projection definition
- * @param {Object} how - Transformation method
- * @returns {{phip: number, lamp: number}}
- */
-function createRotation(params, how) {
-  let phip, lamp;
-  if (how === paramSets.ROTATE) {
-    let lamc = params.oLongC;
-    let phic = params.oLatC;
-    let alpha = params.oAlpha;
-    if (Math.abs(Math.abs(phic) - HALF_PI) <= EPSLN) {
-      throw new Error('Invalid value for o_lat_c: ' + params.o_lat_c + ' should be < 90°');
-    }
-    lamp = lamc + Math.atan2(-1 * Math.cos(alpha), -1 * Math.sin(alpha) * Math.sin(phic));
-    phip = Math.asin(Math.cos(phic) * Math.sin(alpha));
-  } else if (how === paramSets.NEW_POLE) {
-    lamp = params.oLongP;
-    phip = params.oLatP;
-  } else {
-    let lam1 = params.oLong1;
-    let phi1 = params.oLat1;
-    let lam2 = params.oLong2;
-    let phi2 = params.oLat2;
-    let con = Math.abs(phi1);
-
-    if (Math.abs(phi1) > HALF_PI - EPSLN) {
-      throw new Error('Invalid value for o_lat_1: ' + params.o_lat_1 + ' should be < 90°');
-    }
-
-    if (Math.abs(phi2) > HALF_PI - EPSLN) {
-      throw new Error('Invalid value for o_lat_2: ' + params.o_lat_2 + ' should be < 90°');
-    }
-
-    if (Math.abs(phi1 - phi2) < EPSLN) {
-      throw new Error('Invalid value for o_lat_1 and o_lat_2: o_lat_1 should be different from o_lat_2');
-    }
-    if (con < EPSLN) {
-      throw new Error('Invalid value for o_lat_1: o_lat_1 should be different from zero');
-    }
-
-    lamp = Math.atan2(
-      (Math.cos(phi1) * Math.sin(phi2) * Math.cos(lam1))
-      - (Math.sin(phi1) * Math.cos(phi2) * Math.cos(lam2)),
-      (Math.sin(phi1) * Math.cos(phi2) * Math.sin(lam2))
-      - (Math.cos(phi1) * Math.sin(phi2) * Math.sin(lam1))
-    );
-
-    phip = Math.atan(-1 * Math.cos(lamp - lam1) / Math.tan(phi1));
-  }
-
-  return { lamp, phip };
-}
-
-/**
- * Forward (lng, lat) to (x, y) for oblique case
- * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
- * @param {{x: number, y: number}} lp - lambda, phi
- */
-function forwardOblique(self, lp) {
-  let { x: lam, y: phi } = lp;
-  lam = adjust_lon(lam - self.long0, self.over);
-  const coslam = Math.cos(lam);
-  const sinphi = Math.sin(phi);
-  const cosphi = Math.cos(phi);
-
-  lp.x = adjust_lon(
-    Math.atan2(
-      cosphi * Math.sin(lam),
-      (self.sphip * cosphi * coslam) + (self.cphip * sinphi)
-    ) + self.lamp
-  );
-  lp.y = Math.asin(
-    (self.sphip * sinphi) - (self.cphip * cosphi * coslam)
-  );
-
-  const result = self.obliqueProjection.forward(lp);
-  if (self.isIdentity) {
-    result.x *= R2D;
-    result.y *= R2D;
-  }
-  return result;
-}
-
-/**
- * Forward (lng, lat) to (x, y) for transverse case
- * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
- * @param {{x: number, y: number}} lp - lambda, phi
- */
-function forwardTransverse(self, lp) {
-  let { x: lam, y: phi } = lp;
-  lam = adjust_lon(lam - self.long0, self.over);
-  const cosphi = Math.cos(phi);
-  const coslam = Math.cos(lam);
-  lp.x = adjust_lon(
-    Math.atan2(
-      cosphi * Math.sin(lam),
-      Math.sin(phi)
-    ) + self.lamp
-  );
-  lp.y = Math.asin(-1 * cosphi * coslam);
-
-  const result = self.obliqueProjection.forward(lp);
-
-  if (self.isIdentity) {
-    result.x *= R2D;
-    result.y *= R2D;
-  }
-  return result;
-}
-
-/**
- * Inverse (x, y) to (lng, lat) for oblique case
- * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
- * @param {{x: number, y: number}} lp - lambda, phi
- */
-function inverseOblique(self, lp) {
-  if (self.isIdentity) {
-    lp.x *= D2R;
-    lp.y *= D2R;
-  }
-
-  const innerLp = self.obliqueProjection.inverse(lp);
-  let { x: lam, y: phi } = innerLp;
-
-  if (lam < Number.MAX_VALUE) {
-    lam -= self.lamp;
-    const coslam = Math.cos(lam);
-    const sinphi = Math.sin(phi);
-    const cosphi = Math.cos(phi);
-    lp.x = Math.atan2(
-      cosphi * Math.sin(lam),
-      (self.sphip * cosphi * coslam) - (self.cphip * sinphi)
-    );
-    lp.y = Math.asin(
-      (self.sphip * sinphi) + (self.cphip * cosphi * coslam)
-    );
-  }
-
-  lp.x = adjust_lon(lp.x + self.long0);
-  return lp;
-}
-
-/**
- * Inverse (x, y) to (lng, lat) for transverse case
- * @param {import('../defs.js').ProjectionDefinition & LocalThis} self
- * @param {{x: number, y: number}} lp - lambda, phi
- */
-function inverseTransverse(self, lp) {
-  if (self.isIdentity) {
-    lp.x *= D2R;
-    lp.y *= D2R;
-  }
-
-  const innerLp = self.obliqueProjection.inverse(lp);
-  let { x: lam, y: phi } = innerLp;
-
-  if (lam < Number.MAX_VALUE) {
-    const cosphi = Math.cos(phi);
-    lam -= self.lamp;
-    lp.x = Math.atan2(
-      cosphi * Math.sin(lam),
-      -1 * Math.sin(phi)
-    );
-    lp.y = Math.asin(
-      cosphi * Math.cos(lam)
-    );
-  }
-
-  lp.x = adjust_lon(lp.x + self.long0);
-  return lp;
-}
-
-var ob_tran_names = ['General Oblique Transformation', 'General_Oblique_Transformation', 'ob_tran'];
-/* harmony default export */ const ob_tran = ({
-  init: ob_tran_init,
-  forward: ob_tran_forward,
-  inverse: ob_tran_inverse,
-  names: ob_tran_names
-});
-
 ;// ./node_modules/proj4/projs.js
-__webpack_require__.dn(proj4_projs);
-
-
 
 
 
@@ -11665,7 +11036,6 @@ __webpack_require__.dn(proj4_projs);
   proj4.Proj.projections.add(nzmg);
   proj4.Proj.projections.add(mill);
   proj4.Proj.projections.add(sinu);
-  proj4.Proj.projections.add(eck6);
   proj4.Proj.projections.add(moll);
   proj4.Proj.projections.add(eqdc);
   proj4.Proj.projections.add(vandg);
@@ -11678,7 +11048,6 @@ __webpack_require__.dn(proj4_projs);
   proj4.Proj.projections.add(geos);
   proj4.Proj.projections.add(eqearth);
   proj4.Proj.projections.add(bonne);
-  proj4.Proj.projections.add(ob_tran);
 }
 
 ;// ./node_modules/proj4/lib/index.js
@@ -11727,7 +11096,6 @@ proj4_projs(lib_proj4);
 /* harmony default export */ const lib = (lib_proj4);
 
 ;// ./node_modules/d3-selection/src/selector.js
-__webpack_require__.dn(selector);
 function none() {}
 
 /* harmony default export */ function selector(selector) {
@@ -11737,7 +11105,6 @@ function none() {}
 }
 
 ;// ./node_modules/d3-selection/src/selection/select.js
-__webpack_require__.dn(selection_select);
 
 
 
@@ -11768,7 +11135,6 @@ function array(x) {
 }
 
 ;// ./node_modules/d3-selection/src/selectorAll.js
-__webpack_require__.dn(selectorAll);
 function empty() {
   return [];
 }
@@ -11780,7 +11146,6 @@ function empty() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/selectAll.js
-__webpack_require__.dn(selectAll);
 
 
 
@@ -11808,7 +11173,6 @@ function arrayAll(select) {
 }
 
 ;// ./node_modules/d3-selection/src/matcher.js
-__webpack_require__.dn(matcher);
 /* harmony default export */ function matcher(selector) {
   return function() {
     return this.matches(selector);
@@ -11823,7 +11187,6 @@ function childMatcher(selector) {
 
 
 ;// ./node_modules/d3-selection/src/selection/selectChild.js
-__webpack_require__.dn(selectChild);
 
 
 var find = Array.prototype.find;
@@ -11844,7 +11207,6 @@ function childFirst() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/selectChildren.js
-__webpack_require__.dn(selectChildren);
 
 
 var filter = Array.prototype.filter;
@@ -11865,7 +11227,6 @@ function childrenFilter(match) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/filter.js
-__webpack_require__.dn(selection_filter);
 
 
 
@@ -11884,13 +11245,11 @@ __webpack_require__.dn(selection_filter);
 }
 
 ;// ./node_modules/d3-selection/src/selection/sparse.js
-__webpack_require__.dn(sparse);
 /* harmony default export */ function sparse(update) {
   return new Array(update.length);
 }
 
 ;// ./node_modules/d3-selection/src/selection/enter.js
-__webpack_require__.dn(enter);
 
 
 
@@ -11915,15 +11274,13 @@ EnterNode.prototype = {
 };
 
 ;// ./node_modules/d3-selection/src/constant.js
-__webpack_require__.dn(constant);
-/* harmony default export */ function constant(x) {
+/* harmony default export */ function src_constant(x) {
   return function() {
     return x;
   };
 }
 
 ;// ./node_modules/d3-selection/src/selection/data.js
-__webpack_require__.dn(data);
 
 
 
@@ -12009,7 +11366,7 @@ function data_datum(node) {
       parents = this._parents,
       groups = this._groups;
 
-  if (typeof value !== "function") value = constant(value);
+  if (typeof value !== "function") value = src_constant(value);
 
   for (var m = groups.length, update = new Array(m), enter = new Array(m), exit = new Array(m), j = 0; j < m; ++j) {
     var parent = parents[j],
@@ -12054,7 +11411,6 @@ function arraylike(data) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/exit.js
-__webpack_require__.dn(exit);
 
 
 
@@ -12063,7 +11419,6 @@ __webpack_require__.dn(exit);
 }
 
 ;// ./node_modules/d3-selection/src/selection/join.js
-__webpack_require__.dn(join);
 /* harmony default export */ function join(onenter, onupdate, onexit) {
   var enter = this.enter(), update = this, exit = this.exit();
   if (typeof onenter === "function") {
@@ -12081,7 +11436,6 @@ __webpack_require__.dn(join);
 }
 
 ;// ./node_modules/d3-selection/src/selection/merge.js
-__webpack_require__.dn(merge);
 
 
 /* harmony default export */ function merge(context) {
@@ -12103,8 +11457,7 @@ __webpack_require__.dn(merge);
 }
 
 ;// ./node_modules/d3-selection/src/selection/order.js
-__webpack_require__.dn(selection_order);
-/* harmony default export */ function selection_order() {
+/* harmony default export */ function order() {
 
   for (var groups = this._groups, j = -1, m = groups.length; ++j < m;) {
     for (var group = groups[j], i = group.length - 1, next = group[i], node; --i >= 0;) {
@@ -12119,7 +11472,6 @@ __webpack_require__.dn(selection_order);
 }
 
 ;// ./node_modules/d3-selection/src/selection/sort.js
-__webpack_require__.dn(sort);
 
 
 /* harmony default export */ function sort(compare) {
@@ -12146,7 +11498,6 @@ function ascending(a, b) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/call.js
-__webpack_require__.dn(call);
 /* harmony default export */ function call() {
   var callback = arguments[0];
   arguments[0] = this;
@@ -12155,13 +11506,11 @@ __webpack_require__.dn(call);
 }
 
 ;// ./node_modules/d3-selection/src/selection/nodes.js
-__webpack_require__.dn(nodes);
 /* harmony default export */ function nodes() {
   return Array.from(this);
 }
 
 ;// ./node_modules/d3-selection/src/selection/node.js
-__webpack_require__.dn(node);
 /* harmony default export */ function node() {
 
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
@@ -12175,7 +11524,6 @@ __webpack_require__.dn(node);
 }
 
 ;// ./node_modules/d3-selection/src/selection/size.js
-__webpack_require__.dn(size);
 /* harmony default export */ function size() {
   let size = 0;
   for (const node of this) ++size; // eslint-disable-line no-unused-vars
@@ -12183,13 +11531,11 @@ __webpack_require__.dn(size);
 }
 
 ;// ./node_modules/d3-selection/src/selection/empty.js
-__webpack_require__.dn(selection_empty);
 /* harmony default export */ function selection_empty() {
   return !this.node();
 }
 
 ;// ./node_modules/d3-selection/src/selection/each.js
-__webpack_require__.dn(each);
 /* harmony default export */ function each(callback) {
 
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
@@ -12213,7 +11559,6 @@ var xhtml = "http://www.w3.org/1999/xhtml";
 });
 
 ;// ./node_modules/d3-selection/src/namespace.js
-__webpack_require__.dn(namespace);
 
 
 /* harmony default export */ function namespace(name) {
@@ -12223,7 +11568,6 @@ __webpack_require__.dn(namespace);
 }
 
 ;// ./node_modules/d3-selection/src/selection/attr.js
-__webpack_require__.dn(attr);
 
 
 function attrRemove(name) {
@@ -12283,7 +11627,6 @@ function attrFunctionNS(fullname, value) {
 }
 
 ;// ./node_modules/d3-selection/src/window.js
-__webpack_require__.dn(src_window);
 /* harmony default export */ function src_window(node) {
   return (node.ownerDocument && node.ownerDocument.defaultView) // node is a Node
       || (node.document && node) // node is a Window
@@ -12291,7 +11634,6 @@ __webpack_require__.dn(src_window);
 }
 
 ;// ./node_modules/d3-selection/src/selection/style.js
-__webpack_require__.dn(style);
 
 
 function styleRemove(name) {
@@ -12329,7 +11671,6 @@ function styleValue(node, name) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/property.js
-__webpack_require__.dn(property);
 function propertyRemove(name) {
   return function() {
     delete this[name];
@@ -12360,7 +11701,6 @@ function propertyFunction(name, value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/classed.js
-__webpack_require__.dn(classed);
 function classArray(string) {
   return string.trim().split(/^|\s+/);
 }
@@ -12438,7 +11778,6 @@ function classedFunction(names, value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/text.js
-__webpack_require__.dn(selection_text);
 function textRemove() {
   this.textContent = "";
 }
@@ -12466,7 +11805,6 @@ function textFunction(value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/html.js
-__webpack_require__.dn(html);
 function htmlRemove() {
   this.innerHTML = "";
 }
@@ -12494,7 +11832,6 @@ function htmlFunction(value) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/raise.js
-__webpack_require__.dn(selection_raise);
 function raise() {
   if (this.nextSibling) this.parentNode.appendChild(this);
 }
@@ -12504,7 +11841,6 @@ function raise() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/lower.js
-__webpack_require__.dn(selection_lower);
 function lower() {
   if (this.previousSibling) this.parentNode.insertBefore(this, this.parentNode.firstChild);
 }
@@ -12514,7 +11850,6 @@ function lower() {
 }
 
 ;// ./node_modules/d3-selection/src/creator.js
-__webpack_require__.dn(creator);
 
 
 
@@ -12542,7 +11877,6 @@ function creatorFixed(fullname) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/append.js
-__webpack_require__.dn(append);
 
 
 /* harmony default export */ function append(name) {
@@ -12553,7 +11887,6 @@ __webpack_require__.dn(append);
 }
 
 ;// ./node_modules/d3-selection/src/selection/insert.js
-__webpack_require__.dn(insert);
 
 
 
@@ -12570,7 +11903,6 @@ function constantNull() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/remove.js
-__webpack_require__.dn(selection_remove);
 function remove() {
   var parent = this.parentNode;
   if (parent) parent.removeChild(this);
@@ -12581,7 +11913,6 @@ function remove() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/clone.js
-__webpack_require__.dn(clone);
 function selection_cloneShallow() {
   var clone = this.cloneNode(false), parent = this.parentNode;
   return parent ? parent.insertBefore(clone, this.nextSibling) : clone;
@@ -12597,7 +11928,6 @@ function selection_cloneDeep() {
 }
 
 ;// ./node_modules/d3-selection/src/selection/datum.js
-__webpack_require__.dn(selection_datum);
 /* harmony default export */ function selection_datum(value) {
   return arguments.length
       ? this.property("__data__", value)
@@ -12605,7 +11935,6 @@ __webpack_require__.dn(selection_datum);
 }
 
 ;// ./node_modules/d3-selection/src/selection/on.js
-__webpack_require__.dn(on);
 function contextListener(listener) {
   return function(event) {
     listener.call(this, event, this.__data__);
@@ -12675,7 +12004,6 @@ function onAdd(typename, value, options) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/dispatch.js
-__webpack_require__.dn(dispatch);
 
 
 function dispatchEvent(node, type, params) {
@@ -12712,7 +12040,6 @@ function dispatchFunction(type, params) {
 }
 
 ;// ./node_modules/d3-selection/src/selection/iterator.js
-__webpack_require__.dn(iterator);
 /* harmony default export */ function* iterator() {
   for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
     for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
@@ -12785,7 +12112,7 @@ Selection.prototype = selection.prototype = {
   join: join,
   merge: merge,
   selection: selection_selection,
-  order: selection_order,
+  order: order,
   sort: sort,
   call: call,
   nodes: nodes,
@@ -12814,7 +12141,6 @@ Selection.prototype = selection.prototype = {
 /* harmony default export */ const src_selection = (selection);
 
 ;// ./node_modules/d3-selection/src/select.js
-__webpack_require__.dn(src_select);
 
 
 /* harmony default export */ function src_select(selector) {
@@ -12910,10 +12236,9 @@ function set(type, name, callback) {
 /* harmony default export */ const src_dispatch = (dispatch_dispatch);
 
 ;// ./node_modules/d3-drag/src/noevent.js
-__webpack_require__.dn(noevent);
 // These are typically used in conjunction with noevent to ensure that we can
 // preventDefault on the event.
-const nonpassive = (/* unused pure expression or super */ null && ({passive: false}));
+const nonpassive = {passive: false};
 const nonpassivecapture = {capture: true, passive: false};
 
 function nopropagation(event) {
@@ -12926,7 +12251,6 @@ function nopropagation(event) {
 }
 
 ;// ./node_modules/d3-drag/src/nodrag.js
-__webpack_require__.dn(nodrag);
 
 
 
@@ -13030,7 +12354,6 @@ function tanh(x) {
 })(Math.SQRT2, 2, 4));
 
 ;// ./node_modules/d3-selection/src/sourceEvent.js
-__webpack_require__.dn(sourceEvent);
 /* harmony default export */ function sourceEvent(event) {
   let sourceEvent;
   while (sourceEvent = event.sourceEvent) event = sourceEvent;
@@ -13038,7 +12361,6 @@ __webpack_require__.dn(sourceEvent);
 }
 
 ;// ./node_modules/d3-selection/src/pointer.js
-__webpack_require__.dn(pointer);
 
 
 /* harmony default export */ function pointer(event, node) {
@@ -13173,7 +12495,6 @@ function sleep(time) {
 }
 
 ;// ./node_modules/d3-timer/src/timeout.js
-__webpack_require__.dn(src_timeout);
 
 
 /* harmony default export */ function src_timeout(callback, delay, time) {
@@ -13187,7 +12508,6 @@ __webpack_require__.dn(src_timeout);
 }
 
 ;// ./node_modules/d3-transition/src/transition/schedule.js
-__webpack_require__.dn(schedule);
 
 
 
@@ -13343,7 +12663,6 @@ function create(node, id, self) {
 }
 
 ;// ./node_modules/d3-transition/src/interrupt.js
-__webpack_require__.dn(interrupt);
 
 
 /* harmony default export */ function interrupt(node, name) {
@@ -13370,7 +12689,6 @@ __webpack_require__.dn(interrupt);
 }
 
 ;// ./node_modules/d3-transition/src/selection/interrupt.js
-__webpack_require__.dn(selection_interrupt);
 
 
 /* harmony default export */ function selection_interrupt(name) {
@@ -13380,7 +12698,6 @@ __webpack_require__.dn(selection_interrupt);
 }
 
 ;// ./node_modules/d3-interpolate/src/number.js
-__webpack_require__.dn(number);
 /* harmony default export */ function number(a, b) {
   return a = +a, b = +b, function(t) {
     return a * (1 - t) + b * t;
@@ -13388,7 +12705,6 @@ __webpack_require__.dn(number);
 }
 
 ;// ./node_modules/d3-interpolate/src/transform/decompose.js
-__webpack_require__.dn(decompose);
 var degrees = 180 / Math.PI;
 
 var decompose_identity = {
@@ -13502,7 +12818,6 @@ var interpolateTransformCss = interpolateTransform(parseCss, "px, ", "px)", "deg
 var interpolateTransformSvg = interpolateTransform(parseSvg, ", ", ")", ")");
 
 ;// ./node_modules/d3-transition/src/transition/tween.js
-__webpack_require__.dn(tween);
 
 
 function tweenRemove(id, name) {
@@ -13586,7 +12901,6 @@ function tweenValue(transition, name, value) {
 }
 
 ;// ./node_modules/d3-color/src/define.js
-__webpack_require__.dn(src_define);
 /* harmony default export */ function src_define(constructor, factory, prototype) {
   constructor.prototype = factory.prototype = prototype;
   prototype.constructor = constructor;
@@ -13997,7 +13311,6 @@ function hsl2rgb(h, m1, m2) {
 }
 
 ;// ./node_modules/d3-interpolate/src/basis.js
-__webpack_require__.dn(src_basis);
 function basis(t1, v0, v1, v2, v3) {
   var t2 = t1 * t1, t3 = t2 * t1;
   return ((1 - 3 * t1 + 3 * t2 - t3) * v0
@@ -14019,7 +13332,6 @@ function basis(t1, v0, v1, v2, v3) {
 }
 
 ;// ./node_modules/d3-interpolate/src/basisClosed.js
-__webpack_require__.dn(basisClosed);
 
 
 /* harmony default export */ function basisClosed(values) {
@@ -14035,11 +13347,9 @@ __webpack_require__.dn(basisClosed);
 }
 
 ;// ./node_modules/d3-interpolate/src/constant.js
-/* harmony default export */ const src_constant = (x => () => x);
-__webpack_require__.dn(src_constant);
+/* harmony default export */ const d3_interpolate_src_constant = (x => () => x);
 
 ;// ./node_modules/d3-interpolate/src/color.js
-/* unused harmony import specifier */ var color_constant;
 
 
 function linear(a, d) {
@@ -14056,18 +13366,18 @@ function exponential(a, b, y) {
 
 function hue(a, b) {
   var d = b - a;
-  return d ? linear(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : color_constant(isNaN(a) ? b : a);
+  return d ? linear(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : constant(isNaN(a) ? b : a);
 }
 
 function gamma(y) {
   return (y = +y) === 1 ? nogamma : function(a, b) {
-    return b - a ? exponential(a, b, y) : src_constant(isNaN(a) ? b : a);
+    return b - a ? exponential(a, b, y) : d3_interpolate_src_constant(isNaN(a) ? b : a);
   };
 }
 
 function nogamma(a, b) {
   var d = b - a;
-  return d ? linear(a, d) : src_constant(isNaN(a) ? b : a);
+  return d ? linear(a, d) : d3_interpolate_src_constant(isNaN(a) ? b : a);
 }
 
 ;// ./node_modules/d3-interpolate/src/rgb.js
@@ -14128,7 +13438,6 @@ var rgbBasis = rgbSpline(src_basis);
 var rgbBasisClosed = rgbSpline(basisClosed);
 
 ;// ./node_modules/d3-interpolate/src/string.js
-__webpack_require__.dn(string);
 
 
 var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g,
@@ -14195,7 +13504,6 @@ function one(b) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/interpolate.js
-__webpack_require__.dn(interpolate);
 
 
 
@@ -14208,7 +13516,6 @@ __webpack_require__.dn(interpolate);
 }
 
 ;// ./node_modules/d3-transition/src/transition/attr.js
-__webpack_require__.dn(transition_attr);
 
 
 
@@ -14289,7 +13596,6 @@ function attr_attrFunctionNS(fullname, interpolate, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/attrTween.js
-__webpack_require__.dn(transition_attrTween);
 
 
 function attrInterpolate(name, i) {
@@ -14336,7 +13642,6 @@ function attrTween(name, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/delay.js
-__webpack_require__.dn(delay);
 
 
 function delayFunction(id, value) {
@@ -14362,7 +13667,6 @@ function delayConstant(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/duration.js
-__webpack_require__.dn(duration);
 
 
 function durationFunction(id, value) {
@@ -14388,7 +13692,6 @@ function durationConstant(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/ease.js
-__webpack_require__.dn(ease);
 
 
 function easeConstant(id, value) {
@@ -14407,7 +13710,6 @@ function easeConstant(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/easeVarying.js
-__webpack_require__.dn(transition_easeVarying);
 
 
 function easeVarying(id, value) {
@@ -14424,7 +13726,6 @@ function easeVarying(id, value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/filter.js
-__webpack_require__.dn(transition_filter);
 
 
 
@@ -14443,7 +13744,6 @@ __webpack_require__.dn(transition_filter);
 }
 
 ;// ./node_modules/d3-transition/src/transition/merge.js
-__webpack_require__.dn(transition_merge);
 
 
 /* harmony default export */ function transition_merge(transition) {
@@ -14465,7 +13765,6 @@ __webpack_require__.dn(transition_merge);
 }
 
 ;// ./node_modules/d3-transition/src/transition/on.js
-__webpack_require__.dn(transition_on);
 
 
 function on_start(name) {
@@ -14500,7 +13799,6 @@ function onFunction(id, name, listener) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/remove.js
-__webpack_require__.dn(transition_remove);
 function removeFunction(id) {
   return function() {
     var parent = this.parentNode;
@@ -14514,7 +13812,6 @@ function removeFunction(id) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/select.js
-__webpack_require__.dn(transition_select);
 
 
 
@@ -14539,7 +13836,6 @@ __webpack_require__.dn(transition_select);
 }
 
 ;// ./node_modules/d3-transition/src/transition/selectAll.js
-__webpack_require__.dn(transition_selectAll);
 
 
 
@@ -14568,7 +13864,6 @@ __webpack_require__.dn(transition_selectAll);
 }
 
 ;// ./node_modules/d3-transition/src/transition/selection.js
-__webpack_require__.dn(transition_selection);
 
 
 var selection_Selection = src_selection.prototype.constructor;
@@ -14578,7 +13873,6 @@ var selection_Selection = src_selection.prototype.constructor;
 }
 
 ;// ./node_modules/d3-transition/src/transition/style.js
-__webpack_require__.dn(transition_style);
 
 
 
@@ -14661,7 +13955,6 @@ function styleMaybeRemove(id, name) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/styleTween.js
-__webpack_require__.dn(transition_styleTween);
 function styleInterpolate(name, i, priority) {
   return function(t) {
     this.style.setProperty(name, i.call(this, t), priority);
@@ -14688,7 +13981,6 @@ function styleTween(name, value, priority) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/text.js
-__webpack_require__.dn(transition_text);
 
 
 function text_textConstant(value) {
@@ -14711,7 +14003,6 @@ function text_textFunction(value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/textTween.js
-__webpack_require__.dn(transition_textTween);
 function textInterpolate(i) {
   return function(t) {
     this.textContent = i.call(this, t);
@@ -14738,7 +14029,6 @@ function textTween(value) {
 }
 
 ;// ./node_modules/d3-transition/src/transition/transition.js
-__webpack_require__.dn(transition);
 
 
 
@@ -14765,7 +14055,6 @@ __webpack_require__.dn(transition);
 }
 
 ;// ./node_modules/d3-transition/src/transition/end.js
-__webpack_require__.dn(end);
 
 
 /* harmony default export */ function end() {
@@ -14885,7 +14174,6 @@ function cubicInOut(t) {
 }
 
 ;// ./node_modules/d3-transition/src/selection/transition.js
-__webpack_require__.dn(selection_transition);
 
 
 
@@ -14945,7 +14233,6 @@ src_selection.prototype.transition = selection_transition;
 
 ;// ./node_modules/d3-zoom/src/constant.js
 /* harmony default export */ const d3_zoom_src_constant = (x => () => x);
-__webpack_require__.dn(d3_zoom_src_constant);
 
 ;// ./node_modules/d3-zoom/src/event.js
 function ZoomEvent(type, {
@@ -15017,7 +14304,6 @@ function transform_transform(node) {
 }
 
 ;// ./node_modules/d3-zoom/src/noevent.js
-__webpack_require__.dn(src_noevent);
 function noevent_nopropagation(event) {
   event.stopImmediatePropagation();
 }
@@ -15028,7 +14314,6 @@ function noevent_nopropagation(event) {
 }
 
 ;// ./node_modules/d3-zoom/src/zoom.js
-__webpack_require__.dn(zoom);
 
 
 
@@ -15598,6 +14883,7 @@ class GeoCanvas {
                     this.canvasSave.dx = 0
                     this.canvasSave.dy = 0
                     this.canvasSave.f = 1
+                    this.canvasSave.view = { x: this.view.x, y: this.view.y, z: this.view.z }
                     if (this.onZoomStartFun) this.onZoomStartFun(e)
                 })
                 .on('end', (e) => {
@@ -15663,7 +14949,7 @@ class GeoCanvas {
         this.zoomExtent = opts.zoomExtent || [0, Infinity]
 
         /** Canvas state, to be used to avoid unnecessary redraws on zoom/pan
-         *  @type {{c:HTMLCanvasElement|null,dx:number,dy:number,f:number}} */
+         *  @type {{c:HTMLCanvasElement|null,dx:number,dy:number,f:number,view?:{x:number,y:number,z:number}}} */
         this.canvasSave = { c: null, dx: 0, dy: 0, f: 1 }
     }
 
@@ -15684,21 +14970,7 @@ class GeoCanvas {
         this.updateExtentGeo()
 
         if (this.canvasSave.c) {
-            const scale = 1 / this.view.z
-
-            // Update saved canvas offset
-            this.canvasSave.dx -= dxGeo * scale
-            this.canvasSave.dy += dyGeo * scale
-
-            // clear canvas
-            this.clear(this.backgroundColor)
-
-            // this doesnt work on mobile https://github.com/eurostat/gridviz/issues/98
-            //this.ctx.drawImage(this.canvasSave.c, this.canvasSave.dx, this.canvasSave.dy)
-            this.offscreenCtx.drawImage(this.canvasSave.c, this.canvasSave.dx, this.canvasSave.dy)
-
-            // Render the offscreen canvas to the visible context
-            this.ctx.drawImage(this.offscreenCtx.canvas, 0, 0)
+            this._drawSnapshot()
         } else {
             console.log('no canvas save')
         }
@@ -15742,29 +15014,38 @@ class GeoCanvas {
         this._drawZoomFrame(f, xGeo, yGeo)
     }
 
-    _drawZoomFrame(f, xGeo, yGeo) {
+    _drawZoomFrame() {
         // zoom in on the current canvas state
-        if (this.canvasSave.c) {
-            this.clear(this.backgroundColor)
-            this.canvasSave.f /= f
-            this.canvasSave.dx = this.geoToPixX(xGeo) * (1 - this.canvasSave.f)
-            this.canvasSave.dy = this.geoToPixY(yGeo) * (1 - this.canvasSave.f)
-            this.clear(this.backgroundColor)
-            this.offscreenCtx.drawImage(
-                this.canvasSave.c,
-                this.canvasSave.dx,
-                this.canvasSave.dy,
-                this.canvasSave.f * this.canvasSave.c.width,
-                this.canvasSave.f * this.canvasSave.c.height
-            )
-            this.ctx.drawImage(
-                this.offscreenCanvas, // Use offscreen canvas as the source
-                0,
-                0, // Position the offscreen canvas at the top-left corner of the main canvas
-                this.canvas.width, // The width of the visible canvas
-                this.canvas.height // The height of the visible canvas
-            )
-        }
+        if (this.canvasSave.c) this._drawSnapshot()
+    }
+
+    /**
+     * Draw the canvas saved when the pan/zoom started where it belongs in the current view.
+     * It is placed from the two views (the one it was taken at and the current one) rather than
+     * accumulated from each step: the zoom anchor follows the mouse, and an accumulation that
+     * assumes it stays put leaves the picture away from where the final redraw puts it.
+     * @private
+     */
+    _drawSnapshot() {
+        const sv = this.canvasSave.view
+        const f = sv ? sv.z / this.view.z : 1
+        // where the saved canvas' top left corner is in the current view
+        const dx = sv ? (sv.x - (this.w * 0.5) * sv.z - this.view.x) / this.view.z + this.w * 0.5 : 0
+        const dy = sv ? this.h * 0.5 - (sv.y + (this.h * 0.5) * sv.z - this.view.y) / this.view.z : 0
+        this.canvasSave.f = f
+        this.canvasSave.dx = dx
+        this.canvasSave.dy = dy
+
+        this.clear(this.backgroundColor)
+        // this doesnt work on mobile https://github.com/eurostat/gridviz/issues/98 : drawn on the offscreen canvas first
+        this.offscreenCtx.drawImage(
+            this.canvasSave.c,
+            dx,
+            dy,
+            f * this.canvasSave.c.width,
+            f * this.canvasSave.c.height
+        )
+        this.ctx.drawImage(this.offscreenCanvas, 0, 0, this.canvas.width, this.canvas.height)
     }
 
     /**
@@ -16004,6 +15285,9 @@ class Tooltip {
         this.tooltip.style('left', '0')
         this.tooltip.style('top', '0')
 
+        // a tooltip element given by the user gets the class too
+        this.tooltip.classed('gridviz-tooltip', true)
+
         // aria-labels (thanks to wahlatlas)
         this.tooltip.attr('role', 'tooltip').attr('aria-live', 'polite')
     }
@@ -16143,7 +15427,8 @@ class Button {
         }
 
         if (opts.title) this.div.attr('title', opts.title)
-        if (opts.class) this.div.attr('class', opts.class)
+        this.div.classed('gridviz-button', true)
+        if (opts.class) for (const c of String(opts.class).split(/\s+/)) if (c) this.div.classed(c, true)
 
         // add events
         if (opts.onClickFunction) this.div.on('click', opts.onClickFunction)
@@ -16197,11 +15482,12 @@ class ZoomButtons extends Button {
 
         this.onZoom = opts.onZoom // custom user event handler
         this.delta = opts.delta || 0.2
+        this.div.classed('gridviz-zoom-buttons', true)
 
         // Create zoom in button
         this.zoomInBtn = document.createElement('a')
         this.zoomInBtn.id = 'zoom-in'
-        this.zoomInBtn.className = 'gridviz-zoom-button'
+        this.zoomInBtn.className = 'gridviz-zoom-button gridviz-zoom-button--in'
         this.zoomInBtn.title = 'Zoom in'
         this.zoomInBtn.textContent = '+'
         this.zoomInBtn.addEventListener('click', (e) => {
@@ -16217,7 +15503,7 @@ class ZoomButtons extends Button {
         // Create zoom out button
         this.zoomOutBtn = document.createElement('a')
         this.zoomOutBtn.id = 'zoom-out'
-        this.zoomOutBtn.className = 'gridviz-zoom-button'
+        this.zoomOutBtn.className = 'gridviz-zoom-button gridviz-zoom-button--out'
         this.zoomOutBtn.title = 'Zoom out'
         this.zoomOutBtn.textContent = '-'
         this.zoomOutBtn.addEventListener('click', (e) => {
@@ -16311,10 +15597,12 @@ class FullscreenButton extends Button {
 
     constructor(opts) {
         super(opts)
+        this.div.classed('gridviz-fullscreen-button', true)
 
         // append fullscreen icon to button container
         this.div.node().innerHTML = `
         <svg
+            class="gridviz-fullscreen-icon"
             style="height: 1.2rem; width: 1.2rem; fill:black; margin:0;"
             focusable="false"
             aria-hidden="true"
@@ -16456,6 +15744,7 @@ class Map_Map {
             console.error('Cannot find gridviz container element.')
             return
         }
+        this.container.classList.add('gridviz-map')
 
         //https://css-tricks.com/absolute-positioning-inside-relative-positioning/
         this.container.style.position = 'relative' // container element must have relative positioning
@@ -16497,6 +15786,13 @@ class Map_Map {
             ? src_select(opts.legendContainer) // Wrap the provided HTML node in a D3 selection
             : null
         this._legendProvidedByUser = !!opts.legendContainer
+
+        /**
+         * Called with the legend container (an HTML element) each time the map has drawn and its legends
+         * are in the container, for a host that needs to adjust them (fit their width, restyle...).
+         * It can also be set after the map is created.
+         * @type {function(HTMLElement):void|undefined} */
+        this.onLegendUpdate = opts.onLegendUpdate
         if (!this.legend) this.initialiseLegend()
 
         //tooltip
@@ -16577,6 +15873,7 @@ class Map_Map {
      */
     initialiseCanvas() {
         const canvas = document.createElement('canvas')
+        canvas.classList.add('gridviz-canvas')
         canvas.setAttribute('width', '' + this.w)
         canvas.setAttribute('height', '' + this.h)
         this.container.appendChild(canvas)
@@ -16587,6 +15884,7 @@ class Map_Map {
         this.legend = src_select(this.container)
             .append('div') // Create a new container
             .attr('id', 'gridviz-legend')
+            .classed('gridviz-legends', true)
             .style('position', 'absolute')
             .style('width', 'auto')
             .style('height', 'auto')
@@ -16642,8 +15940,10 @@ class Map_Map {
         // a destroyed map can still be asked to redraw by a dataset it shared (see destroy)
         if (this._destroyed) return this
 
-        //remove legend elements
-        if (this.legend) this.legend.selectAll('*').remove()
+        //remove legend elements: the legends themselves only, not what is inside them
+        //(a legend keeps its content while one of its swatches is hovered, see Style.updateLegends)
+        //except the one being hovered, which would lose its mouseleave (see Legend.highlight)
+        if (this.legend) this.legend.selectAll(':scope > *:not([data-gridviz-hovered])').remove()
 
         //clear
         this.geoCanvas.initCanvasTransform()
@@ -16686,6 +15986,9 @@ class Map_Map {
         this.canvasSave = null
         // the canvas holds no focus rectangle any more
         this._focusedCell = undefined
+
+        // the legends are in the container now
+        if (this.onLegendUpdate && this.legend) this.onLegendUpdate(this.legend.node())
 
         return this
     }
@@ -17145,6 +16448,7 @@ class Drawable {
 
 ;
 
+
 /** @typedef {"square"|"circle"|"diamond"|"donut"|"triangle_up"|"triangle_down"|"triangle_left"|"triangle_right"|"none"} Shape */
 
 /**
@@ -17189,6 +16493,48 @@ class Style extends Drawable {
          * @public
          * @type {Array.<import("./Legend").Legend>} */
         this.legends = []
+
+        /**
+         * The colours of the cells to show while a legend swatch is hovered (see Legend.highlight),
+         * normalised with Style.normalizeColor. Null when nothing is highlighted.
+         * Styles that draw cells in a colour per class honour it with isHighlighted.
+         * @type {Array.<string>|null} */
+        this.highlightColors = null
+    }
+
+    /**
+     * A colour as a canonical string, so that '#ccc', 'rgb(204,204,204)' and '#cccccc' compare equal.
+     * @param {string} c
+     * @returns {string}
+     */
+    static normalizeColor(c) {
+        let n = Style._normalizedColors.get(c)
+        if (n === undefined) {
+            const parsed = color(c)
+            n = parsed ? parsed.formatRgb() : String(c)
+            // a style drawing millions of distinct colours must not grow this without bound
+            if (Style._normalizedColors.size > 10000) Style._normalizedColors.clear()
+            Style._normalizedColors.set(c, n)
+        }
+        return n
+    }
+
+    /**
+     * Show only the cells drawn in some colours: what hovering a legend swatch does.
+     * The map has to be redrawn for it to show (Legend.highlight does).
+     * @param {Array.<string>|null|undefined} colors The colours to show, or null to show everything again
+     * @returns {this} */
+    setHighlight(colors) {
+        this.highlightColors = colors && colors.length ? colors.map(Style.normalizeColor) : null
+        return this
+    }
+
+    /**
+     * Whether cells drawn in a colour are shown: always, unless a legend swatch is hovered and it is another colour.
+     * @param {string} c
+     * @returns {boolean} */
+    isHighlighted(c) {
+        return !this.highlightColors || this.highlightColors.includes(Style.normalizeColor(c))
     }
 
     /**
@@ -17220,6 +16566,8 @@ class Style extends Drawable {
      * @param {object} opts
      * @returns {this} */
     updateLegends(opts) {
+        // the legend being hovered must keep its elements, or it would lose the mouse
+        if (this.highlightColors) return this
         Style.updateLegendsRecursive(this.legends, opts)
         return this
     }
@@ -17238,6 +16586,9 @@ class Style extends Drawable {
         return this
     }
 }
+
+/** @type {Map<string,string>} */
+Style._normalizedColors = new Map()
 
 ;// ./node_modules/gridviz/src/core/Dataset.js
 //@ts-check
@@ -17474,7 +16825,6 @@ function cellKey(ix, iy) {
 }
 
 ;// ./node_modules/d3-fetch/src/json.js
-__webpack_require__.dn(json);
 function responseJson(response) {
   if (!response.ok) throw new Error(response.status + " " + response.statusText);
   if (response.status === 204 || response.status === 205) return;
@@ -17486,7 +16836,6 @@ function responseJson(response) {
 }
 
 ;// ./node_modules/d3-dsv/src/dsv.js
-__webpack_require__.dn(dsv);
 var EOL = {},
     EOF = {},
     QUOTE = 34,
@@ -17679,7 +17028,6 @@ var tsvFormatRow = tsv.formatRow;
 var tsvFormatValue = tsv.formatValue;
 
 ;// ./node_modules/d3-fetch/src/text.js
-__webpack_require__.dn(src_text);
 function responseText(response) {
   if (!response.ok) throw new Error(response.status + " " + response.statusText);
   return response.text();
@@ -18245,6 +17593,9 @@ class ShapeColorSizeStyle extends Style {
 
         const r2 = resolution * 0.5
 
+        // the legend swatch hovered, if any: only the cells of its colour are drawn
+        const highlight = this.highlightColors
+
         // Precompute if color, size, and shape are functions, for efficiency
         const isColorFunction = typeof this.color === 'function'
         const isSizeFunction = typeof this.size === 'function'
@@ -18264,6 +17615,7 @@ class ShapeColorSizeStyle extends Style {
             //@ts-ignore
             const col = colorFunction ? colorFunction(c, resolution, z, viewScale) : defaultColor
             if (!col || col === 'none') continue
+            if (highlight && !this.isHighlighted(col)) continue
 
             // Determine size
             //@ts-ignore
@@ -18356,7 +17708,7 @@ class ShapeColorSizeStyle extends Style {
  * @module style
  * @author Julien Gaffuri
  */
-class StrokeStyle extends Style {
+class StrokeStyle_StrokeStyle extends Style {
     /** @param {object} opts */
     constructor(opts) {
         super(opts)
@@ -18484,7 +17836,7 @@ class StrokeStyle extends Style {
 }
 
 ;// ./node_modules/d3-array/src/extent.js
-function extent(values, valueof) {
+function extent_extent(values, valueof) {
   let min;
   let max;
   if (valueof === undefined) {
@@ -18537,7 +17889,7 @@ function getClass(v, breaks) {
 }
 
 //take 'nice' value (power of ten, or multiple)
-function nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
+function utils_nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
     //compute bigger power of ten below
     const v_ = Math.pow(10, Math.floor(Math.log10(v)))
     for (let multiple of multiples) if (v_ * multiple <= v) return v_ * multiple
@@ -18554,7 +17906,7 @@ function nice(v, multiples = [8, 6, 5, 4, 2.5, 2]) {
  * @param {Function} [fun]
  * @returns {Object}
  */
-function cellsToGrid(cells, fun) {
+function utils_cellsToGrid(cells, fun) {
     /** @type {Object} */
     const ind = {}
     for (const cell of cells) {
@@ -18585,8 +17937,8 @@ function cellsToGrid(cells, fun) {
 function cellsToMatrix(cells, resolution, fun) {
 
     // get cells extent
-    const [minx, maxx] = extent(cells, c => c.x)
-    const [miny, maxy] = extent(cells, c => c.y)
+    const [minx, maxx] = extent_extent(cells, c => c.x)
+    const [miny, maxy] = extent_extent(cells, c => c.y)
 
     // get grid dimension
     const rows = Math.ceil((maxy - miny) / resolution) + 1
@@ -18692,7 +18044,7 @@ class JoyPlotStyle extends Style {
 
         //index cells by y and x
         /**  @type {object} */
-        const ind = cellsToGrid(cells, cell => this.height(cell, resolution, z, viewScale))
+        const ind = utils_cellsToGrid(cells, cell => this.height(cell, resolution, z, viewScale))
 
 
         //make grid
@@ -19986,7 +19338,7 @@ const INDEX_BUFFER = 'SquareColorCategoryWebGLStyle.i'
  * @module style
  * @author Julien Gaffuri
  */
-class SquareColorCategoryWebGLStyle extends Style {
+class SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle extends Style {
     /** @param {object} opts */
     constructor(opts) {
         super(opts)
@@ -20032,6 +19384,8 @@ class SquareColorCategoryWebGLStyle extends Style {
         this.y = undefined
         this.z = undefined
         this.cellsNb = undefined
+        /** The highlight (see Style.setHighlight) the vertices were bound with @private */
+        this.highlightKey = ''
     }
 
     /**
@@ -20095,6 +19449,8 @@ class SquareColorCategoryWebGLStyle extends Style {
             nb = cells.length
         const verticesBuffer = new Float32Array(2 * nb)
         const iBuffer = new Float32Array(nb)
+        // categories shown while a legend swatch is hovered: those drawn in the colour of the swatch
+        const shown = this.highlightColors ? this.colors.map((c) => this.isHighlighted(c)) : null
         let n = 0
         for (let i = 0; i < nb; i++) {
             c = cells[i]
@@ -20108,6 +19464,7 @@ class SquareColorCategoryWebGLStyle extends Style {
                 console.log('Unexpected category index: ' + cat + ' ' + i_)
                 continue
             }
+            if (shown && !shown[+i_]) continue
             verticesBuffer[2 * n] = c.x + r2
             verticesBuffer[2 * n + 1] = c.y + r2
             iBuffer[n] = +i_
@@ -20174,7 +19531,10 @@ class SquareColorCategoryWebGLStyle extends Style {
         // x/y/z and cell count alone. The upload is also needed when the shared buffers
         // hold another style's data (bufferOwner), or the context is new to this style
         // (e.g. replaced after being lost).
-        const contentChanged = this.mapContentChanged(geoCanvas.view, cells.length)
+        const highlightKey = this.highlightColors ? this.highlightColors.join('|') : ''
+        const highlightChanged = highlightKey !== this.highlightKey
+        this.highlightKey = highlightKey
+        const contentChanged = this.mapContentChanged(geoCanvas.view, cells.length) || highlightChanged
         if (contentChanged || contextChanged || bufferOwner(gl, POSITION_BUFFER) !== this)
             this.pointsNb = this.bindVertices(cells, resolution, z, viewScale)
         this.bindAttributes()
@@ -20257,8 +19617,6 @@ function getFragmentShader2(colors) {
 
 */
 ;// ./node_modules/gridviz/src/style/ShadingRayStyle.js
-/* unused harmony import specifier */ var ShadingRayStyle_cellsToGrid;
-/* unused harmony import specifier */ var ShadingRayStyle_extent;
 //@ts-check
 
 
@@ -20368,7 +19726,7 @@ class ShadingRayStyle extends Style {
         //geoCanvas.setCanvasTransform()
 
         //draw shadowed cells with webgl style
-        new SquareColorCategoryWebGLStyle({
+        new SquareColorCategoryWebGLStyle_SquareColorCategoryWebGLStyle({
             code: () => "a",
             color: { 'a': this.color(resolution, z, viewScale) },
             //alpha: () => this.alpha(resolution, z, viewScale),
@@ -20494,11 +19852,11 @@ function referenceShadowV2(
 ) {
 
     //get geo extent
-    const [minx, maxx] = ShadingRayStyle_extent(cells, c => c.x)
-    const [miny, maxy] = ShadingRayStyle_extent(cells, c => c.y)
+    const [minx, maxx] = extent(cells, c => c.x)
+    const [miny, maxy] = extent(cells, c => c.y)
 
     //index cells by y and x
-    const ind = ShadingRayStyle_cellsToGrid(cells)
+    const ind = cellsToGrid(cells)
 
     // Sun direction TOWARD the sun
     const ux = Math.sin(sunAzimuth);
@@ -20541,7 +19899,7 @@ function referenceShadowV2(
 
 
 ;// ./node_modules/d3-array/src/max.js
-function max(values, valueof) {
+function max_max(values, valueof) {
   let max;
   if (valueof === undefined) {
     for (const value of values) {
@@ -20605,7 +19963,7 @@ class ShadingStyle extends SideStyle {
         }
 
         // compute maximum side value for normalization
-        this.viewScale = sides => max(sides, s => sideValue(s))
+        this.viewScale = sides => max_max(sides, s => sideValue(s))
 
         // get colors
         let colorTopLeft = opts.colorTopLeft || '255,255,255'
@@ -21052,7 +20410,7 @@ class DotDensityStyle extends Style {
  * @module style
  * @author Julien Gaffuri
  */
-class SideTanakaStyle extends Style {
+class SideTanakaStyle_SideTanakaStyle extends Style {
     /** @param {object} opts */
     constructor(opts = {}) {
         super(opts)
@@ -21191,10 +20549,6 @@ class SideTanakaStyle extends Style {
 }
 
 ;// ./node_modules/gridviz/src/style/LegoStyle.js
-/* unused harmony import specifier */ var LegoStyle_StrokeStyle;
-/* unused harmony import specifier */ var LegoStyle_SquareColorCategoryWebGLStyle;
-/* unused harmony import specifier */ var clFun;
-/* unused harmony import specifier */ var LegoStyle_SideTanakaStyle;
 //@ts-check
 
 
@@ -21242,13 +20596,13 @@ class LegoStyle {
         for (let i = 0; i < colors.length; i++) colorsDict[i + ''] = colors[i]
 
         //make cell fill style
-        const cellStyle = new LegoStyle_SquareColorCategoryWebGLStyle({
+        const cellStyle = new SquareColorCategoryWebGLStyle({
             code: classifier2,
             color: colorsDict,
         })
 
         //make tanaka side style
-        const tanakaStyle = new LegoStyle_SideTanakaStyle({
+        const tanakaStyle = new SideTanakaStyle({
             classifier: () => classifier2,
             colorDark : opts.colorDark,
             colorBright : opts.colorBright,
@@ -21256,7 +20610,7 @@ class LegoStyle {
         })
 
         //style to show limits between pieces
-        const sst = new LegoStyle_StrokeStyle({
+        const sst = new StrokeStyle({
             strokeColor: () => '#666',
             strokeWidth: (c, r, z) => 0.2 * z,
             filter: opts.filter,
@@ -21283,9 +20637,9 @@ class LegoStyle {
         opts.colBright = opts.colBright || '#aaa'
 
         //
-        const s = new LegoStyle_SquareColorCategoryWebGLStyle({ code: code, color: color })
+        const s = new SquareColorCategoryWebGLStyle({ code: code, color: color })
         //style to show limits between pieces
-        const sst = new LegoStyle_StrokeStyle({ strokeColor: () => '#666', strokeWidth: (c, r, z) => 0.2 * z })
+        const sst = new StrokeStyle({ strokeColor: () => '#666', strokeWidth: (c, r, z) => 0.2 * z })
 
         return [s, sst, new LegoTopStyle({ colDark: opts.colDark, colBright: opts.colBright })]
     }
@@ -22787,6 +22141,9 @@ class GridLayer extends Layer {
             if (this.blendOperation) ctx.globalCompositeOperation = this.blendOperation(z)
         }
 
+        // tell the legends where they are drawn, so that they can fit it (width:'fill')
+        if (legend) for (const s of this.styles) GridLayer.setLegendContainer(legend.node(), s.legends, s['styles'])
+
         //draw cells, style by style
         for (const s of this.styles) {
             //check if style is visible
@@ -22821,14 +22178,14 @@ class GridLayer extends Layer {
             for (const s of this.styles) {
                 //check if style is visible
                 if (s.visible && !s.visible(z)) continue
-                GridLayer.addLegends(legend, s.legends)
+                GridLayer.addLegends(legend, s.legends, s, geoCanvas)
 
                 //case for styles of styles, like kernel smoothing
                 //TODO do better
                 if (s['styles']) {
                     for (const s2 of s['styles']) {
                         if (s2.visible && !s2.visible(z)) continue
-                        GridLayer.addLegends(legend, s2.legends)
+                        GridLayer.addLegends(legend, s2.legends, s2, geoCanvas)
                     }
                 }
             }
@@ -22836,9 +22193,26 @@ class GridLayer extends Layer {
     }
 
     /** @private */
-    static addLegends(legendComp, lg) {
-        if (Array.isArray(lg)) for (const lg_ of lg) this.addLegends(legendComp, lg_)
-        else legendComp.node().append(lg.div.node())
+    static setLegendContainer(container, legends, subStyles) {
+        // legends can be nested in arrays, like in Style.updateLegendsRecursive
+        const set = (lg) => {
+            if (Array.isArray(lg)) lg.forEach(set)
+            else if (lg) lg.container = container
+        }
+        set(legends)
+        for (const s2 of subStyles || []) GridLayer.setLegendContainer(container, s2.legends, undefined)
+    }
+
+    /** @private */
+    static addLegends(legendComp, lg, style, geoCanvas) {
+        if (Array.isArray(lg)) for (const lg_ of lg) this.addLegends(legendComp, lg_, style, geoCanvas)
+        else {
+            // so that hovering a swatch can highlight the cells of the style on the map
+            lg.style_ = style
+            lg.redraw = () => (geoCanvas.redraw ? geoCanvas.redraw() : undefined)
+            // a hovered legend is still in place (see Map.redrawNow): moving it would lose its mouseleave
+            if (lg.div.node().parentNode !== legendComp.node()) legendComp.node().append(lg.div.node())
+        }
     }
 
     /**
@@ -23779,13 +23153,30 @@ class Legend {
             if (this.id) this.div.attr('id', this.id)
         }
 
+        // Which style options the caller set. The ones they didn't set are written as a CSS variable with the
+        // usual value as its fallback (--gridviz-legend-font-family, ...): nothing changes unless a page defines the variable.
+        /** @private */
+        this._set = {
+            padding: opts.padding !== undefined,
+            fontFamily: opts['font-family'] !== undefined,
+            titleFontSize: opts.titleFontSize !== undefined,
+            titleFontWeight: opts.titleFontWeight !== undefined,
+            labelFontSize: opts.labelFontSize !== undefined,
+        }
+
+        // CSS classes, to style legends from a stylesheet: gridviz-legend on every legend, a modifier for the
+        // type (see each legend class), and whatever the caller asks for with the className option.
+        this.div.classed('gridviz-legend', true)
+        if (opts.className)
+            for (const c of String(opts.className).split(/\s+/)) if (c) this.div.classed(c, true)
+
         //set style
         this.div.style('background', this.background)
-        this.div.style('padding', this.padding)
+        this.div.style('padding', this._css('padding', this.padding, this._set.padding))
         this.div.style('border', this.border)
         this.div.style('border-radius', this['border-radius'])
         this.div.style('box-shadow', this['box-shadow'])
-        this.div.style('font-family', this['font-family'])
+        this.div.style('font-family', this._css('font-family', this['font-family'], this._set.fontFamily))
 
         //if (this.width) this.div.style('width', this.width)
         //if (this.height) this.div.style('height', this.height)
@@ -23799,16 +23190,136 @@ class Legend {
         this.labelFontSize = opts.labelFontSize || '0.8em'
         this.labelUnitText = opts.labelUnitText || ''
         this.labelFormat = opts.labelFormat
+
+        /**
+         * Whether the title and the labels are HTML (to italicise a word, for example) instead of plain text.
+         * Off by default, which is plain text. Only turn it on for text you trust: it is not escaped.
+         * @type {boolean} */
+        this.labelsAsHTML = opts.labelsAsHTML === true
+
+        /**
+         * Whether hovering a swatch of the legend shows only the matching cells on the map.
+         * @type {boolean} */
+        this.interactive = opts.interactive !== false
+
+        /**
+         * The style the legend belongs to, and a function to redraw the map. Both set by the layer when it draws.
+         * @type {import('./Style.js').Style|undefined} */
+        this.style_ = undefined
+        /** @type {function|undefined} */
+        this.redraw = undefined
+        /**
+         * The element the legends are drawn in, set by the layer when it draws.
+         * @type {HTMLElement|undefined} */
+        this.container = undefined
+
+        /**
+         * Draw at the width of the container instead of this.width (width:'fill').
+         * @type {boolean} @protected */
+        this.fill = opts.width === 'fill'
+    }
+
+    /**
+     * Show only the cells drawn in some colours on the map, or all of them again.
+     * @param {Array.<string>|null} colors
+     */
+    highlight(colors) {
+        if (!this.interactive || !this.style_) return
+        const before = this.style_.highlightColors
+        // flag the legend while hovered, so that the map's redraw leaves its element in place:
+        // a hovered element that is detached and appended again never gets its mouseleave
+        if (this.div) this.div.attr('data-gridviz-hovered', colors && colors.length ? '' : null)
+        this.style_.setHighlight(colors)
+        // nothing to redraw when the highlight didn't change (mouse moving between a swatch's parts)
+        if (before === null && this.style_.highlightColors === null) return
+        if (this.redraw) this.redraw()
+    }
+
+    /**
+     * Make a swatch react to the mouse: hovering it highlights the cells of a colour on the map.
+     * @param {*} selection The d3 selection of the swatch (any element)
+     * @param {string} color The colour the swatch stands for
+     * @param {{enter?:function, leave?:function}} [extra] Extra feedback on the swatch itself
+     */
+    bindHover(selection, color, extra) {
+        if (!this.interactive) return
+        selection
+            .style('cursor', 'pointer')
+            .on('mouseenter', () => {
+                if (extra && extra.enter) extra.enter()
+                this.highlight([color])
+            })
+            .on('mouseleave', () => {
+                if (extra && extra.leave) extra.leave()
+                this.highlight(null)
+            })
+    }
+
+    /**
+     * A style value with a CSS variable around it, unless the caller set the option themselves.
+     * @param {string} name The variable's name, after --gridviz-legend-
+     * @param {string} value The value to use when the variable isn't defined
+     * @param {boolean} custom
+     * @returns {string}
+     * @protected
+     */
+    _css(name, value, custom) {
+        return custom ? value : `var(--gridviz-legend-${name}, ${value})`
+    }
+
+    /** The font size of the labels, for the style() of a label element.
+     * @returns {string}
+     * @protected */
+    labelFontSizeCSS() {
+        return this._css('label-font-size', this.labelFontSize, this._set.labelFontSize)
+    }
+
+    /**
+     * Mark the root element as a type of legend: the CSS class gridviz-legend--<type>.
+     * @param {string} type
+     * @protected
+     */
+    setType(type) {
+        this.div.classed('gridviz-legend--' + type, true)
+    }
+
+    /**
+     * The width to draw at: this.width, or with width:'fill' the width of the container the legends are in
+     * (the legendContainer of the map), less this legend's own padding.
+     * @param {number} fallback Used when the container has no width (yet, or hidden)
+     * @returns {number}
+     * @protected
+     */
+    availableWidth(fallback) {
+        if (!this.fill) return this.width
+        const container = this.container
+        const w = container && container.clientWidth
+        if (!w) return fallback
+        const p = parseFloat(this.padding) || 0
+        return Math.max(60, Math.floor(w - 2 * p))
+    }
+
+    /**
+     * Set the text of a d3 selection: as HTML if the legend has labelsAsHTML, as plain text otherwise.
+     * @param {*} selection
+     * @param {string} text
+     * @protected
+     */
+    setText(selection, text) {
+        return this.labelsAsHTML ? selection.html(text) : selection.text(text)
     }
 
     makeTitle() {
         if (!this.title) return
-        this.div
-            .append('div')
-            .style('font-size', this.titleFontSize)
-            .style('font-weight', this.titleFontWeight)
-            .style('margin-bottom', '7px')
-            .text(this.title)
+        this.setText(
+            this.div
+                .append('div')
+                .classed('gridviz-legend-title', true)
+                .style('font-size', this._css('title-font-size', this.titleFontSize, this._set.titleFontSize))
+                .style('font-weight', this._css('title-font-weight', this.titleFontWeight, this._set.titleFontWeight))
+                .style('margin-bottom', '7px'),
+            this.title
+        )
     }
 
     /**
@@ -23870,8 +23381,10 @@ class ColorLegend extends Legend {
         this.fontSize = opts.fontSize || '0.8em'
         this.invert = opts.invert
 
-        this.width = opts.width || 300
+        // a number of pixels, or 'fill' for the width of the container
+        this.width = opts.width === 'fill' ? 300 : opts.width || 300
         this.height = opts.height || 15
+        this.setType('color')
     }
 
     /**
@@ -23884,21 +23397,23 @@ class ColorLegend extends Legend {
         //title
         this.makeTitle()
 
-        const svgW = this.width + 2 * this.margin
+        const width = this.availableWidth(this.width)
+        const svgW = width + 2 * this.margin
         const svgH = this.height + this.margin + this.tickSize + 10
-        const svg = this.div.append('svg').attr('width', svgW).attr('height', svgH)
+        const svg = this.div.append('svg').classed('gridviz-legend-graphic', true).attr('width', svgW).attr('height', svgH)
         //  <rect width="300" height="100" style="fill:rgb(0,0,255);stroke-width:3;stroke:rgb(0,0,0)" />
 
-        const g = svg.append('g').attr('transform', 'translate(' + this.margin + ' ' + 0 + ')')
+        const g = svg.append('g').classed('gridviz-legend-bar', true).attr('transform', 'translate(' + this.margin + ' ' + 0 + ')')
 
         //draw color bar
-        const w = this.width,
+        const w = width,
             h = this.height
         const step = 5
         for (let i = 0; i < w; i += step) {
             let t = i / (w - 1)
             if (this.invert) t = 1 - t
             g.append('rect')
+                .classed('gridviz-legend-swatch', true)
                 .attr('x', i)
                 .attr('y', 0)
                 .attr('width', step)
@@ -23911,6 +23426,7 @@ class ColorLegend extends Legend {
 
             //tick line
             g.append('line')
+                .classed('gridviz-legend-tick', true)
                 .attr('x1', w * t)
                 .attr('y1', 0)
                 .attr('x2', w * t)
@@ -23919,6 +23435,7 @@ class ColorLegend extends Legend {
 
             //prepare tick label
             g.append('text')
+                .classed('gridviz-legend-label', true)
                 .attr('id', 'ticklabel_' + i)
                 .attr('x', w * t)
                 .attr('y', h + this.tickSize + 2)
@@ -23973,8 +23490,10 @@ class ColorDiscreteLegend extends Legend {
         /** @private @type {function(import('../core/Style').ViewScale):Array.<number>} */
         this.breaks = opts.breaks
 
-        this.width = opts.width || 300
+        // a number of pixels, or 'fill' for the width of the container
+        this.width = opts.width === 'fill' ? 300 : opts.width || 300
         this.height = opts.height || 15
+        this.setType('discrete')
 
         this.tickSize = opts.tickSize || 3
 
@@ -24000,27 +23519,38 @@ class ColorDiscreteLegend extends Legend {
         //classes
         const nb = colors.length
         if (nb == 0) return
-        const w = this.width / nb
+        const width = this.availableWidth(this.width)
+        const w = width / nb
 
         //make svg element
         const svg = this.div
             .append('svg')
-            .attr('width', this.width)
+            .classed('gridviz-legend-graphic', true)
+            .attr('width', width)
             .attr('height', this.height + this.tickSize + 2 + 10)
 
         //draw graphic elements
         for (let i = 0; i < nb; i++) {
-            svg.append('rect')
+            const rect = svg
+                .append('rect')
+                .classed('gridviz-legend-swatch', true)
                 .attr('x', i * w)
                 .attr('y', 0)
                 .attr('width', w)
                 .attr('height', this.height)
                 .style('fill', colors[i])
+            // hovering a class shows only its cells on the map
+            this.bindHover(rect, colors[i], {
+                // a presentation attribute, so that a stylesheet can restyle the active swatch
+                enter: () => rect.classed('gridviz-legend-swatch--active', true).attr('stroke', 'red'),
+                leave: () => rect.classed('gridviz-legend-swatch--active', false).attr('stroke', null),
+            })
         }
 
         //tick line
         for (let i = 1; i < nb; i++) {
             svg.append('line')
+                .classed('gridviz-legend-tick', true)
                 .attr('x1', w * i)
                 .attr('y1', 0)
                 .attr('x2', w * i)
@@ -24036,10 +23566,11 @@ class ColorDiscreteLegend extends Legend {
 
             //label
             svg.append('text')
+                .classed('gridviz-legend-label', true)
                 .attr('id', 'ticklabel_' + i)
                 .attr('x', w * i)
                 .attr('y', this.height + this.tickSize + 2)
-                .style('font-size', this.labelFontSize)
+                .style('font-size', this.labelFontSizeCSS())
                 //.style("font-weight", "bold")
                 //.style("font-family", "Arial")
                 .style('text-anchor', 'middle')
@@ -24082,6 +23613,7 @@ class ColorCategoryLegend extends Legend {
         this.dimension = opts.dimension || { r: 8 }
         this.strokeColor = opts.strokeColor || 'gray'
         this.strokeWidth = opts.strokeWidth || 1
+        this.setType('category')
     }
 
     /**
@@ -24101,7 +23633,12 @@ class ColorCategoryLegend extends Legend {
             const cat = this.colorLabel[i]
 
             //make div for category
-            const d = this.div.append('div')
+            const d = this.div.append('div').classed('gridviz-legend-category', true)
+            // hovering a category shows only its cells on the map
+            this.bindHover(d, cat[0], {
+                enter: () => d.classed('gridviz-legend-category--active', true).select('svg').select('rect, circle').style('stroke', 'red'),
+                leave: () => d.classed('gridviz-legend-category--active', false).select('svg').select('rect, circle').style('stroke', this.strokeColor),
+            })
             //to enable vertical centering
             //.style("position", "relative")
 
@@ -24112,13 +23649,16 @@ class ColorCategoryLegend extends Legend {
                 const h = this.dimension.h || 15
                 const w = this.dimension.w || 20
                 d.append('div')
+                    .classed('gridviz-legend-symbol-wrapper', true)
                     .style('display', 'inline')
 
                     .append('svg')
+                    .classed('gridviz-legend-graphic', true)
                     .attr('width', w + 2 * sw)
                     .attr('height', h + 2 * sw)
 
                     .append('rect')
+                    .classed('gridviz-legend-swatch', true)
                     .attr('x', sw)
                     .attr('y', sw)
                     .attr('width', w)
@@ -24130,13 +23670,16 @@ class ColorCategoryLegend extends Legend {
                 const r = this.dimension.r || 8
                 const h = 2 * r + 2 * sw
                 d.append('div')
+                    .classed('gridviz-legend-symbol-wrapper', true)
                     .style('display', 'inline')
 
                     .append('svg')
+                    .classed('gridviz-legend-graphic', true)
                     .attr('width', h)
                     .attr('height', h)
 
                     .append('circle')
+                    .classed('gridviz-legend-swatch', true)
                     .attr('cx', r + sw)
                     .attr('cy', r + sw)
                     .attr('r', r)
@@ -24148,23 +23691,25 @@ class ColorCategoryLegend extends Legend {
             }
 
             //write label text
-            d.append('div')
-                //show on right of graphic
-                .style('display', 'inline')
+            this.setText(
+                d
+                    .append('div')
+                    //show on right of graphic
+                    .style('display', 'inline')
 
-                //center vertically
-                //.style("position", "absolute").style("top", "0").style("bottom", "0")
+                    //center vertically
+                    //.style("position", "absolute").style("top", "0").style("bottom", "0")
 
-                .style('padding-left', '5px')
-                .style('font-size', this.labelFontSize)
-                .text(cat[1])
+                    .classed('gridviz-legend-label', true)
+                    .style('padding-left', '5px')
+                    .style('font-size', this.labelFontSizeCSS()),
+                cat[1]
+            )
         }
     }
 }
 
 ;// ./node_modules/gridviz/src/legend/SizeLegend.js
-/* unused harmony import specifier */ var SizeLegend_nice;
-/* unused harmony import specifier */ var SizeLegend_max;
 //@ts-check
 
 
@@ -24182,6 +23727,7 @@ class SizeLegend extends Legend {
     /** @param {Object} opts */
     constructor(opts) {
         super(opts)
+        this.setType('size')
         opts = opts || {}
 
         /** A function returning the text label, from the view scale and list of cells, resolution and zoom
@@ -24229,7 +23775,7 @@ class SizeLegend extends Legend {
         //format label, if specified and possible
         if (this.labelFormat && !isNaN(+label)) label = this.labelFormat(label)
 
-        const d = this.div.append('div')
+        const d = this.div.append('div').classed('gridviz-legend-category', true)
         //to enable vertical centering
         //.style("position", "relative")
 
@@ -24237,6 +23783,7 @@ class SizeLegend extends Legend {
         const svg = () =>
             d
                 .append('svg')
+                .classed('gridviz-legend-graphic', true)
                 .attr('width', sizePix + this.strokeWidth + 2)
                 .attr('height', sizePix + this.strokeWidth + 2)
                 .style('', 'inline-block')
@@ -24244,6 +23791,7 @@ class SizeLegend extends Legend {
         if (this.shape === 'square') {
             svg()
                 .append('rect')
+                .classed('gridviz-legend-symbol', true)
                 .attr('x', 0)
                 .attr('y', 0)
                 .attr('width', sizePix)
@@ -24256,6 +23804,7 @@ class SizeLegend extends Legend {
             const r = (sizePix + this.strokeWidth) * 0.5
             svg()
                 .append('circle')
+                .classed('gridviz-legend-symbol', true)
                 .attr('cx', r + 1)
                 .attr('cy', r + 1)
                 .attr('r', r)
@@ -24275,6 +23824,7 @@ class SizeLegend extends Legend {
 
             const svg = d
                 .append('svg')
+                .classed('gridviz-legend-graphic', true)
                 .attr('width', lengthPix)
                 .attr('height', sizePix)
                 .style('', 'inline-block')
@@ -24282,6 +23832,7 @@ class SizeLegend extends Legend {
             //TODO orientation
             //<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(255,0,0);stroke-width:2" />
             svg.append('line')
+                .classed('gridviz-legend-symbol', true)
                 .attr('x1', 0)
                 .attr('y1', sizePix / 2)
                 .attr('x2', lengthPix)
@@ -24294,9 +23845,10 @@ class SizeLegend extends Legend {
 
         //label
         d.append('div')
+            .classed('gridviz-legend-label', true)
             .style('display', 'inline')
             .style('padding-left', '5px')
-            .style('font-size', this.labelFontSize)
+            .style('font-size', this.labelFontSizeCSS())
             .text(label + (this.labelUnitText ? ' ' : '') + this.labelUnitText)
     }
 }
@@ -24328,7 +23880,7 @@ function sizeLegendViewScale(value, opts = {}) {
     const legends = []
     for (let k_ of k) {
         opts.title = k_ == k[0] ? opts.title : undefined
-        opts.label = (viewScale, cells) => SizeLegend_nice(k_ * SizeLegend_max(cells, value))
+        opts.label = (viewScale, cells) => nice(k_ * max(cells, value))
         legends.push(new SizeLegend(opts))
     }
     return legends
@@ -24406,6 +23958,7 @@ class OrientationLegend extends Legend {
     /** @param {Object} opts */
     constructor(opts) {
         super(opts)
+        this.setType('orientation')
         opts = opts || {}
 
         //orientation
@@ -24431,7 +23984,7 @@ class OrientationLegend extends Legend {
         //title
         this.makeTitle()
 
-        const d = this.div.append('div')
+        const d = this.div.append('div').classed('gridviz-legend-category', true)
 
         //compute segment color, width and length
         const color = this.color(opts.resolution, opts.z, opts.viewScale)
@@ -24440,13 +23993,14 @@ class OrientationLegend extends Legend {
 
         //draw SVG segment
         const svgS = Math.max(lengthPix, widthPix)
-        const svg = d.append('svg').attr('width', svgS).attr('height', svgS).style('', 'inline-block')
+        const svg = d.append('svg').classed('gridviz-legend-graphic', true).attr('width', svgS).attr('height', svgS).style('', 'inline-block')
 
         const cos = Math.cos((-this.orientation * Math.PI) / 180)
         const sin = Math.sin((-this.orientation * Math.PI) / 180)
         const dc = svgS * 0.5,
             l2 = lengthPix * 0.5
         svg.append('line')
+            .classed('gridviz-legend-symbol', true)
             .attr('x1', dc - cos * l2)
             .attr('y1', dc - sin * l2)
             .attr('x2', dc + cos * l2)
@@ -24456,9 +24010,10 @@ class OrientationLegend extends Legend {
 
         //label
         d.append('div')
+            .classed('gridviz-legend-label', true)
             .style('display', 'inline')
             .style('padding-left', '5px')
-            .style('font-size', this.labelFontSize)
+            .style('font-size', this.labelFontSizeCSS())
             .text(this.label + (this.labelUnitText ? ' ' : '') + this.labelUnitText)
     }
 }
@@ -24512,6 +24067,7 @@ class TernaryLegend extends Legend {
         this.rightText = opts.rightText || 'Category 2'
 
         this.centerCoefficient = opts.centerCoefficient || this.classifier.centerCoefficient
+        this.setType('ternary')
     }
 
     /**
@@ -24535,10 +24091,12 @@ class TernaryLegend extends Legend {
 
         const padding = 2
         const fontSize = 12
+        const legend = this
 
         //make svg element
         const svg = this.div
             .append('svg')
+            .classed('gridviz-legend-graphic', true)
             .attr('width', w + selectionStrokeWidth)
             .attr('height', h + 4 * padding + 2 * fontSize)
 
@@ -24546,6 +24104,7 @@ class TernaryLegend extends Legend {
         svg.append('text')
             .attr('x', w / 2)
             .attr('y', padding + fontSize)
+            .classed('gridviz-legend-label', true)
             .text(this.topText)
             .attr('font-size', fontSize)
             .attr('text-anchor', 'middle')
@@ -24553,6 +24112,7 @@ class TernaryLegend extends Legend {
         svg.append('text')
             .attr('x', 0)
             .attr('y', 3 * padding + 2 * fontSize + h)
+            .classed('gridviz-legend-label', true)
             .text(this.leftText)
             .attr('font-size', fontSize)
             .attr('text-anchor', 'start')
@@ -24560,6 +24120,7 @@ class TernaryLegend extends Legend {
         svg.append('text')
             .attr('x', w)
             .attr('y', 3 * padding + 2 * fontSize + h)
+            .classed('gridviz-legend-label', true)
             .text(this.rightText)
             .attr('font-size', fontSize)
             .attr('text-anchor', 'end')
@@ -24567,6 +24128,7 @@ class TernaryLegend extends Legend {
         //triangle group
         const g = svg
             .append('g')
+            .classed('gridviz-legend-triangle', true)
             .attr(
                 'transform',
                 'translate(' +
@@ -24580,12 +24142,16 @@ class TernaryLegend extends Legend {
         const setAttributes = (elt, color, text) => {
             //elt.raise();
             elt.attr('fill', color)
+                .classed('gridviz-legend-swatch', true)
                 //.attr("stroke", colorOver)
                 //.attr("stroke-width", 0)
                 //.attr("stroke-linejoin", "round")
+                .style('cursor', this.interactive ? 'pointer' : null)
                 .on('mouseover', function (e) {
                     /*this.parentNode.appendChild(this); select(this).attr("stroke-width", selectionStrokeWidth);*/
-                    src_select(this).attr('fill', selectionColor)
+                    src_select(this).classed('gridviz-legend-swatch--active', true).attr('fill', selectionColor)
+                    // show only the cells of this class on the map
+                    legend.highlight([color])
                     if (!tt || !text) return
                     tt.html(text)
                     tt.setPosition(e)
@@ -24593,7 +24159,8 @@ class TernaryLegend extends Legend {
                 })
                 .on('mouseout', function () {
                     /*select(this).attr("stroke-width", 0);*/
-                    src_select(this).attr('fill', color)
+                    src_select(this).classed('gridviz-legend-swatch--active', false).attr('fill', color)
+                    legend.highlight(null)
                     if (tt) tt.hide()
                 })
             if (tt && text)
@@ -24908,7 +24475,6 @@ for (let fun of [exponentialScale, logarithmicScale])
 */
 
 ;// ./node_modules/d3-format/src/formatDecimal.js
-__webpack_require__.dn(formatDecimal);
 /* harmony default export */ function formatDecimal(x) {
   return Math.abs(x = Math.round(x)) >= 1e21
       ? x.toLocaleString("en").replace(/,/g, "")
@@ -24919,8 +24485,8 @@ __webpack_require__.dn(formatDecimal);
 // significant digits p, where x is positive and p is in [1, 21] or undefined.
 // For example, formatDecimalParts(1.23) returns ["123", 0].
 function formatDecimalParts(x, p) {
-  if (!isFinite(x) || x === 0) return null; // NaN, ±Infinity, ±0
-  var i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e"), coefficient = x.slice(0, i);
+  if ((i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e")) < 0) return null; // NaN, ±Infinity
+  var i, coefficient = x.slice(0, i);
 
   // The string returned by toExponential either has the form \d\.\d+e[-+]\d+
   // (e.g., 1.2e+3) or the form \de[-+]\d+ (e.g., 1e+3).
@@ -24931,7 +24497,6 @@ function formatDecimalParts(x, p) {
 }
 
 ;// ./node_modules/d3-format/src/exponent.js
-__webpack_require__.dn(exponent);
 
 
 /* harmony default export */ function exponent(x) {
@@ -24939,7 +24504,6 @@ __webpack_require__.dn(exponent);
 }
 
 ;// ./node_modules/d3-format/src/formatGroup.js
-__webpack_require__.dn(formatGroup);
 /* harmony default export */ function formatGroup(grouping, thousands) {
   return function(value, width) {
     var i = value.length,
@@ -24960,7 +24524,6 @@ __webpack_require__.dn(formatGroup);
 }
 
 ;// ./node_modules/d3-format/src/formatNumerals.js
-__webpack_require__.dn(formatNumerals);
 /* harmony default export */ function formatNumerals(numerals) {
   return function(value) {
     return value.replace(/[0-9]/g, function(i) {
@@ -25019,7 +24582,6 @@ FormatSpecifier.prototype.toString = function() {
 };
 
 ;// ./node_modules/d3-format/src/formatTrim.js
-__webpack_require__.dn(formatTrim);
 // Trims insignificant zeros, e.g., replaces 1.2000k with 1.2k.
 /* harmony default export */ function formatTrim(s) {
   out: for (var n = s.length, i = 1, i0 = -1, i1; i < n; ++i) {
@@ -25033,14 +24595,13 @@ __webpack_require__.dn(formatTrim);
 }
 
 ;// ./node_modules/d3-format/src/formatPrefixAuto.js
-__webpack_require__.dn(formatPrefixAuto);
 
 
 var prefixExponent;
 
 /* harmony default export */ function formatPrefixAuto(x, p) {
   var d = formatDecimalParts(x, p);
-  if (!d) return prefixExponent = undefined, x.toPrecision(p);
+  if (!d) return x + "";
   var coefficient = d[0],
       exponent = d[1],
       i = exponent - (prefixExponent = Math.max(-8, Math.min(8, Math.floor(exponent / 3))) * 3) + 1,
@@ -25052,7 +24613,6 @@ var prefixExponent;
 }
 
 ;// ./node_modules/d3-format/src/formatRounded.js
-__webpack_require__.dn(formatRounded);
 
 
 /* harmony default export */ function formatRounded(x, p) {
@@ -25087,13 +24647,11 @@ __webpack_require__.dn(formatRounded);
 });
 
 ;// ./node_modules/d3-format/src/identity.js
-__webpack_require__.dn(src_identity);
 /* harmony default export */ function src_identity(x) {
   return x;
 }
 
 ;// ./node_modules/d3-format/src/locale.js
-__webpack_require__.dn(locale);
 
 
 
@@ -25116,7 +24674,7 @@ var map = Array.prototype.map,
       minus = locale.minus === undefined ? "−" : locale.minus + "",
       nan = locale.nan === undefined ? "NaN" : locale.nan + "";
 
-  function newFormat(specifier, options) {
+  function newFormat(specifier) {
     specifier = formatSpecifier(specifier);
 
     var fill = specifier.fill,
@@ -25141,8 +24699,8 @@ var map = Array.prototype.map,
 
     // Compute the prefix and suffix.
     // For SI-prefix, the suffix is lazily computed.
-    var prefix = (options && options.prefix !== undefined ? options.prefix : "") + (symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : ""),
-        suffix = (symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "") + (options && options.suffix !== undefined ? options.suffix : "");
+    var prefix = symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
+        suffix = symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "";
 
     // What format function should we use?
     // Is this an integer type?
@@ -25183,7 +24741,7 @@ var map = Array.prototype.map,
 
         // Compute the prefix and suffix.
         valuePrefix = (valueNegative ? (sign === "(" ? sign : minus) : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
-        valueSuffix = (type === "s" && !isNaN(value) && prefixExponent !== undefined ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
+        valueSuffix = (type === "s" ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
 
         // Break the formatted value into the integer “value” part that can be
         // grouped, and fractional or exponential “suffix” part that is not.
@@ -25228,11 +24786,12 @@ var map = Array.prototype.map,
   }
 
   function formatPrefix(specifier, value) {
-    var e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
+    var f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier)),
+        e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
         k = Math.pow(10, -e),
-        f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier), {suffix: prefixes[8 + e / 3]});
+        prefix = prefixes[8 + e / 3];
     return function(value) {
-      return f(k * value);
+      return f(k * value) + prefix;
     };
   }
 
